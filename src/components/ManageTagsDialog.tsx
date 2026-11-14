@@ -88,8 +88,8 @@ export function ManageTagsDialog({ open, onOpenChange, onTagsChanged }: ManageTa
     } catch (error: any) {
       console.error("Erro ao carregar etiquetas:", error);
       toast({
-        title: "Erro",
-        description: "Não foi possível carregar as etiquetas",
+        title: "Não foi possível carregar as etiquetas",
+        description: "Tente novamente.",
         variant: "destructive",
       });
     } finally {
@@ -101,7 +101,7 @@ export function ManageTagsDialog({ open, onOpenChange, onTagsChanged }: ManageTa
     if (!newTagName.trim()) {
       toast({
         title: "Nome obrigatório",
-        description: "Digite um nome para a etiqueta",
+        description: "Preencha o nome da etiqueta.",
         variant: "destructive",
       });
       return;
@@ -125,7 +125,7 @@ export function ManageTagsDialog({ open, onOpenChange, onTagsChanged }: ManageTa
         if (error.code === "23505") {
           toast({
             title: "Etiqueta já existe",
-            description: "Já existe uma etiqueta com esse nome",
+            description: "Já existe uma etiqueta com esse nome.",
             variant: "destructive",
           });
           return;
@@ -134,8 +134,7 @@ export function ManageTagsDialog({ open, onOpenChange, onTagsChanged }: ManageTa
       }
 
       toast({
-        title: "Sucesso",
-        description: "Etiqueta criada com sucesso",
+        title: "Etiqueta criada.",
       });
 
       setNewTagName("");
@@ -145,8 +144,8 @@ export function ManageTagsDialog({ open, onOpenChange, onTagsChanged }: ManageTa
     } catch (error: any) {
       console.error("Erro ao criar etiqueta:", error);
       toast({
-        title: "Erro",
-        description: "Não foi possível criar a etiqueta",
+        title: "Não foi possível criar a etiqueta",
+        description: "Tente novamente.",
         variant: "destructive",
       });
     }
@@ -162,8 +161,7 @@ export function ManageTagsDialog({ open, onOpenChange, onTagsChanged }: ManageTa
       if (error) throw error;
 
       toast({
-        title: "Sucesso",
-        description: "Etiqueta atualizada com sucesso",
+        title: "Etiqueta atualizada.",
       });
 
       setEditingTag(null);
@@ -172,15 +170,15 @@ export function ManageTagsDialog({ open, onOpenChange, onTagsChanged }: ManageTa
     } catch (error: any) {
       console.error("Erro ao atualizar etiqueta:", error);
       toast({
-        title: "Erro",
-        description: "Não foi possível atualizar a etiqueta",
+        title: "Não foi possível atualizar a etiqueta",
+        description: "Tente novamente.",
         variant: "destructive",
       });
     }
   };
 
   const handleDeleteTag = async (tagId: string) => {
-    if (!confirm("Deseja realmente excluir esta etiqueta? Ela será removida de todos os leads.")) {
+    if (!confirm("Excluir esta etiqueta? Ela será removida de todos os leads.")) {
       return;
     }
 
@@ -190,8 +188,7 @@ export function ManageTagsDialog({ open, onOpenChange, onTagsChanged }: ManageTa
       if (error) throw error;
 
       toast({
-        title: "Sucesso",
-        description: "Etiqueta excluída com sucesso",
+        title: "Etiqueta excluída.",
       });
 
       loadTags();
@@ -199,8 +196,8 @@ export function ManageTagsDialog({ open, onOpenChange, onTagsChanged }: ManageTa
     } catch (error: any) {
       console.error("Erro ao excluir etiqueta:", error);
       toast({
-        title: "Erro",
-        description: "Não foi possível excluir a etiqueta",
+        title: "Não foi possível excluir a etiqueta",
+        description: "Tente novamente.",
         variant: "destructive",
       });
     }
@@ -210,20 +207,20 @@ export function ManageTagsDialog({ open, onOpenChange, onTagsChanged }: ManageTa
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Gerenciar Etiquetas</DialogTitle>
+          <DialogTitle>Gerenciar etiquetas</DialogTitle>
         </DialogHeader>
 
         <div className="space-y-6">
           {/* Criar nova etiqueta */}
           <div className="space-y-4 p-4 border rounded-lg bg-muted/50">
-            <h3 className="font-semibold">Nova Etiqueta</h3>
+            <h3 className="font-semibold">Nova etiqueta</h3>
             <div className="space-y-2">
               <Label htmlFor="tag-name">Nome</Label>
               <Input
                 id="tag-name"
                 value={newTagName}
                 onChange={(e) => setNewTagName(e.target.value)}
-                placeholder="Ex: Cliente VIP, Urgente..."
+                placeholder="Ex.: Cliente VIP, Urgente"
                 maxLength={50}
               />
             </div>
@@ -246,7 +243,7 @@ export function ManageTagsDialog({ open, onOpenChange, onTagsChanged }: ManageTa
 
             <Button onClick={handleCreateTag} className="w-full">
               <Plus className="w-4 h-4 mr-2" />
-              Criar Etiqueta
+              Criar etiqueta
             </Button>
           </div>
 
@@ -256,7 +253,7 @@ export function ManageTagsDialog({ open, onOpenChange, onTagsChanged }: ManageTa
             {loading ? (
               <p className="text-sm text-muted-foreground">Carregando...</p>
             ) : tags.length === 0 ? (
-              <p className="text-sm text-muted-foreground">Nenhuma etiqueta criada ainda</p>
+              <p className="text-sm text-muted-foreground">Nenhuma etiqueta criada ainda.</p>
             ) : (
               <div className="space-y-2">
                 {tags.map((tag) => (

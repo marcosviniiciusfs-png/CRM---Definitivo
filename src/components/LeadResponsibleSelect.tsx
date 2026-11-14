@@ -107,11 +107,11 @@ export function LeadResponsibleSelect({
 
       if (error) throw error;
 
-      toast.success("Responsável atualizado com sucesso!");
+      toast.success("Responsável atualizado.");
       onUpdate?.();
     } catch (error) {
       console.error('Erro ao atualizar responsável:', error);
-      toast.error("Erro ao atualizar responsável");
+      toast.error("Não foi possível atualizar o responsável. Tente novamente.");
     } finally {
       setUpdating(false);
     }

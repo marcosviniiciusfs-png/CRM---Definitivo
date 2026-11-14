@@ -156,8 +156,8 @@ export function MobilePipelineView({
         {activeLeads.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-10 text-center text-muted-foreground">
             <div className="text-3xl mb-2">📋</div>
-            <p className="font-medium text-sm">Nenhum lead nesta etapa</p>
-            <p className="text-xs mt-1">Adicione um lead ou mova um existente para cá</p>
+            <p className="font-medium text-sm">Nenhum lead nesta etapa ainda.</p>
+            <p className="text-xs mt-1">Adicione um lead ou mova um existente para cá.</p>
           </div>
         ) : (
           <>
@@ -206,8 +206,8 @@ export function MobilePipelineView({
               ) : activeLeads.length > 0 ? (
                 <p className="text-center text-xs text-muted-foreground/50 pt-2 pb-1">
                   {pagination?.totalCount
-                    ? `${pagination.totalCount} lead${pagination.totalCount !== 1 ? 's' : ''} nesta etapa`
-                    : `${activeLeads.length} lead${activeLeads.length !== 1 ? 's' : ''} nesta etapa`}
+                    ? `${pagination.totalCount} ${pagination.totalCount === 1 ? 'lead' : 'leads'} nesta etapa`
+                    : `${activeLeads.length} ${activeLeads.length === 1 ? 'lead' : 'leads'} nesta etapa`}
                 </p>
               ) : null}
             </div>

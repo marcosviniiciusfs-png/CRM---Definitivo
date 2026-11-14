@@ -87,7 +87,7 @@ const FunnelBuilder = () => {
         .eq("funnel_id", deletingFunnel.id);
 
       if (count && count > 0) {
-        toast.error(`Não é possível excluir. Existem ${count} leads usando este funil.`);
+        toast.error(`Não foi possível excluir o funil. Há ${count} ${count === 1 ? "lead usando" : "leads usando"} este funil. Mova ou exclua ${count === 1 ? "esse lead" : "esses leads"} primeiro.`);
         setDeletingFunnel(null);
         return;
       }
@@ -106,11 +106,11 @@ const FunnelBuilder = () => {
 
       if (error) throw error;
 
-      toast.success("Funil excluído com sucesso!");
+      toast.success("Funil excluído.");
       refreshFunnels();
     } catch (error) {
       console.error("Erro ao excluir funil:", error);
-      toast.error("Erro ao excluir funil");
+      toast.error("Não foi possível excluir o funil. Tente novamente.");
     } finally {
       setDeletingFunnel(null);
     }
@@ -118,7 +118,7 @@ const FunnelBuilder = () => {
 
   const handleDuplicate = async (funnel: Funnel) => {
     if (!organizationId) {
-      toast.error("Organização não encontrada");
+      toast.error("Organização não encontrada.");
       return;
     }
     setDuplicatingFunnelId(funnel.id);
@@ -166,11 +166,11 @@ const FunnelBuilder = () => {
         if (insertError) throw insertError;
       }
 
-      toast.success(`Funil "${funnel.name}" duplicado com sucesso!`);
+      toast.success(`Funil "${funnel.name}" duplicado.`);
       refreshFunnels();
     } catch (error) {
       console.error("Erro ao duplicar funil:", error);
-      toast.error("Erro ao duplicar funil");
+      toast.error("Não foi possível duplicar o funil. Tente novamente.");
     } finally {
       setDuplicatingFunnelId(null);
     }
@@ -193,7 +193,7 @@ const FunnelBuilder = () => {
           <div>
             <h1 className="text-xl font-semibold">Acesso restrito</h1>
             <p className="mt-2 text-sm text-muted-foreground">
-              Somente o dono da conta e administradores podem criar ou editar funis e etapas.
+              Só o dono da conta e os administradores podem criar ou editar funis e etapas.
             </p>
           </div>
           <Button variant="outline" onClick={() => navigate("/pipeline")}>
@@ -218,16 +218,16 @@ const FunnelBuilder = () => {
           </Button>
           <div>
             <h1 className="text-xl sm:text-2xl md:text-3xl font-bold tracking-tight text-foreground">
-              Construtor de Funis
+              Construtor de funis
             </h1>
             <p className="text-sm sm:text-base text-muted-foreground mt-1">
-              Crie e personalize seus funis de vendas com etapas e automações
+              Crie e personalize seus funis de vendas com etapas e automações.
             </p>
           </div>
         </div>
         <Button onClick={() => setShowDialog(true)} className="self-start sm:self-auto">
           <Plus className="h-4 w-4 mr-2" />
-          <span className="hidden sm:inline">Novo Funil</span>
+          <span className="hidden sm:inline">Novo funil</span>
           <span className="sm:hidden">Novo</span>
         </Button>
       </div>
@@ -262,7 +262,7 @@ const FunnelBuilder = () => {
 
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
                   <span>
-                    {funnel.stages?.[0]?.count || 0} etapas
+                    {funnel.stages?.[0]?.count || 0} {(funnel.stages?.[0]?.count || 0) === 1 ? "etapa" : "etapas"}
                   </span>
                   <span>•</span>
                   <Badge
@@ -333,10 +333,9 @@ const FunnelBuilder = () => {
       <AlertDialog open={!!deletingFunnel} onOpenChange={() => setDeletingFunnel(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Excluir funil?</AlertDialogTitle>
+            <AlertDialogTitle>Excluir funil</AlertDialogTitle>
             <AlertDialogDescription>
-              Esta ação não pode ser desfeita. O funil "{deletingFunnel?.name}" será
-              permanentemente excluído.
+              Excluir o funil "{deletingFunnel?.name}"? Não dá para desfazer.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

@@ -313,7 +313,7 @@ export const LeadDetailsDialog = ({ open, onOpenChange, leadId, leadName, onEdit
                     Novo registro duplicado
                   </p>
                   <p className="text-xs text-yellow-700/90 dark:text-yellow-400/90">
-                    {`Este registro foi criado mesmo já existindo outro lead${duplicateMetadata.matchType === 'phone' ? ' com o mesmo telefone' : duplicateMetadata.matchType === 'email' ? ' com o mesmo e-mail' : ''} no CRM.`}
+                    {`Este registro foi criado mesmo com outro lead já existindo${duplicateMetadata.matchType === 'phone' ? ' com o mesmo telefone' : duplicateMetadata.matchType === 'email' ? ' com o mesmo e-mail' : ''} no CRM.`}
                   </p>
                   {duplicateMetadata.duplicateOfLeadId && (
                     <p className="text-[11px] text-yellow-700/75 dark:text-yellow-400/75">
@@ -328,7 +328,7 @@ export const LeadDetailsDialog = ({ open, onOpenChange, leadId, leadName, onEdit
             <div className="space-y-2">
               <div className="flex items-center gap-2 text-muted-foreground">
                 <DollarSign className="h-4 w-4" />
-                <h3 className="font-semibold text-sm">Valor do Negócio</h3>
+                <h3 className="font-semibold text-sm">Valor do negócio</h3>
               </div>
               <p className="text-xl sm:text-2xl font-bold text-primary">
                 {formatCurrency(details?.valor || 0)}
@@ -409,7 +409,7 @@ export const LeadDetailsDialog = ({ open, onOpenChange, leadId, leadName, onEdit
                   <div className="space-y-3">
                     <div className="flex items-center gap-2 text-muted-foreground">
                       <FileText className="h-4 w-4" />
-                      <h3 className="font-semibold text-sm">Informações do Formulário</h3>
+                      <h3 className="font-semibold text-sm">Informações do formulário</h3>
                     </div>
                     <div className="grid gap-3">
                       {Object.entries(details.additional_data as Record<string, any>).map(([key, value]) => (
@@ -432,7 +432,7 @@ export const LeadDetailsDialog = ({ open, onOpenChange, leadId, leadName, onEdit
             <div className="space-y-3">
               <div className="flex items-center gap-2 text-muted-foreground">
                 <FileText className="h-4 w-4" />
-                <h3 className="font-semibold text-sm">Dados do Negócio</h3>
+                <h3 className="font-semibold text-sm">Dados do negócio</h3>
               </div>
 
               <div className="space-y-1.5 sm:space-y-2 text-sm">
@@ -449,13 +449,13 @@ export const LeadDetailsDialog = ({ open, onOpenChange, leadId, leadName, onEdit
                 </div>
 
                 <div>
-                  <span className="text-muted-foreground">Data de Início:</span>
+                  <span className="text-muted-foreground">Data de início:</span>
                   <p className="font-medium">{formatDate(details?.data_inicio ?? null)}</p>
                 </div>
 
                 {details?.data_conclusao && (
                   <div>
-                    <span className="text-muted-foreground">Data de Conclusão:</span>
+                    <span className="text-muted-foreground">Data de conclusão:</span>
                     <p className="font-medium">{formatDate(details?.data_conclusao)}</p>
                   </div>
                 )}
@@ -479,7 +479,7 @@ export const LeadDetailsDialog = ({ open, onOpenChange, leadId, leadName, onEdit
             <div className="space-y-3">
               <div className="flex items-center gap-2 text-muted-foreground">
                 <Clock className="h-4 w-4" />
-                <h3 className="font-semibold text-sm">Histórico de Atividades</h3>
+                <h3 className="font-semibold text-sm">Histórico de atividades</h3>
               </div>
 
               {/* Evento do Google Calendar */}
@@ -504,7 +504,7 @@ export const LeadDetailsDialog = ({ open, onOpenChange, leadId, leadName, onEdit
                           className="flex items-center gap-1 text-xs text-primary hover:underline"
                         >
                           <ExternalLink className="h-3 w-3" />
-                          Abrir no Calendar
+                          Abrir no Google Calendar
                         </a>
                       </div>
                       <p className="text-sm font-medium">{calendarEvent.title}</p>
@@ -523,7 +523,7 @@ export const LeadDetailsDialog = ({ open, onOpenChange, leadId, leadName, onEdit
 
               {activities.length === 0 && !calendarEvent && !loadingCalendarEvent ? (
                 <p className="text-sm text-muted-foreground italic">
-                  Nenhuma atividade registrada
+                  Nenhuma atividade registrada ainda.
                 </p>
               ) : activities.length > 0 && (
                 <div className="space-y-3">

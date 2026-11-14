@@ -260,14 +260,14 @@ const LeadCardView: React.FC<LeadCardViewProps> = ({
                       ? "bg-blue-950 text-blue-300 border-blue-800"
                       : "bg-slate-800 text-slate-300 border-slate-700";
                     const tooltip = isLost
-                      ? "Lead recuperado da etapa Perdido e redistribuído via roleta"
+                      ? "Lead recuperado da etapa Perdido e redistribuído pela roleta."
                       : isInactivity
                       ? (redistributedFromName && redistributionMinutes
-                          ? `Lead redistribuído automaticamente pois o colaborador anterior (${redistributedFromName}) não interagiu dentro de ${redistributionMinutes} min`
-                          : "Lead redistribuído automaticamente para este colaborador")
+                          ? `Lead redistribuído automaticamente porque o responsável anterior (${redistributedFromName}) não interagiu em ${redistributionMinutes} min.`
+                          : "Lead redistribuído automaticamente para este responsável.")
                       : (redistributedFromName
-                          ? `Lead redistribuído via roleta (vinha do colaborador ${redistributedFromName})`
-                          : "Lead redistribuído via roleta");
+                          ? `Lead redistribuído pela roleta (vinha de ${redistributedFromName}).`
+                          : "Lead redistribuído pela roleta.");
                     return (
                       <Badge
                         variant="secondary"
@@ -283,8 +283,8 @@ const LeadCardView: React.FC<LeadCardViewProps> = ({
                     <Badge
                       variant="secondary"
                       title={isMarkedDuplicate
-                        ? "Novo registro criado para um contato que já existia no CRM"
-                        : "Existe outro lead com o mesmo telefone ou e-mail"}
+                        ? "Novo registro criado para um lead que já existia no CRM."
+                        : "Existe outro lead com o mesmo telefone ou e-mail."}
                       className="w-fit text-[9px] px-1.5 py-0 h-4 flex items-center gap-0.5 bg-yellow-50 text-yellow-700 border-yellow-300 dark:bg-yellow-950/50 dark:text-yellow-400 dark:border-yellow-700"
                     >
                       <Copy className="h-2.5 w-2.5" />
@@ -297,7 +297,7 @@ const LeadCardView: React.FC<LeadCardViewProps> = ({
                       className="w-fit text-[9px] px-1.5 py-0 h-4 flex items-center gap-0.5 bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/50 dark:text-amber-400 dark:border-amber-800"
                     >
                       <RefreshCw className="h-2.5 w-2.5" />
-                      {duplicateAttemptsCount} retorno{duplicateAttemptsCount > 1 ? 's' : ''}
+                      {duplicateAttemptsCount} {duplicateAttemptsCount === 1 ? 'retorno' : 'retornos'}
                     </Badge>
                   )}
                   {isFacebookLead && (
@@ -470,7 +470,7 @@ const LeadCardView: React.FC<LeadCardViewProps> = ({
                 </div>
                 <span
                   className="max-w-[34%] truncate rounded-full bg-muted px-1 py-0.5 text-[9px] text-muted-foreground"
-                  title={`Colaborador responsável: ${responsibleLabel}`}
+                  title={`Responsável: ${responsibleLabel}`}
                 >
                   {compactResponsibleName}
                 </span>

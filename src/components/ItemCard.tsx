@@ -114,7 +114,7 @@ export function ItemCard({ item, onEdit, onDelete }: ItemCardProps) {
           <div className="pt-2 border-t">
             <p className="text-xs text-muted-foreground mb-1">Estoque</p>
             <p className="text-sm font-medium">
-              {item.stock_quantity} unidades
+              {item.stock_quantity} {item.stock_quantity === 1 ? "unidade" : "unidades"}
             </p>
           </div>
         )}
@@ -155,10 +155,9 @@ export function ItemCard({ item, onEdit, onDelete }: ItemCardProps) {
             </AlertDialogTrigger>
             <AlertDialogContent>
               <AlertDialogHeader>
-                <AlertDialogTitle>Confirmar exclusão</AlertDialogTitle>
+                <AlertDialogTitle>Excluir item</AlertDialogTitle>
                 <AlertDialogDescription>
-                  Tem certeza que deseja excluir o item <strong>{item.name}</strong>?
-                  Esta ação não pode ser desfeita.
+                  Excluir o item <strong>{item.name}</strong>? Não dá para desfazer.
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>

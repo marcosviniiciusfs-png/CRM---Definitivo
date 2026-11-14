@@ -56,7 +56,7 @@ import { useLeadsParallelQueries } from "@/hooks/useParallelQueries";
 
 const statusConfig: Record<string, { label: string; color: string; textColor: string }> = {
   NOVO: { label: "Novo", color: "bg-blue-100 dark:bg-blue-500/20", textColor: "text-blue-700 dark:text-blue-300" },
-  EM_ATENDIMENTO: { label: "Em Atendimento", color: "bg-amber-100 dark:bg-amber-500/20", textColor: "text-amber-700 dark:text-amber-300" },
+  EM_ATENDIMENTO: { label: "Em atendimento", color: "bg-amber-100 dark:bg-amber-500/20", textColor: "text-amber-700 dark:text-amber-300" },
   FECHADO: { label: "Fechado", color: "bg-emerald-100 dark:bg-emerald-500/20", textColor: "text-emerald-700 dark:text-emerald-300" },
   PERDIDO: { label: "Perdido", color: "bg-red-100 dark:bg-red-500/20", textColor: "text-red-700 dark:text-red-300" },
 };
@@ -366,15 +366,15 @@ const Leads = () => {
 
       toast({
         title: "Lead excluído",
-        description: "O lead foi removido com sucesso",
+        description: "Lead excluído.",
       });
 
       setLeadToDelete(null);
     } catch (error) {
       console.error("Erro ao excluir lead:", error);
       toast({
-        title: "Erro",
-        description: "Não foi possível excluir o lead",
+        title: "Não foi possível excluir",
+        description: "Não foi possível excluir o lead. Tente novamente.",
         variant: "destructive",
       });
     }
@@ -410,7 +410,7 @@ const Leads = () => {
 
       toast({
         title: "Leads excluídos",
-        description: `${selectedLeads.length} leads foram removidos com sucesso`,
+        description: `${selectedLeads.length} ${selectedLeads.length === 1 ? "lead excluído" : "leads excluídos"}.`,
       });
 
       setSelectedLeads([]);
@@ -418,8 +418,8 @@ const Leads = () => {
     } catch (error) {
       console.error("Erro ao excluir leads:", error);
       toast({
-        title: "Erro",
-        description: "Não foi possível excluir os leads",
+        title: "Não foi possível excluir",
+        description: "Não foi possível excluir os leads. Tente novamente.",
         variant: "destructive",
       });
     }
@@ -438,15 +438,15 @@ const Leads = () => {
 
       toast({
         title: "Status atualizado",
-        description: `${selectedLeads.length} leads atualizados com sucesso`,
+        description: `${selectedLeads.length} ${selectedLeads.length === 1 ? "lead atualizado" : "leads atualizados"}.`,
       });
 
       setSelectedLeads([]);
     } catch (error) {
       console.error("Erro ao atualizar status:", error);
       toast({
-        title: "Erro",
-        description: "Não foi possível atualizar os leads",
+        title: "Não foi possível atualizar",
+        description: "Não foi possível atualizar os leads. Tente novamente.",
         variant: "destructive",
       });
     }
@@ -470,15 +470,15 @@ const Leads = () => {
 
       toast({
         title: "Responsável atribuído",
-        description: `${selectedLeads.length} leads atribuídos com sucesso`,
+        description: `${selectedLeads.length} ${selectedLeads.length === 1 ? "lead atribuído" : "leads atribuídos"}.`,
       });
 
       setSelectedLeads([]);
     } catch (error) {
       console.error("Erro ao atribuir responsável:", error);
       toast({
-        title: "Erro",
-        description: "Não foi possível atribuir o responsável",
+        title: "Não foi possível atribuir",
+        description: "Não foi possível atribuir o responsável. Tente novamente.",
         variant: "destructive",
       });
     }
@@ -517,13 +517,13 @@ const Leads = () => {
 
       toast({
         title: "Exportação concluída",
-        description: `${filteredLeads.length} leads exportados com sucesso`,
+        description: `${filteredLeads.length} ${filteredLeads.length === 1 ? "lead exportado" : "leads exportados"}.`,
       });
     }).catch((err) => {
       console.error("Erro ao exportar:", err);
       toast({
-        title: "Erro na exportação",
-        description: "Não foi possível gerar o arquivo Excel",
+        title: "Não foi possível exportar",
+        description: "Não foi possível gerar o arquivo Excel. Tente novamente.",
         variant: "destructive",
       });
     });
@@ -554,7 +554,7 @@ const Leads = () => {
             Leads
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
-            Gerencie todos os seus leads em um só lugar
+            Gerencie todos os seus leads em um só lugar.
           </p>
         </div>
         <div className="flex gap-2 flex-shrink-0">
@@ -585,7 +585,7 @@ const Leads = () => {
               onClick={() => setShowAddModal(true)}
             >
               <Plus className="h-4 w-4" />
-              <span className="hidden sm:inline">Novo Lead</span>
+              <span className="hidden sm:inline">Novo lead</span>
             </Button>
           )}
         </div>
@@ -596,7 +596,7 @@ const Leads = () => {
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Buscar por nome, email ou telefone..."
+            placeholder="Buscar por nome, e-mail ou telefone"
             className="pl-10 h-9"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
@@ -707,12 +707,12 @@ const Leads = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3">
               <Select value={statusFilter} onValueChange={setStatusFilter}>
                 <SelectTrigger className="h-9 bg-background">
-                  <SelectValue placeholder="Todos os Status" />
+                  <SelectValue placeholder="Todos os status" />
                 </SelectTrigger>
                 <SelectContent className="bg-background z-50">
-                  <SelectItem value="all">Todos os Status</SelectItem>
+                  <SelectItem value="all">Todos os status</SelectItem>
                   <SelectItem value="NOVO">Novo</SelectItem>
-                  <SelectItem value="EM_ATENDIMENTO">Em Atendimento</SelectItem>
+                  <SelectItem value="EM_ATENDIMENTO">Em atendimento</SelectItem>
                   <SelectItem value="FECHADO">Fechado</SelectItem>
                   <SelectItem value="PERDIDO">Perdido</SelectItem>
                 </SelectContent>
@@ -720,10 +720,10 @@ const Leads = () => {
 
               <Select value={sourceFilter} onValueChange={setSourceFilter}>
                 <SelectTrigger className="h-9 bg-background">
-                  <SelectValue placeholder="Todas as Origens" />
+                  <SelectValue placeholder="Todas as origens" />
                 </SelectTrigger>
                 <SelectContent className="bg-background z-50">
-                  <SelectItem value="all">Todas as Origens</SelectItem>
+                  <SelectItem value="all">Todas as origens</SelectItem>
                   <SelectItem value="WhatsApp">WhatsApp</SelectItem>
                   <SelectItem value="Manual">Manual</SelectItem>
                 </SelectContent>
@@ -731,10 +731,10 @@ const Leads = () => {
 
               <Select value={responsibleFilter} onValueChange={setResponsibleFilter}>
                 <SelectTrigger className="h-9 bg-background">
-                  <SelectValue placeholder="Todos Responsáveis" />
+                  <SelectValue placeholder="Todos os responsáveis" />
                 </SelectTrigger>
                 <SelectContent className="bg-background z-50">
-                  <SelectItem value="all">Todos Responsáveis</SelectItem>
+                  <SelectItem value="all">Todos os responsáveis</SelectItem>
                   {colaboradores.filter(c => c.user_id).map((colab) => (
                     <SelectItem key={colab.user_id} value={colab.user_id}>
                       {colab.full_name || colab.email}
@@ -745,10 +745,10 @@ const Leads = () => {
 
               <Select value={funnelFilter} onValueChange={setFunnelFilter}>
                 <SelectTrigger className="h-9 bg-background">
-                  <SelectValue placeholder="Todos Funis" />
+                  <SelectValue placeholder="Todos os funis" />
                 </SelectTrigger>
                 <SelectContent className="bg-background z-50">
-                  <SelectItem value="all">Todos Funis</SelectItem>
+                  <SelectItem value="all">Todos os funis</SelectItem>
                   {funnels.map((funnel) => (
                     <SelectItem key={funnel.id} value={funnel.id}>
                       {funnel.name}
@@ -760,10 +760,10 @@ const Leads = () => {
               {funnelFilter !== "all" && stages.length > 0 ? (
                 <Select value={stageFilter} onValueChange={setStageFilter}>
                   <SelectTrigger className="h-9 bg-background">
-                    <SelectValue placeholder="Todas Etapas" />
+                    <SelectValue placeholder="Todas as etapas" />
                   </SelectTrigger>
                   <SelectContent className="bg-background z-50">
-                    <SelectItem value="all">Todas Etapas</SelectItem>
+                    <SelectItem value="all">Todas as etapas</SelectItem>
                     {stages.map((stage) => (
                       <SelectItem key={stage.id} value={stage.id}>
                         {stage.name}
@@ -902,11 +902,11 @@ const Leads = () => {
           <div className="flex items-center gap-2">
             <Select onValueChange={handleBulkStatusChange}>
               <SelectTrigger className="w-[160px] h-8 bg-background text-sm">
-                <SelectValue placeholder="Alterar Status" />
+                <SelectValue placeholder="Alterar status" />
               </SelectTrigger>
               <SelectContent className="bg-background z-50">
                 <SelectItem value="NOVO">Novo</SelectItem>
-                <SelectItem value="EM_ATENDIMENTO">Em Atendimento</SelectItem>
+                <SelectItem value="EM_ATENDIMENTO">Em atendimento</SelectItem>
                 <SelectItem value="FECHADO">Fechado</SelectItem>
                 <SelectItem value="PERDIDO">Perdido</SelectItem>
               </SelectContent>
@@ -972,7 +972,7 @@ const Leads = () => {
                       <ArrowUpDown className="h-3.5 w-3.5" />
                     </div>
                   </TableHead>
-                  <TableHead className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Email</TableHead>
+                  <TableHead className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">E-mail</TableHead>
                   <TableHead className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Telefone</TableHead>
                   <TableHead className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Colaborador</TableHead>
                   <TableHead
@@ -1010,10 +1010,10 @@ const Leads = () => {
                   <TableRow>
                     <TableCell colSpan={permissions.canViewAllLeads ? 9 : 8} className="text-center py-12">
                       <div className="flex flex-col items-center gap-2">
-                        <p className="text-muted-foreground text-sm">Nenhum lead encontrado</p>
+                        <p className="text-muted-foreground text-sm">Nenhum lead neste filtro.</p>
                         {searchQuery && (
                           <p className="text-xs text-muted-foreground">
-                            Tente ajustar sua busca ou filtros
+                            Ajuste a busca ou os filtros.
                           </p>
                         )}
                       </div>
@@ -1209,10 +1209,9 @@ const Leads = () => {
       <AlertDialog open={!!leadToDelete} onOpenChange={() => setLeadToDelete(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Excluir lead?</AlertDialogTitle>
+            <AlertDialogTitle>Excluir lead</AlertDialogTitle>
             <AlertDialogDescription>
-              Tem certeza que deseja excluir o lead <strong>{leadToDelete?.nome_lead}</strong>?
-              Esta ação não pode ser desfeita e todas as mensagens do lead também serão removidas.
+              Excluir o lead <strong>{leadToDelete?.nome_lead}</strong>? As mensagens do lead também serão removidas. Não dá para desfazer.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

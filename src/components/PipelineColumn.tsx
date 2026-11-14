@@ -154,7 +154,7 @@ export const PipelineColumn = memo(({
         >
           {isEmpty ? (
             <p className="text-xs text-muted-foreground text-center py-4">
-              Nenhum lead nesta etapa
+              Nenhum lead nesta etapa ainda.
             </p>
           ) : shouldRenderCards ? (
             leads.map((lead) => {

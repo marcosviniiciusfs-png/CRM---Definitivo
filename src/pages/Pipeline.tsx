@@ -729,10 +729,10 @@ const Pipeline = () => {
       XLSX.utils.book_append_sheet(workbook, worksheet, "Leads");
       XLSX.writeFile(workbook, `leads_${format(new Date(), "yyyy-MM-dd")}.xlsx`);
 
-      toastUI({ title: "Exportação concluída", description: `${filteredLeads.length} leads exportados` });
+      toastUI({ title: "Exportação concluída", description: `${filteredLeads.length} ${filteredLeads.length === 1 ? "lead exportado" : "leads exportados"}.` });
     }).catch((err) => {
       console.error("Erro ao exportar:", err);
-      toastUI({ title: "Erro na exportação", description: "Não foi possível gerar o arquivo Excel", variant: "destructive" });
+      toastUI({ title: "Não foi possível exportar", description: "Não foi possível gerar o arquivo Excel. Tente novamente.", variant: "destructive" });
     });
   };
 
@@ -1044,7 +1044,7 @@ const Pipeline = () => {
       }
     } catch (error) {
       console.error(`Erro ao carregar mais leads da etapa ${stageId}:`, error);
-      toast.error("Erro ao carregar mais leads");
+      toast.error("Não foi possível carregar mais leads. Tente novamente.");
       setStagePagination(prev => ({
         ...prev,
         [stageId]: { ...prev[stageId], isLoading: false }
@@ -1414,7 +1414,7 @@ const Pipeline = () => {
     const isLeadAssignedToUser = activeLead.responsavel_user_id === user?.id;
     const isLeadFromTeamMember = permissions.canViewTeamLeads && teamMemberIds.includes(activeLead.responsavel_user_id || '');
     if (permissions.role === 'member' && !permissions.canMoveLeadsPipeline && !isLeadAssignedToUser && !isLeadFromTeamMember) {
-      toast.error("Você só pode mover leads atribuídos a você ou da sua equipe. Solicite acesso ao administrador para mover outros leads.");
+      toast.error("Você só pode mover leads atribuídos a você ou à sua equipe. Peça acesso ao administrador para mover outros leads.");
       return;
     }
 
@@ -1444,7 +1444,7 @@ const Pipeline = () => {
     if (targetStageData?.stageData?.stage_type === 'won' && activeStage !== targetStage) {
       // Verificar se o lead tem valor definido
       if (!activeLead.valor || activeLead.valor <= 0) {
-        toast.error("Este lead não possui um valor definido. Por favor, adicione um valor antes de confirmar a venda.");
+        toast.error("Este lead não tem valor definido. Adicione um valor antes de confirmar a venda.");
         return;
       }
 
@@ -1509,7 +1509,7 @@ const Pipeline = () => {
         if (error) throw error;
 
         // Ações da etapa rodam no servidor (trigger + process-stage-actions).
-        toast.success("Lead movido!");
+        toast.success("Lead movido.");
 
       } else if (overLead) {
         // Dropado sobre outro lead
@@ -1549,7 +1549,7 @@ const Pipeline = () => {
           );
 
           // Não executar ações automáticas ao reordenar na mesma coluna
-          toast.success("Lead reordenado!");
+          toast.success("Lead reordenado.");
 
         } else {
           // Movendo para outra coluna e posicionando sobre outro lead
@@ -1614,12 +1614,12 @@ const Pipeline = () => {
 
           await Promise.all(updates);
 
-          toast.success("Lead movido!");
+          toast.success("Lead movido.");
         }
       }
     } catch (error) {
       console.error("Erro ao atualizar lead:", error);
-      toast.error("Erro ao mover lead");
+      toast.error("Não foi possível mover o lead. Tente novamente.");
       // Recarregar em caso de erro
       loadLeads(undefined, false);
     }
@@ -1638,14 +1638,14 @@ const Pipeline = () => {
         .eq('id', leadToDelete.id);
 
       if (error) {
-        toast.error('Erro ao excluir lead');
+        toast.error('Não foi possível excluir o lead. Tente novamente.');
         return;
       }
 
       setLeads(prev => prev.filter(l => l.id !== leadToDelete.id));
-      toast.success(`Lead "${leadToDelete.nome_lead}" excluído com sucesso`);
+      toast.success(`Lead "${leadToDelete.nome_lead}" excluído.`);
     } catch (err) {
-      toast.error('Erro inesperado ao excluir lead');
+      toast.error('Não foi possível excluir o lead. Tente novamente.');
     } finally {
       setLeadToDelete(null);
     }
@@ -1665,7 +1665,7 @@ const Pipeline = () => {
       )
       .map(l => l.id);
     if (ids.length === 0) {
-      toast.info('Nenhum lead nessa etapa');
+      toast.info('Nenhum lead nesta etapa.');
       return;
     }
     setSelectedLeadIds(prev => {
@@ -1673,7 +1673,7 @@ const Pipeline = () => {
       ids.forEach(id => next.add(id));
       return next;
     });
-    toast.success(`${ids.length} lead(s) adicionado(s) à seleção`);
+    toast.success(`${ids.length} ${ids.length === 1 ? 'lead adicionado' : 'leads adicionados'} à seleção.`);
   }, [filteredLeads, usingCustomFunnel]);
 
   const handleBulkMoveStage = useCallback(async (stageId: string) => {
@@ -1685,17 +1685,18 @@ const Pipeline = () => {
         .update({ funnel_stage_id: stageId, stage: stageId })
         .in('id', ids);
       if (error) {
-        toast.error('Erro ao mover leads: ' + error.message);
+        console.error('[handleBulkMoveStage]', error);
+        toast.error('Não foi possível mover os leads. Tente novamente.');
         return;
       }
       setLeads(prev => prev.map(l =>
         selectedLeadIds.has(l.id) ? { ...l, funnel_stage_id: stageId, stage: stageId } : l
       ));
-      toast.success(`${ids.length} lead(s) movido(s)`);
+      toast.success(`${ids.length} ${ids.length === 1 ? 'lead movido' : 'leads movidos'}.`);
       setSelectedLeadIds(new Set());
     } catch (err: any) {
       console.error('[handleBulkMoveStage]', err);
-      toast.error('Erro inesperado ao mover leads');
+      toast.error('Não foi possível mover os leads. Tente novamente.');
     }
   }, [selectedLeadIds]);
 
@@ -1709,16 +1710,17 @@ const Pipeline = () => {
         .update({ responsavel_user_id: userId, responsavel: null })
         .in('id', ids);
       if (error) {
-        toast.error('Erro ao atribuir leads: ' + error.message);
+        console.error('[handleBulkAssign]', error);
+        toast.error('Não foi possível atribuir os leads. Tente novamente.');
         return;
       }
-      toast.success(`${ids.length} lead(s) atribuído(s)`);
+      toast.success(`${ids.length} ${ids.length === 1 ? 'lead atribuído' : 'leads atribuídos'}.`);
       setSelectedLeadIds(new Set());
       // Forçar refetch para ver o nome novo do responsável (trigger atualizou no banco)
       queryClient.invalidateQueries({ queryKey: ['pipeline-leads'] });
     } catch (err: any) {
       console.error('[handleBulkAssign]', err);
-      toast.error('Erro inesperado ao atribuir leads');
+      toast.error('Não foi possível atribuir os leads. Tente novamente.');
     }
   }, [selectedLeadIds, queryClient]);
 
@@ -1734,14 +1736,15 @@ const Pipeline = () => {
       }));
       const { error } = await supabase.from('lead_activities').insert(rows);
       if (error) {
-        toast.error('Erro ao adicionar nota: ' + error.message);
+        console.error('[handleBulkAddNote]', error);
+        toast.error('Não foi possível adicionar a nota. Tente novamente.');
         return;
       }
-      toast.success(`Nota adicionada em ${ids.length} lead(s)`);
+      toast.success(ids.length === 1 ? 'Nota adicionada em 1 lead.' : `Nota adicionada em ${ids.length} leads.`);
       setSelectedLeadIds(new Set());
     } catch (err: any) {
       console.error('[handleBulkAddNote]', err);
-      toast.error('Erro inesperado ao adicionar nota');
+      toast.error('Não foi possível adicionar a nota. Tente novamente.');
     }
   }, [selectedLeadIds, user?.id]);
 
@@ -1751,15 +1754,16 @@ const Pipeline = () => {
     try {
       const { error } = await supabase.from('leads').delete().in('id', ids);
       if (error) {
-        toast.error('Erro ao excluir leads: ' + error.message);
+        console.error('[handleBulkDelete]', error);
+        toast.error('Não foi possível excluir os leads. Tente novamente.');
         return;
       }
       setLeads(prev => prev.filter(l => !selectedLeadIds.has(l.id)));
-      toast.success(`${ids.length} lead(s) excluído(s)`);
+      toast.success(`${ids.length} ${ids.length === 1 ? 'lead excluído' : 'leads excluídos'}.`);
       setSelectedLeadIds(new Set());
     } catch (err: any) {
       console.error('[handleBulkDelete]', err);
-      toast.error('Erro inesperado ao excluir leads');
+      toast.error('Não foi possível excluir os leads. Tente novamente.');
     }
   }, [selectedLeadIds]);
 
@@ -1823,7 +1827,7 @@ const Pipeline = () => {
     const targetStageData = stages.find(s => s.id === targetStageId);
     if (targetStageData?.stageData?.stage_type === 'won') {
       if (!activeLead.valor || activeLead.valor <= 0) {
-        toast.error('Este lead não possui valor definido. Adicione um valor antes de confirmar a venda.');
+        toast.error('Este lead não tem valor definido. Adicione um valor antes de confirmar a venda.');
         return;
       }
       const syntheticEvent = {
@@ -1850,10 +1854,10 @@ const Pipeline = () => {
       const { error } = await supabase.from('leads').update(updateData).eq('id', leadId);
       if (error) throw error;
 
-      toast.success(`Lead movido para ${targetStageData?.title || 'próxima etapa'}!`);
+      toast.success(`Lead movido para ${targetStageData?.title || 'a próxima etapa'}.`);
     } catch (err) {
       console.error('Erro ao mover lead:', err);
-      toast.error('Erro ao mover lead');
+      toast.error('Não foi possível mover o lead. Tente novamente.');
       loadLeads(undefined, false);
     }
   }, [leads, stages, usingCustomFunnel, user?.id, permissions, teamMemberIds]);
@@ -1872,7 +1876,7 @@ const Pipeline = () => {
 
   // Guard: Aguardar inicialização completa (auth + org)
   if (!isReady || !organizationId) {
-    return <LoadingAnimation text="Carregando pipeline..." />;
+    return <LoadingAnimation text="Carregando funil..." />;
   }
 
   // Guard: membros com cargo personalizado que não têm permissão para ver o pipeline
@@ -1880,10 +1884,10 @@ const Pipeline = () => {
     return (
       <div className="flex flex-col items-center justify-center h-[50vh] text-center px-4">
         <Shield className="h-16 w-16 text-muted-foreground/50 mb-4" />
-        <h2 className="text-xl font-semibold">Acesso Restrito</h2>
+        <h2 className="text-xl font-semibold">Acesso restrito</h2>
         <p className="text-muted-foreground max-w-md">
-          Você não tem permissão para visualizar o funil de vendas.
-          Entre em contato com o administrador da organização para solicitar acesso.
+          Você não tem permissão para ver o funil de vendas.
+          Peça acesso ao administrador da organização.
         </p>
       </div>
     );
@@ -1918,7 +1922,7 @@ const Pipeline = () => {
             <div className="flex items-center justify-between gap-2">
               <div className="min-w-0">
               <h1 className="text-lg sm:text-xl md:text-2xl font-bold tracking-tight text-foreground truncate">
-                Funil de Vendas
+                Funil de vendas
               </h1>
               <p className="text-[11px] sm:text-xs text-muted-foreground hidden sm:block">
                 {viewMode === 'kanban'
@@ -1978,7 +1982,7 @@ const Pipeline = () => {
                       {(permissions.role === "owner" || permissions.role === "admin") && (
                         <DropdownMenuItem onClick={() => navigate("/funnel-builder")}>
                           <Settings2 className="h-4 w-4 mr-2" />
-                          Gerenciar Funis
+                          Gerenciar funis
                         </DropdownMenuItem>
                       )}
                     </DropdownMenuContent>
@@ -1994,7 +1998,7 @@ const Pipeline = () => {
                   {(permissions.role === "owner" || permissions.role === "admin") && (
                     <Button variant="outline" size="sm" className="h-8 px-3" onClick={() => navigate("/funnel-builder")}>
                       <Settings2 className="h-4 w-4 sm:mr-2" />
-                      <span className="hidden sm:inline">Gerenciar Funis</span>
+                      <span className="hidden sm:inline">Gerenciar funis</span>
                     </Button>
                   )}
                   <Button variant="outline" size="sm" className="h-8 px-3" onClick={handleExportCSV}>
@@ -2010,7 +2014,7 @@ const Pipeline = () => {
                   {permissions.canCreateLeads && (
                     <Button size="sm" className="h-8 px-3 bg-primary hover:bg-primary/90" onClick={() => setShowAddModal(true)}>
                       <Plus className="h-4 w-4 sm:mr-2" />
-                      <span className="hidden sm:inline">Adicionar Lead</span>
+                      <span className="hidden sm:inline">Adicionar lead</span>
                     </Button>
                   )}
                 </>
@@ -2025,7 +2029,7 @@ const Pipeline = () => {
               <div className="relative flex-1 min-w-0">
                 <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
                 <Input
-                  placeholder="Buscar leads..."
+                  placeholder="Buscar leads"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="pl-8 h-9 pr-8 text-sm"
@@ -2060,7 +2064,7 @@ const Pipeline = () => {
               <div className="relative flex-1 min-w-[140px] sm:min-w-[180px] max-w-full sm:max-w-xs">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
-                  placeholder="Buscar por nome, email..."
+                  placeholder="Buscar por nome ou e-mail"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="pl-8 h-8"
@@ -2071,7 +2075,7 @@ const Pipeline = () => {
                   <SelectValue placeholder="Status" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">Todos os Status</SelectItem>
+                  <SelectItem value="all">Todos os status</SelectItem>
                   {stages.map(stage => (
                     <SelectItem key={stage.id} value={stage.id}>{stage.title}</SelectItem>
                   ))}
@@ -2082,7 +2086,7 @@ const Pipeline = () => {
                   <SelectValue placeholder="Origem" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">Todas Origens</SelectItem>
+                  <SelectItem value="all">Todas as origens</SelectItem>
                   {uniqueSources.map(source => (
                     <SelectItem key={source} value={source}>{source}</SelectItem>
                   ))}
@@ -2093,7 +2097,7 @@ const Pipeline = () => {
                   <SelectValue placeholder="Responsável" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">Todos Responsáveis</SelectItem>
+                  <SelectItem value="all">Todos os responsáveis</SelectItem>
                   {colaboradores.map(c => (
                     <SelectItem key={c.user_id} value={c.user_id}>
                       {c.full_name}
@@ -2185,7 +2189,7 @@ const Pipeline = () => {
               {selectedLeadIds.size > 0 && (
                 <div className="bg-primary/10 dark:bg-primary/20 border border-primary/20 dark:border-primary/30 rounded-lg p-2.5 flex items-center gap-2 flex-wrap">
                   <span className="text-xs font-medium text-primary">
-                    {selectedLeadIds.size} selecionado{selectedLeadIds.size > 1 ? 's' : ''}
+                    {selectedLeadIds.size} {selectedLeadIds.size === 1 ? 'selecionado' : 'selecionados'}
                   </span>
                   <div className="flex items-center gap-1 ml-auto flex-wrap">
                     {/* Selecionar por etapa */}
@@ -2240,8 +2244,8 @@ const Pipeline = () => {
               {filteredLeads.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
                   <Users className="h-12 w-12 mb-4 opacity-50" />
-                  <p className="text-lg font-medium">Nenhum lead encontrado</p>
-                  <p className="text-sm">Tente ajustar os filtros ou adicione um novo lead</p>
+                  <p className="text-lg font-medium">Nenhum lead neste filtro.</p>
+                  <p className="text-sm">Ajuste os filtros ou adicione um lead.</p>
                 </div>
               ) : (
                 filteredLeads.map((lead) => {
@@ -2279,7 +2283,7 @@ const Pipeline = () => {
                           {isLeadDuplicateRecord(lead.additional_data) && (
                             <span
                               className="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-1.5 py-px text-[9px] font-medium text-amber-700 flex-shrink-0"
-                              title="Novo registro criado para um contato que já existia no CRM"
+                              title="Novo registro criado para um lead que já existia no CRM"
                             >
                               <Copy className="h-2.5 w-2.5" />
                               Duplicado
@@ -2341,7 +2345,7 @@ const Pipeline = () => {
             {selectedLeadIds.size > 0 && (
               <div className="bg-primary/10 dark:bg-primary/20 border-b border-primary/20 dark:border-primary/30 p-3 flex items-center gap-3 flex-wrap">
                 <span className="text-sm font-medium text-primary">
-                  {selectedLeadIds.size} lead{selectedLeadIds.size > 1 ? 's' : ''} selecionado{selectedLeadIds.size > 1 ? 's' : ''}
+                  {selectedLeadIds.size} {selectedLeadIds.size === 1 ? 'lead selecionado' : 'leads selecionados'}
                 </span>
                 <div className="flex items-center gap-2 ml-auto flex-wrap">
                   {/* Selecionar por etapa */}
@@ -2420,8 +2424,8 @@ const Pipeline = () => {
               {filteredLeads.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
                   <Users className="h-12 w-12 mb-4 opacity-50" />
-                  <p className="text-lg font-medium">Nenhum lead encontrado</p>
-                  <p className="text-sm">Tente ajustar os filtros ou adicione um novo lead</p>
+                  <p className="text-lg font-medium">Nenhum lead neste filtro.</p>
+                  <p className="text-sm">Ajuste os filtros ou adicione um lead.</p>
                 </div>
               ) : (
                 filteredLeads.map((lead) => {
@@ -2458,7 +2462,7 @@ const Pipeline = () => {
                         {isLeadDuplicateRecord(lead.additional_data) && (
                           <span
                             className="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-1.5 py-px text-[9px] font-medium text-amber-700 flex-shrink-0"
-                            title="Novo registro criado para um contato que já existia no CRM"
+                            title="Novo registro criado para um lead que já existia no CRM"
                           >
                             <Copy className="h-2.5 w-2.5" />
                             Duplicado
@@ -2561,7 +2565,7 @@ const Pipeline = () => {
                               )}
                               <span>{funnel.name}</span>
                               {funnel.is_default && (
-                                <span className="text-xs text-muted-foreground">(Padrão)</span>
+                                <span className="text-xs text-muted-foreground">(padrão)</span>
                               )}
                             </div>
                           </TabsTrigger>
@@ -2579,7 +2583,7 @@ const Pipeline = () => {
                                   ? "text-amber-500 hover:text-amber-400"
                                   : "text-muted-foreground hover:text-foreground"
                               )}
-                              title={funnel.is_restricted === true ? "Funil bloqueado — clique para gerenciar" : "Funil aberto — clique para gerenciar"}
+                              title={funnel.is_restricted === true ? "Funil restrito. Clique para gerenciar o acesso." : "Funil aberto. Clique para gerenciar o acesso."}
                               aria-label={`Gerenciar acesso ao funil ${funnel.name}`}
                             >
                               {funnel.is_restricted === true ? (
@@ -2831,7 +2835,7 @@ const Pipeline = () => {
                 Fechar
               </Button>
             </div>
-            <SheetDescription className="sr-only">Filtros para buscar leads</SheetDescription>
+            <SheetDescription className="sr-only">Filtros para buscar leads.</SheetDescription>
           </SheetHeader>
           <div className="p-4 space-y-3 overflow-y-auto" style={{ maxHeight: 'calc(80vh - 60px)', WebkitOverflowScrolling: 'touch' }}>
             <div className="space-y-1.5">
@@ -2841,7 +2845,7 @@ const Pipeline = () => {
                   <SelectValue placeholder="Status" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">Todos os Status</SelectItem>
+                  <SelectItem value="all">Todos os status</SelectItem>
                   {stages.map(stage => (
                     <SelectItem key={stage.id} value={stage.id}>{stage.title}</SelectItem>
                   ))}
@@ -2855,7 +2859,7 @@ const Pipeline = () => {
                   <SelectValue placeholder="Origem" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">Todas Origens</SelectItem>
+                  <SelectItem value="all">Todas as origens</SelectItem>
                   {uniqueSources.map(source => (
                     <SelectItem key={source} value={source}>{source}</SelectItem>
                   ))}
@@ -2869,7 +2873,7 @@ const Pipeline = () => {
                   <SelectValue placeholder="Responsável" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">Todos Responsáveis</SelectItem>
+                  <SelectItem value="all">Todos os responsáveis</SelectItem>
                   {colaboradores.map(c => (
                     <SelectItem key={c.user_id} value={c.user_id}>
                       {c.full_name}
@@ -2951,9 +2955,9 @@ const Pipeline = () => {
           <AlertDialogHeader>
             <AlertDialogTitle>Excluir lead</AlertDialogTitle>
             <AlertDialogDescription>
-              Tem certeza que deseja excluir o lead{" "}
+              Excluir o lead{" "}
               <strong>{leadToDelete?.nome_lead || "sem nome"}</strong>?
-              Esta ação não pode ser desfeita.
+              Não dá para desfazer.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -2964,7 +2968,7 @@ const Pipeline = () => {
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
               onClick={confirmDeleteLead}
             >
-              Sim, excluir
+              Excluir
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -2977,20 +2981,20 @@ const Pipeline = () => {
             <div className="flex items-center justify-center mb-4">
               <img
                 src={saleConfirmationIcon}
-                alt="Confirmar Venda"
+                alt="Confirmar venda"
                 className="w-24 h-24"
               />
             </div>
-            <AlertDialogTitle className="text-center text-2xl">Confirmar Venda</AlertDialogTitle>
+            <AlertDialogTitle className="text-center text-2xl">Confirmar venda</AlertDialogTitle>
             <AlertDialogDescription className="space-y-3 pt-2">
               <p className="text-center">
-                O lead <strong>{wonConfirmation.lead?.nome_lead}</strong> está sendo movido para uma etapa de ganho/venda.
+                O lead <strong>{wonConfirmation.lead?.nome_lead}</strong> está sendo movido para uma etapa de venda.
               </p>
               <p className="font-semibold text-primary text-center text-lg">
-                💰 Valor: {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(wonConfirmation.lead?.valor || 0)}
+                Valor: {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(wonConfirmation.lead?.valor || 0)}
               </p>
               <p className="text-sm text-center">
-                Este valor será contabilizado na produção do mês atual. Confirma que o lead realmente fechou uma negociação?
+                O valor entra na produção do mês atual. O lead fechou a negociação?
               </p>
             </AlertDialogDescription>
           </AlertDialogHeader>
@@ -2999,7 +3003,7 @@ const Pipeline = () => {
               Cancelar
             </AlertDialogCancel>
             <AlertDialogAction onClick={() => handleWonConfirmation(true)}>
-              Confirmar Venda
+              Confirmar venda
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

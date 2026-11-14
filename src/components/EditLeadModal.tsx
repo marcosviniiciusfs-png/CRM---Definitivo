@@ -225,10 +225,10 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
 
       if (error) throw error;
 
-      toast.success('Dados do negócio salvos com sucesso!');
+      toast.success('Dados do negócio salvos.');
     } catch (error) {
       console.error('Erro ao salvar dados do negócio:', error);
-      toast.error('Erro ao salvar dados do negócio');
+      toast.error('Não foi possível salvar os dados do negócio. Tente novamente.');
     }
   };
 
@@ -376,17 +376,17 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
       if (error) {
         // Se já existe, mostra mensagem
         if (error.code === '23505') {
-          toast.error("Este produto já foi adicionado ao lead");
+          toast.error("Este produto já está no lead.");
         } else {
           throw error;
         }
       } else {
-        toast.success("Produto adicionado com sucesso!");
+        toast.success("Produto adicionado.");
         await fetchLeadItems();
       }
     } catch (error) {
       console.error("Erro ao adicionar item:", error);
-      toast.error("Erro ao adicionar produto");
+      toast.error("Não foi possível adicionar o produto. Tente novamente.");
     } finally {
       setIsLoadingItems(false);
     }
@@ -401,11 +401,11 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
 
       if (error) throw error;
 
-      toast.success("Produto removido com sucesso!");
+      toast.success("Produto removido.");
       await fetchLeadItems();
     } catch (error) {
       console.error("Erro ao remover item:", error);
-      toast.error("Erro ao remover produto");
+      toast.error("Não foi possível remover o produto. Tente novamente.");
     }
   };
 
@@ -426,7 +426,7 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
       await fetchLeadItems();
     } catch (error) {
       console.error("Erro ao atualizar quantidade:", error);
-      toast.error("Erro ao atualizar quantidade");
+      toast.error("Não foi possível atualizar a quantidade. Tente novamente.");
     }
   };
 
@@ -441,13 +441,13 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
       const numericValue = parseFloat(cleanValue);
 
       if (isNaN(numericValue) || numericValue <= 0) {
-        toast.error("Por favor, insira um valor válido");
+        toast.error("Informe um valor válido.");
         return;
       }
 
       // Validar limite do banco (max R$ 9.999.999.999.999,99 - precision 15, scale 2)
       if (numericValue >= 10000000000000) {
-        toast.error("Valor muito alto. Máximo: R$ 9.999.999.999.999,99");
+        toast.error("Valor muito alto. O máximo é R$ 9.999.999.999.999,99.");
         return;
       }
 
@@ -471,10 +471,10 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
 
       setShowItemsDialog(false);
       setQuickValue("");
-      toast.success("Valor atualizado com sucesso!");
+      toast.success("Valor atualizado.");
     } catch (error) {
       console.error("Erro ao atualizar valor:", error);
-      toast.error("Erro ao atualizar valor");
+      toast.error("Não foi possível atualizar o valor. Tente novamente.");
     }
   };
 
@@ -547,7 +547,7 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
     if (file) {
       // Verificar tamanho do arquivo (max 10MB)
       if (file.size > 10 * 1024 * 1024) {
-        toast.error("Arquivo muito grande. Tamanho máximo: 10MB");
+        toast.error("Arquivo muito grande. O tamanho máximo é 10 MB.");
         return;
       }
       setSelectedFile(file);
@@ -581,7 +581,7 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
       };
     } catch (error) {
       console.error("Erro ao fazer upload:", error);
-      toast.error("Erro ao fazer upload do arquivo");
+      toast.error("Não foi possível enviar o arquivo. Tente novamente.");
       return null;
     } finally {
       setIsUploadingFile(false);
@@ -590,7 +590,7 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
 
   const handleSaveActivity = async () => {
     if (!activityContent.trim()) {
-      toast.error("O conteúdo da atividade não pode estar vazio");
+      toast.error("Escreva o conteúdo da atividade.");
       return;
     }
 
@@ -633,13 +633,13 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
 
       if (error) throw error;
 
-      toast.success("Atividade salva com sucesso!");
+      toast.success("Atividade salva.");
       setActivityContent("");
       setSelectedFile(null);
       await fetchActivities();
     } catch (error) {
       console.error("Erro ao salvar atividade:", error);
-      toast.error("Erro ao salvar atividade");
+      toast.error("Não foi possível salvar a atividade. Tente novamente.");
     }
   };
 
@@ -660,7 +660,7 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
     const lembreteHora = isReuniao ? agendReuniaoLembreteHora : agendVendaLembreteHora;
 
     if (!data) {
-      toast.error("Por favor, selecione uma data para o agendamento");
+      toast.error("Selecione a data do agendamento.");
       return;
     }
 
@@ -699,7 +699,7 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
       const lembreteMsg = lembreteData
         ? ` Lembrete agendado para ${format(lembreteData, "dd/MM")} às ${lembreteHora}.`
         : "";
-      toast.success(`${tipo} salvo!${lembreteMsg}`);
+      toast.success(`${tipo === "Agendamento Reunião" ? "Agendamento de reunião salvo." : "Agendamento de venda salvo."}${lembreteMsg}`);
 
       if (isReuniao) {
         setAgendReuniaoData(undefined);
@@ -720,7 +720,7 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
       onUpdate();
     } catch (error) {
       console.error(`Erro ao salvar ${tipo}:`, error);
-      toast.error(`Erro ao salvar ${tipo}`);
+      toast.error(`Não foi possível salvar o ${tipo === "Agendamento Reunião" ? "agendamento de reunião" : "agendamento de venda"}. Tente novamente.`);
     }
   };
 
@@ -835,7 +835,7 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
 
       if (editingIsAgendamento) {
         if (!editingAgendData) {
-          toast.error("Selecione a data do agendamento");
+          toast.error("Selecione a data do agendamento.");
           return;
         }
         const agendContent: any = {
@@ -894,10 +894,10 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
       setEditingKeepCurrentAttachment(true);
       setEditingCurrentAttachment(null);
       resetEditingAgendState();
-      toast.success("Atividade atualizada com sucesso!");
+      toast.success("Atividade atualizada.");
     } catch (error) {
       console.error("Erro ao atualizar atividade:", error);
-      toast.error("Erro ao atualizar atividade");
+      toast.error("Não foi possível atualizar a atividade. Tente novamente.");
     }
   };
 
@@ -918,10 +918,10 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
 
       setActivities(activities.filter(act => act.id !== activityId));
       setDeletingActivityId(null);
-      toast.success("Atividade excluída com sucesso!");
+      toast.success("Atividade excluída.");
     } catch (error) {
       console.error("Erro ao excluir atividade:", error);
-      toast.error("Erro ao excluir atividade");
+      toast.error("Não foi possível excluir a atividade. Tente novamente.");
       setDeletingActivityId(null);
     }
   };
@@ -945,12 +945,12 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
 
   const handleSaveChanges = async () => {
     if (!editedName.trim()) {
-      toast.error("O nome do lead é obrigatório");
+      toast.error("Preencha o nome do lead.");
       return;
     }
 
     if (!editedPhone.trim()) {
-      toast.error("O telefone do lead é obrigatório");
+      toast.error("Preencha o telefone do lead.");
       return;
     }
 
@@ -979,12 +979,12 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
 
       if (error) throw error;
 
-      toast.success("Lead atualizado com sucesso!");
+      toast.success("Lead atualizado.");
       onClose();
       onUpdate();
     } catch (error) {
       console.error("Erro ao atualizar lead:", error);
-      toast.error("Erro ao atualizar lead");
+      toast.error("Não foi possível atualizar o lead. Tente novamente.");
     } finally {
       setIsSaving(false);
     }
@@ -992,8 +992,8 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
 
   const getStageLabel = (stage: string) => {
     const stages: Record<string, string> = {
-      NOVO: "Novo Lead",
-      EM_ATENDIMENTO: "Em Atendimento",
+      NOVO: "Novo lead",
+      EM_ATENDIMENTO: "Em atendimento",
       FECHADO: "Fechado",
       PERDIDO: "Perdido"
     };
@@ -1051,7 +1051,7 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
                   <div className="mt-4">
                     <TabsContent value="nota" className="mt-0 space-y-2 sm:space-y-3">
                       <Textarea
-                        placeholder="O que foi feito e qual o próximo passo?"
+                        placeholder="O que foi feito e qual é o próximo passo?"
                         className="min-h-[80px] sm:min-h-[120px] resize-none text-sm"
                         value={currentTab === "nota" ? activityContent : ""}
                         onChange={(e) => currentTab === "nota" && setActivityContent(e.target.value)}
@@ -1144,14 +1144,14 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
                             type="tel"
                             value={agendReuniaoTelefone}
                             onChange={(e) => setAgendReuniaoTelefone(e.target.value)}
-                            placeholder="Ex: +5511999999999"
+                            placeholder="Ex.: +5511999999999"
                             className="h-9 text-sm"
                           />
                         </div>
                         <div>
                           <Label className="text-xs text-muted-foreground mb-1 block">Observações (opcional)</Label>
                           <Textarea
-                            placeholder="Detalhes sobre a reunião..."
+                            placeholder="Detalhes sobre a reunião"
                             className="min-h-[60px] sm:min-h-[80px] resize-none text-sm"
                             value={agendReuniaoObs}
                             onChange={(e) => setAgendReuniaoObs(e.target.value)}
@@ -1271,7 +1271,7 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
                             type="tel"
                             value={agendVendaTelefone}
                             onChange={(e) => setAgendVendaTelefone(e.target.value)}
-                            placeholder="Ex: +5511999999999"
+                            placeholder="Ex.: +5511999999999"
                             className="h-9 text-sm"
                           />
                         </div>
@@ -1281,14 +1281,14 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
                             type="text"
                             value={agendVendaValor}
                             onChange={(e) => setAgendVendaValor(e.target.value)}
-                            placeholder="Ex: 1500,00"
+                            placeholder="Ex.: 1500,00"
                             className="h-9 text-sm"
                           />
                         </div>
                         <div>
                           <Label className="text-xs text-muted-foreground mb-1 block">Observações (opcional)</Label>
                           <Textarea
-                            placeholder="Detalhes sobre a venda..."
+                            placeholder="Detalhes sobre a venda"
                             className="min-h-[60px] sm:min-h-[80px] resize-none text-sm"
                             value={agendVendaObs}
                             onChange={(e) => setAgendVendaObs(e.target.value)}
@@ -1383,10 +1383,10 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
                   ) : activities.length === 0 ? (
                     <div className="flex flex-col items-center justify-center py-12 text-center">
                       <div className="text-muted-foreground text-sm">
-                        Nenhuma atividade registrada
+                        Nenhuma atividade registrada ainda.
                       </div>
                       <p className="text-sm text-muted-foreground mt-2">
-                        Que tal agendar uma ligação para evoluir este negócio?
+                        Agende uma ligação para avançar este negócio.
                       </p>
                     </div>
                   ) : (
@@ -1487,7 +1487,7 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
                                         {/* Observações */}
                                         <div>
                                           <Label className="text-xs text-muted-foreground mb-1 block">Observações</Label>
-                                          <Textarea value={editingAgendObs} onChange={(e) => setEditingAgendObs(e.target.value)} className="min-h-[60px] text-xs resize-none" placeholder="Detalhes..." />
+                                          <Textarea value={editingAgendObs} onChange={(e) => setEditingAgendObs(e.target.value)} className="min-h-[60px] text-xs resize-none" placeholder="Detalhes" />
                                         </div>
                                         {/* Lembrete */}
                                         <div className="border border-dashed border-blue-300/50 rounded-lg p-3 space-y-2 bg-blue-500/5">
@@ -1576,7 +1576,7 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
                                               const file = e.target.files?.[0];
                                               if (file) {
                                                 if (file.size > 10 * 1024 * 1024) {
-                                                  toast.error("Arquivo muito grande. Máximo 10MB");
+                                                  toast.error("Arquivo muito grande. O tamanho máximo é 10 MB.");
                                                   return;
                                                 }
                                                 setEditingFile(file);
@@ -1652,7 +1652,7 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
                                         URL.revokeObjectURL(url);
                                       } catch (error) {
                                         console.error("Erro ao baixar arquivo:", error);
-                                        toast.error("Erro ao baixar arquivo");
+                                        toast.error("Não foi possível baixar o arquivo. Tente novamente.");
                                       }
                                     }}
                                   >
@@ -1704,7 +1704,7 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
                       <Label className="text-xs text-muted-foreground">Produtos e serviços</Label>
                       {leadItems.length === 0 ? (
                         <p className="text-sm text-muted-foreground">
-                          Nenhum produto ou serviço foi adicionado a este negócio
+                          Nenhum produto ou serviço neste negócio ainda.
                         </p>
                       ) : (
                         <div className="space-y-2">
@@ -1863,12 +1863,12 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
                                               if (error) throw error;
 
                                               setEditingResponsavel(false);
-                                              toast.success(`Responsável alterado para ${displayName}`);
+                                              toast.success(`Responsável alterado para ${displayName}.`);
                                               // Notifica o pai para atualizar o card no Pipeline
                                               onUpdate();
                                             } catch (error) {
                                               console.error('Erro ao salvar responsável:', error);
-                                              toast.error('Erro ao salvar responsável');
+                                              toast.error('Não foi possível salvar o responsável. Tente novamente.');
                                             }
                                           }}
                                         >
@@ -1883,7 +1883,7 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
                                     })}
                                   {colaboradores.length === 0 && (
                                     <div className="text-sm text-muted-foreground text-center py-4">
-                                      Nenhum colaborador encontrado
+                                      Nenhum colaborador encontrado.
                                     </div>
                                   )}
                                 </div>
@@ -1930,10 +1930,10 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
                                     if (error) throw error;
 
                                     setEditingDataInicio(false);
-                                    toast.success("Data de início atualizada");
+                                    toast.success("Data de início atualizada.");
                                   } catch (error) {
                                     console.error('Erro ao salvar data de início:', error);
-                                    toast.error('Erro ao salvar data');
+                                    toast.error('Não foi possível salvar a data. Tente novamente.');
                                   }
                                 }}
                                 initialFocus
@@ -1958,10 +1958,10 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
                                       if (error) throw error;
 
                                       setEditingDataInicio(false);
-                                      toast.success("Data definida para hoje");
+                                      toast.success("Data definida para hoje.");
                                     } catch (error) {
                                       console.error('Erro ao salvar data:', error);
-                                      toast.error('Erro ao salvar data');
+                                      toast.error('Não foi possível salvar a data. Tente novamente.');
                                     }
                                   }}
                                 >
@@ -1976,7 +1976,7 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
                                     tomorrow.setDate(tomorrow.getDate() + 1);
                                     setDataInicio(tomorrow);
                                     setEditingDataInicio(false);
-                                    toast.success("Data definida para amanhã");
+                                    toast.success("Data definida para amanhã.");
                                   }}
                                 >
                                   Amanhã
@@ -1990,7 +1990,7 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
                                     nextWeek.setDate(nextWeek.getDate() + 7);
                                     setDataInicio(nextWeek);
                                     setEditingDataInicio(false);
-                                    toast.success("Data definida para próxima semana");
+                                    toast.success("Data definida para a próxima semana.");
                                   }}
                                 >
                                   1 semana depois
@@ -2038,10 +2038,10 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
                                     if (error) throw error;
 
                                     setEditingDataConclusao(false);
-                                    toast.success("Data de conclusão atualizada");
+                                    toast.success("Data de conclusão atualizada.");
                                   } catch (error) {
                                     console.error('Erro ao salvar data de conclusão:', error);
-                                    toast.error('Erro ao salvar data');
+                                    toast.error('Não foi possível salvar a data. Tente novamente.');
                                   }
                                 }}
                                 initialFocus
@@ -2066,10 +2066,10 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
                                       if (error) throw error;
 
                                       setEditingDataConclusao(false);
-                                      toast.success("Data definida para hoje");
+                                      toast.success("Data definida para hoje.");
                                     } catch (error) {
                                       console.error('Erro ao salvar data:', error);
-                                      toast.error('Erro ao salvar data');
+                                      toast.error('Não foi possível salvar a data. Tente novamente.');
                                     }
                                   }}
                                 >
@@ -2084,7 +2084,7 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
                                     tomorrow.setDate(tomorrow.getDate() + 1);
                                     setDataConclusao(tomorrow);
                                     setEditingDataConclusao(false);
-                                    toast.success("Data definida para amanhã");
+                                    toast.success("Data definida para amanhã.");
                                   }}
                                 >
                                   Amanhã
@@ -2098,7 +2098,7 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
                                     nextWeek.setDate(nextWeek.getDate() + 7);
                                     setDataConclusao(nextWeek);
                                     setEditingDataConclusao(false);
-                                    toast.success("Data definida para próxima semana");
+                                    toast.success("Data definida para a próxima semana.");
                                   }}
                                 >
                                   1 semana depois
@@ -2141,7 +2141,7 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
                               <Label htmlFor="descricao">Descrição</Label>
                               <Textarea
                                 id="descricao"
-                                placeholder="Adicione uma descrição para este negócio..."
+                                placeholder="Descreva este negócio"
                                 value={descricao}
                                 onChange={(e) => setDescricao(e.target.value)}
                                 className="min-h-[100px] resize-none"
@@ -2177,7 +2177,7 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
                       <span className="text-muted-foreground">Idade</span>
                       <div className="flex items-center gap-2">
                         <span className={cn("font-medium", !idade && "text-muted-foreground")}>
-                          {idade ? `${idade} anos` : "Adicionar idade"}
+                          {idade ? `${idade} ${Number(idade) === 1 ? "ano" : "anos"}` : "Adicionar idade"}
                         </span>
                         <Popover open={editingIdade} onOpenChange={setEditingIdade} modal={false}>
                           <PopoverTrigger asChild>
@@ -2198,7 +2198,7 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
                                 type="number"
                                 min="0"
                                 max="150"
-                                placeholder="Ex: 25"
+                                placeholder="Ex.: 25"
                                 value={idade?.toString() || ""}
                                 onChange={(e) => setIdade(e.target.value ? parseInt(e.target.value) : null)}
                               />
@@ -2224,10 +2224,10 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
                                       if (error) throw error;
 
                                       setEditingIdade(false);
-                                      toast.success("Idade atualizada com sucesso!");
+                                      toast.success("Idade atualizada.");
                                     } catch (error) {
                                       console.error('Erro ao salvar idade:', error);
-                                      toast.error('Erro ao salvar idade');
+                                      toast.error('Não foi possível salvar a idade. Tente novamente.');
                                     }
                                   }}
                                 >
@@ -2297,7 +2297,7 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
       <Dialog open={showItemsDialog} onOpenChange={setShowItemsDialog}>
         <DialogContent className="max-w-2xl max-h-[80vh]">
           <DialogHeader>
-            <DialogTitle>Adicionar Produtos/Serviços</DialogTitle>
+            <DialogTitle>Adicionar produtos e serviços</DialogTitle>
           </DialogHeader>
 
           {/* Seção para digitar valor direto */}
@@ -2306,7 +2306,7 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
               <div>
                 <h4 className="text-sm font-medium">Digitar valor do negócio</h4>
                 <p className="text-xs text-muted-foreground">
-                  Ou digite o valor total diretamente
+                  Ou digite o valor total direto.
                 </p>
               </div>
             </div>
@@ -2342,8 +2342,8 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
               </div>
             ) : availableItems.length === 0 ? (
               <div className="text-center py-8 text-muted-foreground">
-                <p>Nenhum produto/serviço disponível</p>
-                <p className="text-sm mt-2">Crie produtos na página de Produção primeiro</p>
+                <p>Nenhum produto ou serviço cadastrado ainda.</p>
+                <p className="text-sm mt-2">Crie produtos na página de Produção primeiro.</p>
               </div>
             ) : (
               <div className="grid gap-3 p-4">

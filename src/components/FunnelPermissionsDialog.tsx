@@ -108,7 +108,7 @@ export function FunnelPermissionsDialog({
         setCollaborators(list);
       } catch (err) {
         console.error("Erro ao carregar dados:", err);
-        toast.error("Erro ao carregar permissões");
+        toast.error("Não foi possível carregar as permissões. Tente novamente.");
       } finally {
         setLoading(false);
       }
@@ -132,10 +132,10 @@ export function FunnelPermissionsDialog({
 
       setIsRestricted(newValue);
       onPermissionsChange?.();
-      toast.success(newValue ? "Funil bloqueado — escolha quem pode ver" : "Funil desbloqueado para todos");
+      toast.success(newValue ? "Funil restrito. Escolha quem pode ver." : "Funil aberto para todos.");
     } catch (err) {
       console.error("Erro ao alterar visibilidade:", err);
-      toast.error(err instanceof Error ? err.message : "Não foi possível alterar o acesso ao funil");
+      toast.error("Não foi possível alterar o acesso ao funil. Confirme que você é administrador e tente novamente.");
     } finally {
       setSaving(null);
     }
@@ -174,10 +174,10 @@ export function FunnelPermissionsDialog({
       );
       onPermissionsChange?.();
 
-      toast.success(currentAccess ? "Acesso removido" : "Acesso liberado");
+      toast.success(currentAccess ? "Acesso removido." : "Acesso liberado.");
     } catch (err) {
       console.error("Erro ao alterar acesso:", err);
-      toast.error(err instanceof Error ? err.message : "Não foi possível alterar o colaborador");
+      toast.error("Não foi possível alterar o acesso do colaborador. Tente novamente.");
     } finally {
       setSaving(null);
     }
@@ -193,7 +193,7 @@ export function FunnelPermissionsDialog({
             <DialogTitle className="text-sm">Controle de acesso</DialogTitle>
           </div>
           <DialogDescription className="sr-only">
-            Defina quem pode visualizar o funil {funnel.name}.
+            Defina quem pode ver o funil {funnel.name}.
           </DialogDescription>
         </DialogHeader>
 
@@ -214,12 +214,12 @@ export function FunnelPermissionsDialog({
               )}
               <div>
                 <Label htmlFor="restrict-funnel" className="font-medium text-sm">
-                  {isRestricted ? "Bloqueado" : "Desbloqueado"}
+                  {isRestricted ? "Restrito" : "Aberto"}
                 </Label>
                 <p className="text-xs text-muted-foreground">
                   {isRestricted
-                    ? "Apenas os selecionados podem ver"
-                    : "Todos os colaboradores podem ver"}
+                    ? "Só os colaboradores selecionados podem ver."
+                    : "Todos os colaboradores podem ver."}
                 </p>
               </div>
             </div>
@@ -228,7 +228,7 @@ export function FunnelPermissionsDialog({
               checked={isRestricted}
               onCheckedChange={toggleRestricted}
               disabled={saving === "funnel"}
-              aria-label={isRestricted ? "Desbloquear funil" : "Bloquear funil"}
+              aria-label={isRestricted ? "Abrir funil para todos" : "Restringir acesso ao funil"}
               aria-busy={saving === "funnel"}
             />
           </div>
@@ -256,7 +256,7 @@ export function FunnelPermissionsDialog({
               <div className="px-4 py-6 text-center">
                 <Users className="h-8 w-8 text-muted-foreground/50 mx-auto mb-2" />
                 <p className="text-xs text-muted-foreground">
-                  Nenhum colaborador na organização
+                  Nenhum colaborador na organização ainda.
                 </p>
               </div>
             ) : (
@@ -306,7 +306,7 @@ export function FunnelPermissionsDialog({
         {/* Info */}
         <div className="px-4 py-3 border-t border-border bg-muted/20">
           <p className="text-xs text-muted-foreground">
-            <strong>Owners e Admins</strong> sempre têm acesso a todos os funis.
+            <strong>Donos e administradores</strong> sempre têm acesso a todos os funis.
           </p>
         </div>
       </DialogContent>
