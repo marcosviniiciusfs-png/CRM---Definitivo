@@ -33,6 +33,7 @@ import {
   sumAttendance,
   type AttendanceDay,
 } from "@/lib/panelRates";
+import { buildAdEntryTable, type AdEntryRow } from "@/lib/adEntries";
 
 // ------------------------------------------------------------------
 // Período (sempre no dia de Brasília)
@@ -362,6 +363,22 @@ export default function Painel() {
     placeholderData: (previous) => previous,
   });
 
+  const adEntriesQuery = useQuery({
+    queryKey: ["panel", "ad-entries", organizationId, range.from, range.to],
+    enabled: Boolean(organizationId) && validRange,
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("panel_ad_entries_daily", {
+        p_organization_id: organizationId!,
+        p_from: range.from,
+        p_to: range.to,
+      });
+      if (error) throw error;
+      return (data ?? []) as AdEntryRow[];
+    },
+    refetchInterval,
+    placeholderData: (previous) => previous,
+  });
+
   const stagesQuery = useQuery({
     queryKey: ["panel", "stage-events", organizationId],
     enabled: Boolean(organizationId),
@@ -378,6 +395,12 @@ export default function Painel() {
   const attendanceTotals = useMemo(() => sumAttendance(attendanceQuery.data ?? []), [attendanceQuery.data]);
   const rates = attendanceRates(attendanceTotals);
   const missingEvents = stagesQuery.data ? missingMeetingEvents(stagesQuery.data) : [];
+  const adEntryTable = useMemo(() => {
+    const scheduledByDay = Object.fromEntries(
+      (attendanceQuery.data ?? []).map((row) => [String(row.day).slice(0, 10), row.scheduled_from_ads]),
+    );
+    return buildAdEntryTable(adEntriesQuery.data ?? [], scheduledByDay, range.from, range.to);
+  }, [adEntriesQuery.data, attendanceQuery.data, range.from, range.to]);
 
   const status = statusQuery.data;
   const meta = metaQuery.data;
@@ -395,6 +418,7 @@ export default function Painel() {
   const refresh = () => {
     void statusQuery.refetch();
     void attendanceQuery.refetch();
+    void adEntriesQuery.refetch();
     if (status?.enabled) {
       void invokePanel<MetaInsights>({ mode: "insights", organization_id: organizationId, from: range.from, to: range.to, refresh: true })
         .then(() => metaQuery.refetch());
@@ -663,6 +687,70 @@ export default function Painel() {
               </CardContent>
             </Card>
           </>
+        )}
+      </section>
+
+      {/* Leads de anúncio por dia */}
+      <section className="space-y-3">
+        <div>
+          <h2 className="text-lg font-semibold">Leads de anúncio por dia</h2>
+          <p className="text-sm text-muted-foreground">
+            Leads que chegaram pela palavra-chave do anúncio no WhatsApp ou pelo formulário da Meta.
+            As palavras-chave ficam em Integrações, rastreamento do canal.
+          </p>
+        </div>
+        {adEntriesQuery.isLoading ? (
+          <Skeleton className="h-40 w-full" />
+        ) : adEntriesQuery.isError ? (
+          <Card><CardContent className="p-4 text-sm text-destructive">Não foi possível carregar os leads de anúncio. Recarregue a página para tentar de novo.</CardContent></Card>
+        ) : adEntryTable.sources.length === 0 ? (
+          <Card>
+            <CardContent className="p-4 text-sm text-muted-foreground">
+              Nenhum lead de anúncio neste período. Cadastre as palavras-chave do anúncio no rastreamento do canal para começar a contar.
+            </CardContent>
+          </Card>
+        ) : (
+          <Card>
+            <CardContent className="overflow-x-auto p-4">
+              <table className="w-full text-sm">
+                <thead className="text-left text-xs text-muted-foreground">
+                  <tr>
+                    <th className="py-2 pr-3 font-medium">Dia</th>
+                    {adEntryTable.sources.map((source) => (
+                      <th key={source.key} className="py-2 pr-3 text-right font-medium" title={source.label}>
+                        <span className="inline-block max-w-[140px] truncate align-bottom">{source.label}</span>
+                      </th>
+                    ))}
+                    <th className="py-2 pr-3 text-right font-medium">Total</th>
+                    <th className="py-2 text-right font-medium">Agendados</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {adEntryTable.days.map((row) => (
+                    <tr key={row.day} className={cn("border-t tabular-nums", row.total === 0 && "text-muted-foreground")}>
+                      <td className="py-1.5 pr-3">{formatDay(row.day)}</td>
+                      {adEntryTable.sources.map((source) => (
+                        <td key={source.key} className="py-1.5 pr-3 text-right">{row.bySource[source.key] ?? 0}</td>
+                      ))}
+                      <td className="py-1.5 pr-3 text-right font-medium">{row.total}</td>
+                      <td className="py-1.5 text-right">{row.scheduled}</td>
+                    </tr>
+                  ))}
+                  <tr className="border-t-2 font-semibold tabular-nums">
+                    <td className="py-1.5 pr-3">Total</td>
+                    {adEntryTable.sources.map((source) => (
+                      <td key={source.key} className="py-1.5 pr-3 text-right">{adEntryTable.totals.bySource[source.key] ?? 0}</td>
+                    ))}
+                    <td className="py-1.5 pr-3 text-right">{adEntryTable.totals.total}</td>
+                    <td className="py-1.5 text-right">{adEntryTable.totals.scheduled}</td>
+                  </tr>
+                </tbody>
+              </table>
+              <p className="mt-2 text-xs text-muted-foreground">
+                Agendados: leads de anúncio que entraram na etapa de agendamento naquele dia.
+              </p>
+            </CardContent>
+          </Card>
         )}
       </section>
 

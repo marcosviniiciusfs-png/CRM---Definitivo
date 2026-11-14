@@ -232,6 +232,18 @@ palavra-chave do anúncio.
 - Tabela por dia: uma coluna por regra, total de leads e agendados, linha de totais, dias zerados.
 - Leads de formulário do Facebook entram na mesma contagem (no Hurtz eles ficam de fora; aqui não).
 
+**Feito (branch `feat/leads-anuncio-por-dia`):**
+- O registro da entrada já existia: `tracking_match_log` (palavra-chave do canal ou contato
+  desconhecido) e `leads.facebook_lead_id`. Não foi preciso mexer nos webhooks.
+- Migration `20261114230000_panel_ad_entries.sql`: RPC `panel_ad_entries_daily` (uma coluna por
+  palavra-chave + "Formulário da Meta", cada lead uma vez por dia e coluna, dia de Brasília).
+- Tabela "Leads de anúncio por dia" no `/painel`, com dias zerados, totais e agendados de anúncio
+  (mesma contagem do atendimento). Montagem em `src/lib/adEntries.ts`. Funciona com o painel da Meta
+  desligado: não consulta a Meta.
+
+**Diferença para o Hurtz:** o rastreio do KairoZ só olha lead novo, então não há coluna de
+"retorno" (contato que voltou pelo anúncio).
+
 ---
 
 ## Fase 6 — Revisão dos textos existentes
