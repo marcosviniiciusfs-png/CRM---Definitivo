@@ -8,6 +8,9 @@ Aplicação Vite/React com Supabase, Edge Functions e integrações de CRM. Cons
 ## Comandos
 Use os scripts existentes em `package.json`: `npm run dev`, `npm run check` e `npm run preview`. Prefira `npm run check` para a validação integrada quando a tarefa pedir verificação.
 
+## Textos da interface
+Todo texto visível ao usuário (botões, toasts, confirmações, estados vazios, erros) segue `docs/guia-de-escrita.md`.
+
 ## Alterações
 - Confira `git status --short` e preserve alterações locais.
 - Mantenha as Edge Functions e o frontend alinhados aos contratos e migrations atuais.
