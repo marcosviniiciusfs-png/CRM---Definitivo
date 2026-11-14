@@ -1,0 +1,11 @@
+# KairoZ CRM
+
+> CRM online para equipes de vendas gerenciarem leads, tarefas, metas, comissões e integrações.
+
+## Acesso
+
+- [Entrar no CRM](/auth): acesso exclusivo para contas criadas pelo administrador da organização.
+- [Política de privacidade](/privacy-policy): informações sobre tratamento e proteção de dados.
+- [Termos de uso](/terms-of-service): regras de utilização da plataforma.
+
+Não existe cadastro público ou autoatendimento para criação de contas.
