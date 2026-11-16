@@ -2447,6 +2447,7 @@ export type Database = {
         Row: {
           consortium_sale_counts_on: string
           organization_id: string
+          ranking_show_values: boolean
           segment: string
           updated_at: string
           updated_by: string | null
@@ -2454,6 +2455,7 @@ export type Database = {
         Insert: {
           consortium_sale_counts_on?: string
           organization_id: string
+          ranking_show_values?: boolean
           segment?: string
           updated_at?: string
           updated_by?: string | null
@@ -2461,6 +2463,7 @@ export type Database = {
         Update: {
           consortium_sale_counts_on?: string
           organization_id?: string
+          ranking_show_values?: boolean
           segment?: string
           updated_at?: string
           updated_by?: string | null
@@ -2685,6 +2688,90 @@ export type Database = {
           notification_sound_enabled?: boolean | null
           updated_at?: string
           user_id?: string
+        }
+        Relationships: []
+      }
+      score_events: {
+        Row: {
+          amount: number | null
+          created_at: string
+          details: Json
+          event_kind: string
+          id: string
+          lead_id: string | null
+          occurred_at: string
+          occurred_on: string
+          organization_id: string
+          points: number
+          source_id: string
+          source_table: string
+          user_id: string
+          void_reason: string | null
+          voided_at: string | null
+        }
+        Insert: {
+          amount?: number | null
+          created_at?: string
+          details?: Json
+          event_kind: string
+          id?: string
+          lead_id?: string | null
+          occurred_at: string
+          occurred_on: string
+          organization_id: string
+          points?: number
+          source_id: string
+          source_table: string
+          user_id: string
+          void_reason?: string | null
+          voided_at?: string | null
+        }
+        Update: {
+          amount?: number | null
+          created_at?: string
+          details?: Json
+          event_kind?: string
+          id?: string
+          lead_id?: string | null
+          occurred_at?: string
+          occurred_on?: string
+          organization_id?: string
+          points?: number
+          source_id?: string
+          source_table?: string
+          user_id?: string
+          void_reason?: string | null
+          voided_at?: string | null
+        }
+        Relationships: []
+      }
+      score_rules: {
+        Row: {
+          daily_cap: number | null
+          enabled: boolean
+          event_kind: string
+          organization_id: string
+          points: number
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          daily_cap?: number | null
+          enabled?: boolean
+          event_kind: string
+          organization_id: string
+          points: number
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          daily_cap?: number | null
+          enabled?: boolean
+          event_kind?: string
+          organization_id?: string
+          points?: number
+          updated_at?: string
+          updated_by?: string | null
         }
         Relationships: []
       }
@@ -4056,9 +4143,26 @@ export type Database = {
         Args: { p_organization_id: string; p_rule: string }
         Returns: string
       }
+      set_ranking_show_values: {
+        Args: { p_organization_id: string; p_show: boolean }
+        Returns: boolean
+      }
       set_organization_segment: {
         Args: { p_organization_id: string; p_segment: string }
         Returns: string
+      }
+      ranking_board: {
+        Args: { p_from: string; p_organization_id: string; p_to: string }
+        Returns: {
+          fast_replies: number
+          leads_received: number
+          meetings_done: number
+          meetings_scheduled: number
+          points: number
+          production: number | null
+          sales: number
+          user_id: string
+        }[]
       }
       reveal_ranking_competition: {
         Args: { p_org_id: string }
