@@ -55,6 +55,9 @@ const DataDeletion = lazy(() => import("./pages/DataDeletion"));
 const Pricing = lazy(() => import("./pages/Pricing"));
 const PaymentSuccess = lazy(() => import("./pages/PaymentSuccess"));
 const DemoDashboard = lazy(() => import("./pages/DemoDashboard"));
+const Simulador = lazy(() => import("./pages/Simulador"));
+const SimuladorPlanos = lazy(() => import("./pages/SimuladorPlanos"));
+const PropostaPublica = lazy(() => import("./pages/PropostaPublica"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 // QueryClient otimizado com cache
@@ -122,6 +125,8 @@ const App = () => {
                         <Route path="/administrativo/producao" element={<ProtectedRoute><DashboardLayout><LazyPage><Producao /></LazyPage></DashboardLayout></ProtectedRoute>} />
                         <Route path="/administrativo/equipes" element={<ProtectedRoute><DashboardLayout><LazyPage><Equipes /></LazyPage></DashboardLayout></ProtectedRoute>} />
                         <Route path="/administrativo/atividades" element={<ProtectedRoute><DashboardLayout><LazyPage><Atividades /></LazyPage></DashboardLayout></ProtectedRoute>} />
+                        <Route path="/simulador" element={<ProtectedRoute><DashboardLayout><LazyPage><Simulador /></LazyPage></DashboardLayout></ProtectedRoute>} />
+                        <Route path="/simulador/planos" element={<ProtectedRoute><DashboardLayout><LazyPage><SimuladorPlanos /></LazyPage></DashboardLayout></ProtectedRoute>} />
                         <Route path="/tasks" element={<ProtectedRoute><DashboardLayout><LazyPage><Tasks /></LazyPage></DashboardLayout></ProtectedRoute>} />
                         <Route path="/integrations" element={<ProtectedRoute><SectionGate><DashboardLayout><LazyPage><Integrations /></LazyPage></DashboardLayout></SectionGate></ProtectedRoute>} />
                         <Route path="/settings" element={<ProtectedRoute><DashboardLayout><LazyPage><Settings /></LazyPage></DashboardLayout></ProtectedRoute>} />
@@ -136,6 +141,8 @@ const App = () => {
                     </Route>
                     <Route path="/admin" element={<SuperAdminRoute><LazyPage><AdminDashboard /></LazyPage></SuperAdminRoute>} />
                     <Route path="/admin/user/:userId" element={<SuperAdminRoute><LazyPage><AdminUserDetails /></LazyPage></SuperAdminRoute>} />
+                    {/* Proposta de consórcio aberta pelo cliente, sem login. */}
+                    <Route path="/proposta/:token" element={<LazyPage><PropostaPublica /></LazyPage>} />
                     <Route path="/privacy-policy" element={<LazyPage><PrivacyPolicy /></LazyPage>} />
                     <Route path="/terms-of-service" element={<LazyPage><TermsOfService /></LazyPage>} />
                     <Route path="/data-deletion" element={<LazyPage><DataDeletion /></LazyPage>} />

@@ -1,4 +1,4 @@
-import { Home, Filter, CheckSquare, Users, Settings, LogOut, MessageCircle, Lock, Unlock, ChevronDown, Building2, UserCircle, Layers, Activity, BarChart2, Shuffle, Puzzle, Trophy, AlertTriangle, CalendarDays, Gauge, type LucideIcon } from "lucide-react";
+import { Home, Filter, CheckSquare, Users, Settings, LogOut, MessageCircle, Lock, Unlock, ChevronDown, Building2, UserCircle, Layers, Activity, BarChart2, Shuffle, Puzzle, Trophy, AlertTriangle, CalendarDays, Gauge, Calculator, type LucideIcon } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLocation } from "react-router-dom";
@@ -16,6 +16,7 @@ import { cn } from "@/lib/utils";
 import { useTaskAlert } from "@/contexts/TaskAlertContext";
 import { SIDEBAR_LOCK_KEY, readSidebarLocked } from "@/lib/sidebarLock";
 import { demoAwareUrl } from "@/lib/demoMode";
+import { useOrganizationSegment } from "@/hooks/useOrganizationSegment";
 import {
   Sidebar,
   SidebarContent,
@@ -66,6 +67,8 @@ interface NavItem {
   title: string;
   url: string;
   icon: LucideIcon;
+  /** Só aparece no modo consórcio. */
+  consorcioOnly?: boolean;
 }
 
 // Grupos do menu (DESIGN.md: menu com nomes e grupos Vendas, Análise e Equipe).
@@ -77,6 +80,7 @@ const NAV_GROUPS: Array<{ label: string; items: NavItem[]; withAdmin?: boolean }
       { title: "Funil de vendas", url: "/pipeline", icon: Filter },
       { title: "Chat", url: "/chat", icon: MessageCircle },
       { title: "Reuniões", url: "/reunioes", icon: CalendarDays },
+      { title: "Simulador", url: "/simulador", icon: Calculator, consorcioOnly: true },
       { title: "Tarefas", url: "/tasks", icon: CheckSquare },
     ],
   },
@@ -125,6 +129,7 @@ function AppSidebarComponent() {
   const { hasPendingTasks, needsAudioPermission } = useTaskAlert();
 
   const { sectionAccess, loading: sectionLoading } = useSectionAccess();
+  const { isConsorcio } = useOrganizationSegment();
 
   // Helper: check if a URL is visible based on section access + custom role
   const isSectionVisible = useCallback((url: string) => {
@@ -218,6 +223,7 @@ function AppSidebarComponent() {
   };
 
   const renderNavItem = (item: NavItem) => {
+    if (item.consorcioOnly && !isConsorcio) return null;
     if (isItemHidden(item.url)) return null;
     const locked = isFeatureLocked(item.url);
 

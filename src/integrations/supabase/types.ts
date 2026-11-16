@@ -462,6 +462,120 @@ export type Database = {
         }
         Relationships: []
       }
+      consortium_plans: {
+        Row: {
+          adjustment_index: string
+          admin_fee_percent: number
+          administrator_id: string
+          asset_type: string
+          created_at: string
+          created_by: string | null
+          credit_max: number
+          credit_min: number
+          fixed_bid_percent: number | null
+          id: string
+          insurance_monthly_percent: number
+          is_active: boolean
+          max_embedded_bid_percent: number
+          name: string
+          notes: string | null
+          organization_id: string
+          reduced_installment_percent: number
+          reserve_fund_percent: number
+          terms: number[]
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          adjustment_index?: string
+          admin_fee_percent: number
+          administrator_id: string
+          asset_type: string
+          created_at?: string
+          created_by?: string | null
+          credit_max: number
+          credit_min: number
+          fixed_bid_percent?: number | null
+          id?: string
+          insurance_monthly_percent?: number
+          is_active?: boolean
+          max_embedded_bid_percent?: number
+          name: string
+          notes?: string | null
+          organization_id: string
+          reduced_installment_percent?: number
+          reserve_fund_percent?: number
+          terms: number[]
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          adjustment_index?: string
+          admin_fee_percent?: number
+          administrator_id?: string
+          asset_type?: string
+          created_at?: string
+          created_by?: string | null
+          credit_max?: number
+          credit_min?: number
+          fixed_bid_percent?: number | null
+          id?: string
+          insurance_monthly_percent?: number
+          is_active?: boolean
+          max_embedded_bid_percent?: number
+          name?: string
+          notes?: string | null
+          organization_id?: string
+          reduced_installment_percent?: number
+          reserve_fund_percent?: number
+          terms?: number[]
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
+      consortium_proposals: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          expires_at: string
+          first_viewed_at: string | null
+          id: string
+          last_viewed_at: string | null
+          lead_id: string
+          organization_id: string
+          payload: Json
+          token: string
+          view_count: number
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          expires_at?: string
+          first_viewed_at?: string | null
+          id?: string
+          last_viewed_at?: string | null
+          lead_id: string
+          organization_id: string
+          payload: Json
+          token?: string
+          view_count?: number
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          expires_at?: string
+          first_viewed_at?: string | null
+          id?: string
+          last_viewed_at?: string | null
+          lead_id?: string
+          organization_id?: string
+          payload?: Json
+          token?: string
+          view_count?: number
+        }
+        Relationships: []
+      }
       consortium_sales: {
         Row: {
           adhesion_date: string
@@ -4051,6 +4165,10 @@ export type Database = {
           sales_count: number
           seller_user_id: string | null
         }[]
+      }
+      view_consortium_proposal: {
+        Args: { p_token: string }
+        Returns: Json
       }
       set_consortium_sale_rule: {
         Args: { p_organization_id: string; p_rule: string }

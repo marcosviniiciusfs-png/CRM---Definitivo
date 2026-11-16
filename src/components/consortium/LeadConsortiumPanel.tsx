@@ -43,6 +43,7 @@ import {
 } from "@/hooks/useConsortium";
 import { useOrganizationSegment } from "@/hooks/useOrganizationSegment";
 import { ConsortiumSaleDialog } from "./ConsortiumSaleDialog";
+import { LeadProposalsCard } from "./LeadProposalsCard";
 
 const NONE = "__none__";
 
@@ -66,6 +67,7 @@ export function LeadConsortiumPanel({ leadId, leadName, leadValue }: LeadConsort
   return (
     <div className="space-y-3 sm:space-y-4">
       <QualificationCard leadId={leadId} />
+      <LeadProposalsCard leadId={leadId} leadName={leadName} />
       <SalesCard leadId={leadId} leadName={leadName} leadValue={leadValue} />
     </div>
   );
