@@ -213,3 +213,8 @@ verify_jwt = false
 
 [functions.panel-meta-insights]
 verify_jwt = false
+
+# Super admin entra na conta de um usuário (suporte). Gateway exige JWT; a função
+# confere de novo o usuário e o papel super_admin em user_roles.
+[functions.impersonate-user]
+verify_jwt = true

@@ -2990,6 +2990,39 @@ export type Database = {
           },
         ]
       }
+      impersonation_logs: {
+        Row: {
+          actor_user_id: string
+          ended_at: string | null
+          id: string
+          reason: string
+          started_at: string
+          target_organization_id: string | null
+          target_user_id: string
+          user_agent: string | null
+        }
+        Insert: {
+          actor_user_id: string
+          ended_at?: string | null
+          id?: string
+          reason: string
+          started_at?: string
+          target_organization_id?: string | null
+          target_user_id: string
+          user_agent?: string | null
+        }
+        Update: {
+          actor_user_id?: string
+          ended_at?: string | null
+          id?: string
+          reason?: string
+          started_at?: string
+          target_organization_id?: string | null
+          target_user_id?: string
+          user_agent?: string | null
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           created_at: string
@@ -4029,6 +4062,7 @@ export type Database = {
       }
       has_org_access: { Args: { org_id: string }; Returns: boolean }
       has_role: { Args: { _role: string; _user_id: string }; Returns: boolean }
+      end_impersonation: { Args: { p_log_id: string }; Returns: boolean }
       is_same_organization: {
         Args: { _organization_id: string; _user_id: string }
         Returns: boolean
