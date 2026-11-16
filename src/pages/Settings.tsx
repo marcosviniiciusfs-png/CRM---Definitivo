@@ -16,6 +16,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { AvatarUpload } from "@/components/AvatarUpload";
 import { OrganizationSegmentCard } from "@/components/settings/OrganizationSegmentCard";
+import { RankingSettingsCard } from "@/components/settings/RankingSettingsCard";
 import { ConsortiumAdministratorsCard, ConsortiumSaleRuleCard } from "@/components/settings/ConsortiumSettingsCards";
 import { useOrganizationSegment } from "@/hooks/useOrganizationSegment";
 import { usePermissions } from "@/hooks/usePermissions";
@@ -276,6 +277,7 @@ const Settings = () => {
         {canManageOrganization && (
           <TabsContent value="organizacao" className="space-y-3 sm:space-y-4 md:space-y-6 mt-3 sm:mt-4 md:mt-6">
             <OrganizationSegmentCard />
+            <RankingSettingsCard />
             {isConsorcio && (
               <>
                 <ConsortiumSaleRuleCard />

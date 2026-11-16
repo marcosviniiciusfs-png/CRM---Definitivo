@@ -23,6 +23,7 @@ export const demoSectionAccess: Record<string, boolean> = {
 const DEMO_URLS: Record<string, string> = {
   "/pipeline": "/demo-pipeline",
   "/dashboard": "/demo-dashboard",
+  "/ranking": "/demo-ranking",
 };
 
 /** Nas rotas de demonstração (só em DEV), os links do menu apontam para a versão demo. */

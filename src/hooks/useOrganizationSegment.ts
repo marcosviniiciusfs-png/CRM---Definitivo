@@ -8,10 +8,11 @@ import type { SaleCountsOn } from "@/lib/consortium";
 interface OrganizationSettings {
   segment: OrganizationSegment;
   saleRule: SaleCountsOn;
+  rankingShowValues: boolean;
 }
 
-const DEFAULT_SETTINGS: OrganizationSettings = { segment: "generico", saleRule: "adesao" };
-const DEMO_SETTINGS: OrganizationSettings = { segment: "consorcio", saleRule: "adesao" };
+const DEFAULT_SETTINGS: OrganizationSettings = { segment: "generico", saleRule: "adesao", rankingShowValues: true };
+const DEMO_SETTINGS: OrganizationSettings = { segment: "consorcio", saleRule: "adesao", rankingShowValues: true };
 
 export const organizationSettingsKey = (organizationId: string | null) => ["organization-settings", organizationId] as const;
 
@@ -30,7 +31,7 @@ export function useOrganizationSegment() {
       if (!organizationId) return DEFAULT_SETTINGS;
       const { data, error } = await supabase
         .from("organization_settings")
-        .select("segment, consortium_sale_counts_on")
+        .select("segment, consortium_sale_counts_on, ranking_show_values")
         .eq("organization_id", organizationId)
         .maybeSingle();
       if (error) {
@@ -40,6 +41,7 @@ export function useOrganizationSegment() {
       return {
         segment: isOrganizationSegment(data?.segment) ? data.segment : "generico",
         saleRule: data?.consortium_sale_counts_on === "primeira_parcela" ? "primeira_parcela" : "adesao",
+        rankingShowValues: data?.ranking_show_values ?? true,
       };
     },
     enabled: !demo && !!organizationId,
@@ -50,6 +52,7 @@ export function useOrganizationSegment() {
   return {
     segment: settings.segment,
     saleRule: settings.saleRule,
+    rankingShowValues: settings.rankingShowValues,
     isConsorcio: settings.segment === "consorcio",
     terms: getSegmentTerms(settings.segment),
     loading: !demo && query.isLoading,
@@ -102,5 +105,23 @@ export function useSetConsortiumSaleRule() {
       return rule;
     },
     onSuccess: (saleRule) => updateCache({ saleRule }),
+  });
+}
+
+export function useSetRankingShowValues() {
+  const { organizationId } = useOrganization();
+  const updateCache = useUpdateSettingsCache();
+
+  return useMutation({
+    mutationFn: async (show: boolean) => {
+      if (!organizationId) throw new Error("Organização não encontrada.");
+      const { error } = await supabase.rpc("set_ranking_show_values", {
+        p_organization_id: organizationId,
+        p_show: show,
+      });
+      if (error) throw error;
+      return show;
+    },
+    onSuccess: (rankingShowValues) => updateCache({ rankingShowValues }),
   });
 }
