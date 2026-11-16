@@ -1,4 +1,5 @@
-import { Home, Filter, CheckSquare, Users, Settings, LogOut, MessageCircle, Lock, Unlock, ChevronDown, Building2, UserCircle, Layers, Activity, BarChart2, Shuffle, Puzzle, Trophy, AlertTriangle, CalendarDays, Gauge, type LucideIcon } from "lucide-react";
+import { Home, Filter, CheckSquare, Users, Settings, LogOut, MessageCircle, Lock, Unlock, ChevronDown, Building2, UserCircle, Layers, Activity, BarChart2, Shuffle, Puzzle, Trophy, AlertTriangle, CalendarDays, Gauge, Wallet, type LucideIcon } from "lucide-react";
+import { useOrganizationSegment } from "@/hooks/useOrganizationSegment";
 import { NavLink } from "@/components/NavLink";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLocation } from "react-router-dom";
@@ -92,6 +93,7 @@ const NAV_GROUPS: Array<{ label: string; items: NavItem[]; withAdmin?: boolean }
     label: "Equipe",
     items: [
       { title: "Roleta de leads", url: "/lead-distribution", icon: Shuffle },
+      { title: "Comissões", url: "/comissoes", icon: Wallet },
     ],
     withAdmin: true,
   },
@@ -121,6 +123,7 @@ function AppSidebarComponent() {
   const { theme } = useTheme();
   const { signOut, user, subscriptionData, isSuperAdmin, roleLoading } = useAuth();
   const permissions = usePermissions();
+  const { isConsorcio } = useOrganizationSegment();
   const { canAccessChat } = useChatAccess();
   const { hasPendingTasks, needsAudioPermission } = useTaskAlert();
 
@@ -213,6 +216,8 @@ function AppSidebarComponent() {
   }, [isLocked, setOpen, isMobile]);
 
   const isItemHidden = (url: string) => {
+    // Comissões de consórcio só existem no modo consórcio; organizações genéricas não mudam.
+    if (url === '/comissoes' && !isConsorcio) return true;
     if ((url === '/lead-metrics' || url === '/painel') && !permissions.canViewTeamMetrics) return true;
     return isSectionVisible(url) === false;
   };

@@ -462,11 +462,156 @@ export type Database = {
         }
         Relationships: []
       }
+      consortium_commission_installments: {
+        Row: {
+          administrator_id: string | null
+          amount: number
+          commission_rule_id: string | null
+          created_at: string
+          due_month: string
+          id: string
+          n: number
+          organization_id: string
+          paid_on: string | null
+          production_month: string
+          received_on: string | null
+          sale_id: string
+          seller_amount: number
+          seller_share_percent: number
+          seller_user_id: string | null
+          status: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          administrator_id?: string | null
+          amount: number
+          commission_rule_id?: string | null
+          created_at?: string
+          due_month: string
+          id?: string
+          n: number
+          organization_id: string
+          paid_on?: string | null
+          production_month: string
+          received_on?: string | null
+          sale_id: string
+          seller_amount?: number
+          seller_share_percent?: number
+          seller_user_id?: string | null
+          status?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          administrator_id?: string | null
+          amount?: number
+          commission_rule_id?: string | null
+          created_at?: string
+          due_month?: string
+          id?: string
+          n?: number
+          organization_id?: string
+          paid_on?: string | null
+          production_month?: string
+          received_on?: string | null
+          sale_id?: string
+          seller_amount?: number
+          seller_share_percent?: number
+          seller_user_id?: string | null
+          status?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "consortium_commission_installments_sale_id_fkey"
+            columns: ["sale_id"]
+            isOneToOne: false
+            referencedRelation: "consortium_sales"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "consortium_commission_installments_administrator_id_fkey"
+            columns: ["administrator_id"]
+            isOneToOne: false
+            referencedRelation: "consortium_administrators"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "consortium_commission_installments_commission_rule_id_fkey"
+            columns: ["commission_rule_id"]
+            isOneToOne: false
+            referencedRelation: "consortium_commission_rules"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      consortium_commission_rules: {
+        Row: {
+          administrator_id: string | null
+          asset_type: string | null
+          chargeback: Json
+          commission_percent: number
+          created_at: string
+          created_by: string | null
+          id: string
+          installment_percents: number[]
+          is_active: boolean
+          organization_id: string
+          seller_share_percent: number
+          seller_tiers: Json | null
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          administrator_id?: string | null
+          asset_type?: string | null
+          chargeback?: Json
+          commission_percent: number
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          installment_percents: number[]
+          is_active?: boolean
+          organization_id: string
+          seller_share_percent?: number
+          seller_tiers?: Json | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          administrator_id?: string | null
+          asset_type?: string | null
+          chargeback?: Json
+          commission_percent?: number
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          installment_percents?: number[]
+          is_active?: boolean
+          organization_id?: string
+          seller_share_percent?: number
+          seller_tiers?: Json | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "consortium_commission_rules_administrator_id_fkey"
+            columns: ["administrator_id"]
+            isOneToOne: false
+            referencedRelation: "consortium_administrators"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       consortium_sales: {
         Row: {
           adhesion_date: string
           administrator_id: string | null
           asset_type: string | null
+          cancel_at_installment: number | null
           cancel_reason: string | null
           cancelled_on: string | null
           contract_number: string | null
@@ -490,6 +635,7 @@ export type Database = {
           adhesion_date?: string
           administrator_id?: string | null
           asset_type?: string | null
+          cancel_at_installment?: number | null
           cancel_reason?: string | null
           cancelled_on?: string | null
           contract_number?: string | null
@@ -513,6 +659,7 @@ export type Database = {
           adhesion_date?: string
           administrator_id?: string | null
           asset_type?: string | null
+          cancel_at_installment?: number | null
           cancel_reason?: string | null
           cancelled_on?: string | null
           contract_number?: string | null
@@ -532,7 +679,22 @@ export type Database = {
           updated_at?: string
           updated_by?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "consortium_sales_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "consortium_sales_administrator_id_fkey"
+            columns: ["administrator_id"]
+            isOneToOne: false
+            referencedRelation: "consortium_administrators"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       commission_configs: {
         Row: {
@@ -4043,6 +4205,10 @@ export type Database = {
           roulettes_in: number
           teams_as_leader: number
         }
+      }
+      consortium_commission_generate_pending: {
+        Args: { p_organization_id: string }
+        Returns: number
       }
       consortium_sales_summary: {
         Args: { p_from: string; p_organization_id: string; p_to: string }

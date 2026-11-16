@@ -184,6 +184,14 @@ function SalesCard({ leadId, leadName, leadValue }: LeadConsortiumPanelProps) {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [cancelling, setCancelling] = useState<ConsortiumSale | null>(null);
   const [cancelReason, setCancelReason] = useState("");
+  const [cancelInstallment, setCancelInstallment] = useState("");
+
+  const openCancel = (sale: ConsortiumSale) => {
+    setCancelling(sale);
+    setCancelReason("");
+    // Sem a 1ª parcela paga, a cota cancela na parcela 1.
+    setCancelInstallment(sale.status === "aguardando_primeira_parcela" ? "1" : "");
+  };
 
   const adminName = (id: string | null) => administrators.find((a) => a.id === id)?.name ?? null;
   const countedTotal = sales
@@ -205,13 +213,24 @@ function SalesCard({ leadId, leadName, leadValue }: LeadConsortiumPanelProps) {
 
   const confirmCancel = () => {
     if (!cancelling) return;
+    const installment = parseMonths(cancelInstallment, cancelling.term_months ?? 300);
+    if (!installment) {
+      toast.error(cancelling.term_months
+        ? `Informe a parcela do cancelamento, de 1 a ${cancelling.term_months}.`
+        : "Informe a parcela do cancelamento, de 1 a 300.");
+      return;
+    }
     updateSale.mutate(
-      { id: cancelling.id, patch: { status: "cancelada", cancel_reason: cancelReason.trim() || null } },
+      {
+        id: cancelling.id,
+        patch: { status: "cancelada", cancel_reason: cancelReason.trim() || null, cancel_at_installment: installment },
+      },
       {
         onSuccess: () => {
           toast.success("Cota cancelada. Ela saiu da produção.");
           setCancelling(null);
           setCancelReason("");
+          setCancelInstallment("");
         },
         onError: (error) => {
           console.error("Erro ao cancelar a cota:", error);
@@ -268,7 +287,7 @@ function SalesCard({ leadId, leadName, leadValue }: LeadConsortiumPanelProps) {
                           Confirmar 1ª parcela
                         </Button>
                       )}
-                      <Button variant="ghost" size="sm" className="h-7 px-2.5 text-xs text-muted-foreground" onClick={() => setCancelling(sale)}>
+                      <Button variant="ghost" size="sm" className="h-7 px-2.5 text-xs text-muted-foreground" onClick={() => openCancel(sale)}>
                         Cancelar cota
                       </Button>
                     </div>
@@ -297,16 +316,35 @@ function SalesCard({ leadId, leadName, leadValue }: LeadConsortiumPanelProps) {
           <AlertDialogHeader>
             <AlertDialogTitle>Cancelar esta cota?</AlertDialogTitle>
             <AlertDialogDescription>
-              A cota de {cancelling ? formatBRL(Number(cancelling.credit_amount)) : ""} sai da produção e do ranking. O registro continua no histórico do lead.
+              A cota de {cancelling ? formatBRL(Number(cancelling.credit_amount)) : ""} sai da produção e do ranking. As parcelas de comissão que faltam são canceladas e o estorno segue a regra da administradora. O registro continua no histórico do lead.
             </AlertDialogDescription>
           </AlertDialogHeader>
+          <div className="space-y-1.5">
+            <Label htmlFor="cancel-installment">Parcela do cliente em que cancelou</Label>
+            <Input
+              id="cancel-installment"
+              className="h-9 w-28 tabular-nums"
+              value={cancelInstallment}
+              onChange={(e) => setCancelInstallment(e.target.value.replace(/\D/g, "").slice(0, 3))}
+              inputMode="numeric"
+              placeholder="Ex.: 4"
+            />
+            <p className="text-xs text-muted-foreground">Decide quanto da comissão volta para a administradora.</p>
+          </div>
           <div className="space-y-1.5">
             <Label htmlFor="cancel-reason">Motivo (opcional)</Label>
             <Textarea id="cancel-reason" value={cancelReason} onChange={(e) => setCancelReason(e.target.value.slice(0, 300))} rows={2} placeholder="Ex.: cliente desistiu antes da 1ª parcela" />
           </div>
           <AlertDialogFooter>
             <AlertDialogCancel>Manter cota</AlertDialogCancel>
-            <AlertDialogAction className="bg-destructive text-destructive-foreground hover:bg-destructive/90" onClick={confirmCancel}>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={(event) => {
+                event.preventDefault();
+                confirmCancel();
+              }}
+              disabled={updateSale.isPending}
+            >
               Cancelar cota
             </AlertDialogAction>
           </AlertDialogFooter>

@@ -91,6 +91,16 @@ Ficou para depois:
 - **Relatórios:** por vendedor, equipe, administradora e período. O vendedor vê a própria comissão prevista.
 - Substitui as comissões genéricas atuais nas organizações em modo consórcio.
 
+Feito na Fase 4:
+- Tabelas `consortium_commission_rules` e `consortium_commission_installments`, coluna `consortium_sales.cancel_at_installment` (migration `20261116210000_consortium_commissions.sql`).
+- Parcelas geradas no servidor quando a cota passa a contar; cancelamento cancela as parcelas a partir da parcela do cancelamento e cria um estorno sobre o que já foi recebido; a parte do vendedor segue a faixa de produção do mês inteiro.
+- Tela Comissões (`/comissoes`, menu Equipe, só no modo consórcio): Previsão, Parcelas (conciliação em lote), Regras e Importar extrato. O vendedor vê "Minhas comissões".
+- A aba genérica de comissões em Colaboradores some no modo consórcio.
+
+Ficou para depois:
+- Mudar a regra, o crédito ou o vendedor não recalcula parcelas já geradas (estorno e faixas leem a regra atual).
+- Divisão com supervisor, relatórios por equipe e valor recebido diferente do previsto (o extrato só aponta a diferença).
+
 ### Fase 5: gamificação completa (média)
 
 - Fases 2 a 4 do plano de gamificação: metas de produção com ritmo (também por administradora), níveis, medalhas, sequências, campanhas com prêmio, feed ao vivo e modo TV.

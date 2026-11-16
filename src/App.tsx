@@ -42,6 +42,7 @@ const Colaboradores = lazy(() => import("./pages/Colaboradores"));
 const Equipes = lazy(() => import("./pages/Equipes"));
 const Atividades = lazy(() => import("./pages/Atividades"));
 const Producao = lazy(() => import("./pages/Producao"));
+const Comissoes = lazy(() => import("./pages/Comissoes"));
 const AdminDashboard = lazy(() => import("./pages/AdminDashboard"));
 const AdminUserDetails = lazy(() => import("./pages/AdminUserDetails"));
 const AdminLogin = lazy(() => import("./pages/AdminLogin"));
@@ -120,6 +121,7 @@ const App = () => {
                         <Route path="/reunioes" element={<ProtectedRoute><DashboardLayout><LazyPage><Reunioes /></LazyPage></DashboardLayout></ProtectedRoute>} />
                         <Route path="/administrativo/colaboradores" element={<ProtectedRoute><DashboardLayout><LazyPage><Colaboradores /></LazyPage></DashboardLayout></ProtectedRoute>} />
                         <Route path="/administrativo/producao" element={<ProtectedRoute><DashboardLayout><LazyPage><Producao /></LazyPage></DashboardLayout></ProtectedRoute>} />
+                        <Route path="/comissoes" element={<ProtectedRoute><DashboardLayout><LazyPage><Comissoes /></LazyPage></DashboardLayout></ProtectedRoute>} />
                         <Route path="/administrativo/equipes" element={<ProtectedRoute><DashboardLayout><LazyPage><Equipes /></LazyPage></DashboardLayout></ProtectedRoute>} />
                         <Route path="/administrativo/atividades" element={<ProtectedRoute><DashboardLayout><LazyPage><Atividades /></LazyPage></DashboardLayout></ProtectedRoute>} />
                         <Route path="/tasks" element={<ProtectedRoute><DashboardLayout><LazyPage><Tasks /></LazyPage></DashboardLayout></ProtectedRoute>} />
