@@ -12,7 +12,7 @@
     "build:dev": "vite build --mode development",
     "lint": "eslint src",
     "typecheck": "tsc -p tsconfig.app.json --noEmit",
-    "test": "node --import tsx --test tests/lead-duplicate.test.ts tests/whatsapp-display-name.test.ts tests/whatsapp-self-reported-name.test.ts tests/stage-events.test.ts tests/stage-actions.test.ts tests/appointment-reminders.test.ts tests/lead-card-state.test.ts tests/panel-metrics.test.ts tests/panel-rates.test.ts tests/ad-entries.test.ts tests/segment-and-money.test.ts tests/consortium.test.ts tests/scoring.test.ts tests/gamification.test.ts supabase/functions/_shared/facebook-lead-policy.node.test.ts",
+    "test": "node --import tsx --test tests/lead-duplicate.test.ts tests/whatsapp-display-name.test.ts tests/whatsapp-self-reported-name.test.ts tests/stage-events.test.ts tests/stage-actions.test.ts tests/appointment-reminders.test.ts tests/lead-card-state.test.ts tests/panel-metrics.test.ts tests/panel-rates.test.ts tests/ad-entries.test.ts tests/segment-and-money.test.ts tests/consortium.test.ts tests/scoring.test.ts tests/gamification.test.ts supabase/functions/_shared/facebook-lead-policy.node.test.ts tests/consortium-simulator.test.ts",
     "check": "npm run typecheck && npm run lint && npm run test && npm run build",
     "preview": "vite preview"
   },
