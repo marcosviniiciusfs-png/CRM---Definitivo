@@ -1,5 +1,5 @@
-import { Badge } from "@/components/ui/badge";
 import { SortableLeadCard } from "./LeadCard";
+import { formatBRLCompact } from "@/lib/money";
 import { cn } from "@/lib/utils";
 import { useDroppable } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
@@ -107,54 +107,54 @@ export const PipelineColumn = memo(({
 
   const needsReplyCount = leads.filter((lead) => attentionMap[lead.id]?.kind === 'needs_reply').length;
   const overdueCount = leads.filter((lead) => attentionMap[lead.id]?.kind === 'overdue').length;
+  const stageTotal = leads.reduce((sum, lead) => sum + (Number(lead.valor) || 0), 0);
 
   return (
-    <div ref={columnRef} className="flex flex-col w-[184px] md:w-[210px] lg:w-[224px] flex-shrink-0 h-full">
-      <div className="flex items-center justify-between gap-2 mb-1.5">
-        <h3 className="min-w-0 truncate font-semibold text-sm text-foreground">{title}</h3>
-        <Badge
-          className={cn(
-            "rounded-full w-auto min-w-6 h-6 flex shrink-0 items-center justify-center px-2 text-xs",
-            isHexColor(color) ? "text-white" : "",
-            !isHexColor(color) && color
-          )}
+    <div ref={columnRef} className="flex flex-col w-[236px] md:w-[252px] lg:w-[272px] flex-shrink-0 h-full rounded-xl bg-secondary p-1.5">
+      <div className="flex items-center gap-2 px-1.5 pt-1 pb-1.5">
+        {/* A cor da etapa aparece só como um ponto de 8 px (DESIGN.md). */}
+        <span
+          aria-hidden="true"
+          className={cn("h-2 w-2 shrink-0 rounded-full", !isHexColor(color) && color)}
           style={isHexColor(color) ? { backgroundColor: color } : undefined}
-        >
-          {pagination ? `${pagination.loadedCount}/${pagination.totalCount}` : count}
-        </Badge>
+        />
+        <h3 className="min-w-0 truncate text-[13px] font-semibold text-foreground">{title}</h3>
+        <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
+          {pagination && pagination.hasMore ? `${pagination.loadedCount}/${pagination.totalCount}` : count}
+        </span>
+        {stageTotal > 0 && (
+          <span className="ml-auto shrink-0 text-xs font-medium tabular-nums text-muted-foreground" title="Soma dos valores dos leads carregados nesta etapa">
+            {formatBRLCompact(stageTotal)}
+          </span>
+        )}
       </div>
 
       {(needsReplyCount > 0 || overdueCount > 0) && (
-        <p className="mb-1 flex gap-2 text-[10px] text-muted-foreground" title="Entre os leads carregados nesta etapa">
+        <p className="mb-1 flex gap-2 px-1.5 text-[11px] font-medium" title="Entre os leads carregados nesta etapa">
           {needsReplyCount > 0 && (
-            <span className="text-amber-600 dark:text-amber-400">
+            <span className="text-warning">
               {needsReplyCount} aguardando resposta
             </span>
           )}
           {overdueCount > 0 && (
-            <span className="text-red-600 dark:text-red-400">
+            <span className="text-destructive">
               {overdueCount} {overdueCount === 1 ? 'atrasada' : 'atrasadas'}
             </span>
           )}
         </p>
       )}
 
-      <div
-        className={cn("h-0.5 mb-2 rounded-full", !isHexColor(color) && color)}
-        style={isHexColor(color) ? { backgroundColor: color } : undefined}
-      />
-
       <SortableContext items={leads.map((l) => l.id)} strategy={verticalListSortingStrategy}>
         <div
           ref={setNodeRef}
           className={cn(
-            "pipeline-column space-y-2 flex-1 min-h-0 overflow-y-auto p-1.5 pb-4 rounded-lg scrollbar-subtle transition-colors duration-200",
-            isOver && "bg-muted/50 ring-2 ring-primary/20"
+            "pipeline-column space-y-1.5 flex-1 min-h-0 overflow-y-auto p-0.5 pb-3 rounded-lg scrollbar-subtle transition-colors duration-200",
+            isOver && "bg-accent/70 ring-1 ring-border-strong"
           )}
         >
           {isEmpty ? (
-            <p className="text-xs text-muted-foreground text-center py-4">
-              Nenhum lead nesta etapa ainda.
+            <p className="text-xs text-muted-foreground text-center py-6">
+              Nenhum lead nesta etapa.
             </p>
           ) : shouldRenderCards ? (
             leads.map((lead) => {
@@ -213,9 +213,9 @@ export const PipelineColumn = memo(({
               onClick={onLoadMore}
               disabled={pagination.isLoading}
               className={cn(
-                "w-full py-2.5 px-3 text-xs font-medium rounded-md transition-colors flex-shrink-0",
-                "border border-dashed border-muted-foreground/30",
-                "hover:border-primary/50 hover:bg-muted/50",
+                "w-full py-2 px-3 text-xs font-medium rounded-md transition-colors flex-shrink-0 text-foreground/80",
+                "border border-dashed border-border-strong",
+                "hover:bg-card",
                 "disabled:opacity-50 disabled:cursor-not-allowed",
                 "mt-2 mb-1"
               )}
@@ -235,7 +235,7 @@ export const PipelineColumn = memo(({
           )}
 
           {/* Info de paginação */}
-          {pagination && pagination.totalCount > 0 && (
+          {pagination && pagination.hasMore && (
             <p className="text-[10px] text-muted-foreground text-center py-1">
               Exibindo {pagination.loadedCount} de {pagination.totalCount} leads
             </p>
@@ -255,6 +255,7 @@ export const PipelineColumn = memo(({
     prevProps.leads.length === nextProps.leads.length &&
     prevProps.leads.every((lead, i) =>
       lead.id === nextProps.leads[i]?.id &&
+      lead.valor === nextProps.leads[i]?.valor &&
       isLeadDuplicateRecord(lead.additional_data) === isLeadDuplicateRecord(nextProps.leads[i]?.additional_data)
     ) &&
     prevProps.profilesMap === nextProps.profilesMap &&

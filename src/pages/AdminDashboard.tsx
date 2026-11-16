@@ -155,6 +155,7 @@ export default function AdminDashboard() {
     setAddingAdmin(true);
     try {
       const { data, error } = await supabase.rpc('upsert_admin_credential', {
+        p_token: getAdminToken(),
         p_email: newAdminEmail,
         p_password: newAdminPassword
       });

@@ -7,6 +7,7 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { AdminAuthProvider } from "@/contexts/AdminAuthContext";
 import { MigrationMaintenance } from "@/components/MigrationMaintenance";
+import { ImpersonationBanner } from "@/components/ImpersonationBanner";
 
 // Páginas carregadas sob demanda (lazy)
 const Landing = lazy(() => import("./pages/Landing"));
@@ -34,6 +35,8 @@ const Painel = lazy(() => import("./pages/Painel"));
 const LeadDistribution = lazy(() => import("./pages/LeadDistribution"));
 const Chat = lazy(() => import("./pages/Chat"));
 const Ranking = lazy(() => import("./pages/Ranking"));
+const RankingArena = lazy(() => import("./pages/RankingArena"));
+const TvRanking = lazy(() => import("./pages/TvRanking"));
 const Reunioes = lazy(() => import("./pages/Reunioes"));
 const Tasks = lazy(() => import("./pages/Tasks"));
 const Settings = lazy(() => import("./pages/Settings"));
@@ -42,6 +45,7 @@ const Colaboradores = lazy(() => import("./pages/Colaboradores"));
 const Equipes = lazy(() => import("./pages/Equipes"));
 const Atividades = lazy(() => import("./pages/Atividades"));
 const Producao = lazy(() => import("./pages/Producao"));
+const Comissoes = lazy(() => import("./pages/Comissoes"));
 const AdminDashboard = lazy(() => import("./pages/AdminDashboard"));
 const AdminUserDetails = lazy(() => import("./pages/AdminUserDetails"));
 const AdminLogin = lazy(() => import("./pages/AdminLogin"));
@@ -55,6 +59,9 @@ const DataDeletion = lazy(() => import("./pages/DataDeletion"));
 const Pricing = lazy(() => import("./pages/Pricing"));
 const PaymentSuccess = lazy(() => import("./pages/PaymentSuccess"));
 const DemoDashboard = lazy(() => import("./pages/DemoDashboard"));
+const Simulador = lazy(() => import("./pages/Simulador"));
+const SimuladorPlanos = lazy(() => import("./pages/SimuladorPlanos"));
+const PropostaPublica = lazy(() => import("./pages/PropostaPublica"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 // QueryClient otimizado com cache
@@ -98,9 +105,12 @@ const App = () => {
       <BrowserRouter>
         <AdminAuthProvider>
           <AuthProvider>
+            {/* Faixa do acesso de suporte (Fase 6): aparece em qualquer rota enquanto durar. */}
+            <ImpersonationBanner />
             <Routes>
                     <Route path="/" element={<LazyPage><Landing /></LazyPage>} />
                     <Route path="/auth" element={<LazyPage><Auth /></LazyPage>} />
+                    <Route path="/tv/:token" element={<LazyPage><TvRanking /></LazyPage>} />
                     <Route path="/admin-login" element={<LazyPage><AdminLogin /></LazyPage>} />
                     <Route element={<LazyPage><OrganizationAppScope /></LazyPage>}>
                       <Route element={<LazyPage><AuthenticatedAppProviders /></LazyPage>}>
@@ -116,12 +126,17 @@ const App = () => {
                         <Route path="/painel" element={<ProtectedRoute><DashboardLayout><LazyPage><Painel /></LazyPage></DashboardLayout></ProtectedRoute>} />
                         <Route path="/lead-distribution" element={<ProtectedRoute><SectionGate><DashboardLayout><LazyPage><LeadDistribution /></LazyPage></DashboardLayout></SectionGate></ProtectedRoute>} />
                         <Route path="/chat" element={<ProtectedRoute><SectionGate><DashboardLayout><LazyPage><Chat /></LazyPage></DashboardLayout></SectionGate></ProtectedRoute>} />
-                        <Route path="/ranking" element={<ProtectedRoute><DashboardLayout><LazyPage><Ranking /></LazyPage></DashboardLayout></ProtectedRoute>} />
+                        <Route path="/ranking" element={<ProtectedRoute><DashboardLayout><LazyPage><RankingArena /></LazyPage></DashboardLayout></ProtectedRoute>} />
+                        <Route path="/ranking/classico" element={<ProtectedRoute><DashboardLayout><LazyPage><Ranking /></LazyPage></DashboardLayout></ProtectedRoute>} />
+                        <Route path="/demo-ranking" element={<ProtectedRoute><DashboardLayout><LazyPage><RankingArena /></LazyPage></DashboardLayout></ProtectedRoute>} />
                         <Route path="/reunioes" element={<ProtectedRoute><DashboardLayout><LazyPage><Reunioes /></LazyPage></DashboardLayout></ProtectedRoute>} />
                         <Route path="/administrativo/colaboradores" element={<ProtectedRoute><DashboardLayout><LazyPage><Colaboradores /></LazyPage></DashboardLayout></ProtectedRoute>} />
                         <Route path="/administrativo/producao" element={<ProtectedRoute><DashboardLayout><LazyPage><Producao /></LazyPage></DashboardLayout></ProtectedRoute>} />
+                        <Route path="/comissoes" element={<ProtectedRoute><DashboardLayout><LazyPage><Comissoes /></LazyPage></DashboardLayout></ProtectedRoute>} />
                         <Route path="/administrativo/equipes" element={<ProtectedRoute><DashboardLayout><LazyPage><Equipes /></LazyPage></DashboardLayout></ProtectedRoute>} />
                         <Route path="/administrativo/atividades" element={<ProtectedRoute><DashboardLayout><LazyPage><Atividades /></LazyPage></DashboardLayout></ProtectedRoute>} />
+                        <Route path="/simulador" element={<ProtectedRoute><DashboardLayout><LazyPage><Simulador /></LazyPage></DashboardLayout></ProtectedRoute>} />
+                        <Route path="/simulador/planos" element={<ProtectedRoute><DashboardLayout><LazyPage><SimuladorPlanos /></LazyPage></DashboardLayout></ProtectedRoute>} />
                         <Route path="/tasks" element={<ProtectedRoute><DashboardLayout><LazyPage><Tasks /></LazyPage></DashboardLayout></ProtectedRoute>} />
                         <Route path="/integrations" element={<ProtectedRoute><SectionGate><DashboardLayout><LazyPage><Integrations /></LazyPage></DashboardLayout></SectionGate></ProtectedRoute>} />
                         <Route path="/settings" element={<ProtectedRoute><DashboardLayout><LazyPage><Settings /></LazyPage></DashboardLayout></ProtectedRoute>} />
@@ -136,6 +151,8 @@ const App = () => {
                     </Route>
                     <Route path="/admin" element={<SuperAdminRoute><LazyPage><AdminDashboard /></LazyPage></SuperAdminRoute>} />
                     <Route path="/admin/user/:userId" element={<SuperAdminRoute><LazyPage><AdminUserDetails /></LazyPage></SuperAdminRoute>} />
+                    {/* Proposta de consórcio aberta pelo cliente, sem login. */}
+                    <Route path="/proposta/:token" element={<LazyPage><PropostaPublica /></LazyPage>} />
                     <Route path="/privacy-policy" element={<LazyPage><PrivacyPolicy /></LazyPage>} />
                     <Route path="/terms-of-service" element={<LazyPage><TermsOfService /></LazyPage>} />
                     <Route path="/data-deletion" element={<LazyPage><DataDeletion /></LazyPage>} />

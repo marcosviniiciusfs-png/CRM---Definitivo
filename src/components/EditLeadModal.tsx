@@ -29,6 +29,8 @@ import { CadastradoPorBadge } from "@/lib/leadSourceHelper";
 import { fetchOrganizationMembersSafe } from "@/hooks/useOrganizationMembers";
 import { getAppIcon } from "@/lib/iconRegistry";
 import { parseMeetingSchedule } from "@/lib/meetingSchedule";
+import { useOrganizationSegment } from "@/hooks/useOrganizationSegment";
+import { LeadConsortiumPanel } from "@/components/consortium/LeadConsortiumPanel";
 
 interface EditLeadModalProps {
   lead: Lead;
@@ -43,6 +45,7 @@ let colaboradoresCacheExpiry = 0;
 const COLAB_CACHE_TTL = 5 * 60 * 1000; // 5 minutos
 
 export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalProps) => {
+  const { isConsorcio, terms: segmentTerms } = useOrganizationSegment();
   const [editedName, setEditedName] = useState(lead.nome_lead);
   const [editedPhone, setEditedPhone] = useState(lead.telefone_lead);
   const [editedEmail, setEditedEmail] = useState(lead.email || "");
@@ -471,7 +474,7 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
 
       setShowItemsDialog(false);
       setQuickValue("");
-      toast.success("Valor atualizado.");
+      toast.success(`${segmentTerms.value} atualizado.`);
     } catch (error) {
       console.error("Erro ao atualizar valor:", error);
       toast.error("Não foi possível atualizar o valor. Tente novamente.");
@@ -1276,7 +1279,7 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
                           />
                         </div>
                         <div>
-                          <Label className="text-xs text-muted-foreground mb-1 block">Valor da venda (opcional)</Label>
+                          <Label className="text-xs text-muted-foreground mb-1 block">{isConsorcio ? "Crédito vendido (opcional)" : "Valor da venda (opcional)"}</Label>
                           <Input
                             type="text"
                             value={agendVendaValor}
@@ -1692,7 +1695,7 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
                 {/* Valor do negócio */}
                 <Card className="bg-primary/5 border-primary/10">
                   <CardHeader className="pb-3">
-                    <CardTitle className="text-sm font-semibold">Valor do negócio</CardTitle>
+                    <CardTitle className="text-sm font-semibold">{segmentTerms.dealValue}</CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-3">
                     <div className="flex items-baseline gap-2 overflow-hidden">
@@ -1700,6 +1703,25 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
                         R$ {parseFloat(editedValue || "0").toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </span>
                     </div>
+                    {isConsorcio ? (
+                      /* Modo consórcio: sem catálogo de produtos; o crédito da carta é digitado direto. */
+                      <div className="space-y-2">
+                        <Label htmlFor="lead-credit" className="text-xs text-muted-foreground">Novo crédito</Label>
+                        <div className="flex gap-2">
+                          <Input
+                            id="lead-credit"
+                            value={quickValue}
+                            onChange={(e) => setQuickValue(formatCurrencyInput(e.target.value))}
+                            placeholder="R$ 0,00"
+                            inputMode="decimal"
+                            className="h-9"
+                          />
+                          <Button variant="outline" size="sm" className="h-9" onClick={handleSaveQuickValue} disabled={!quickValue.trim()}>
+                            Salvar
+                          </Button>
+                        </div>
+                      </div>
+                    ) : (
                     <div className="space-y-2">
                       <Label className="text-xs text-muted-foreground">Produtos e serviços</Label>
                       {leadItems.length === 0 ? (
@@ -1754,8 +1776,17 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
                         + Adicionar produtos/serviços
                       </Button>
                     </div>
+                    )}
                   </CardContent>
                 </Card>
+
+                {isConsorcio && (
+                  <LeadConsortiumPanel
+                    leadId={lead.id}
+                    leadName={editedName || lead.nome_lead}
+                    leadValue={parseFloat(editedValue || "0") || null}
+                  />
+                )}
 
                 {/* Dados do negócio */}
                 <Card className="bg-primary/5 border-primary/10">

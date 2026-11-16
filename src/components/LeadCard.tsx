@@ -1,6 +1,5 @@
 import { Card } from "@/components/ui/card";
-import { Calendar, Pencil, Eye, Globe, RefreshCw, Copy, Check, CalendarDays, CalendarCheck, MessageCircle, Phone } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Eye, RefreshCw, Copy, Check, CalendarDays, CalendarCheck, MessageCircle, MoreHorizontal } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useState, CSSProperties, memo, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
@@ -26,6 +25,7 @@ import { isLeadDuplicateRecord } from "@/lib/leadDuplicate";
 import { Trash2 } from "lucide-react";
 import { getAppIcon } from "@/lib/iconRegistry";
 import type { LeadAttention } from "@/lib/leadCardState";
+import { formatBRL, formatRelativeShort } from "@/lib/money";
 
 const ATTENTION_TITLES: Record<"needs_reply" | "overdue" | "today", string> = {
   needs_reply: "O lead mandou mensagem e ainda não teve resposta da equipe.",
@@ -67,10 +67,10 @@ const CopyLeadButton: React.FC<CopyLeadButtonProps> = ({ name, phone, email, val
       onMouseDown={(e) => e.stopPropagation()}
       onTouchStart={(e) => e.stopPropagation()}
       onClick={handleCopy}
-      className="opacity-0 group-hover:opacity-100 transition-opacity p-0.5 rounded text-muted-foreground hover:text-foreground hover:bg-muted flex-shrink-0"
+      className="hidden group-hover:flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-accent flex-shrink-0"
       title="Copiar informações do lead"
     >
-      {copied ? <Check className="h-3 w-3 text-green-500" /> : <Copy className="h-3 w-3" />}
+      {copied ? <Check className="h-3.5 w-3.5 text-success" /> : <Copy className="h-3.5 w-3.5" />}
     </button>
   );
 };
@@ -186,21 +186,26 @@ const LeadCardView: React.FC<LeadCardViewProps> = ({
 
   const isWhatsAppLead = source === "WhatsApp" || source?.toLowerCase().includes("whatsapp");
 
-  const isWebhookLead = source?.toLowerCase().includes("webhook") ||
-    source?.toLowerCase().includes("formulário") ||
-    tags.some(tag => tag.name.toLowerCase().includes("webhook"));
-
-  const hasRedBorder = isNewLead();
+  const isFreshLead = isNewLead();
   const leadItems = useMemo(() => initialLeadItems || [], [initialLeadItems]);
   const totalValue = useMemo(
     () => leadItems.reduce((sum, item) => sum + (item.total_price || 0), 0),
     [leadItems],
   );
+  const displayValue = value && value > 0 ? value : totalValue;
   const responsibleLabel = responsavelName?.trim() || "Sem responsável";
-  const compactResponsibleName =
-    /^sem responsável$/i.test(responsibleLabel)
-      ? "Sem resp."
-      : responsibleLabel.split(/\s+/)[0];
+  const isUnassigned = /^sem responsável$/i.test(responsibleLabel);
+  const compactResponsibleName = isUnassigned ? "Sem responsável" : responsibleLabel.split(/\s+/)[0];
+  const responsibleInitial = isUnassigned ? "?" : responsibleLabel.charAt(0).toUpperCase();
+  const sourceLabel = isFacebookLead ? "Meta Ads" : isWhatsAppLead ? "WhatsApp" : source?.trim() || null;
+  const detailLine = [sourceLabel, phone].filter(Boolean).join(" · ");
+  const relativeCreated = formatRelativeShort(createdAt);
+  const showAttention = !!attentionLabel && (attentionKind === 'needs_reply' || attentionKind === 'overdue' || attentionKind === 'today');
+  const hasBadges =
+    showAttention || isFreshLead || isRedistributed || isMarkedDuplicate || isDuplicate || duplicateAttemptsCount > 0 || tags.length > 0;
+  const badgeBase = "h-5 w-fit gap-1 rounded-full border-0 px-2 py-0 text-[11px] font-semibold cursor-default";
+  const iconButton =
+    "flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground";
 
   const getItemIcon = (iconName: string | null, size: string = "h-4 w-4") => {
     if (!iconName) return null;
@@ -209,140 +214,150 @@ const LeadCardView: React.FC<LeadCardViewProps> = ({
     return ItemIcon ? <ItemIcon className={size} /> : null;
   };
 
+  const stopDrag = {
+    onPointerDown: (e: React.PointerEvent) => e.stopPropagation(),
+    onMouseDown: (e: React.MouseEvent) => e.stopPropagation(),
+    onTouchStart: (e: React.TouchEvent) => e.stopPropagation(),
+  };
+
   return (
     <ContextMenu>
       <ContextMenuTrigger asChild>
         <Card
           data-dragging={dragging}
           className={cn(
-            "lead-card rounded-[10px] border-2 bg-card overflow-hidden relative group select-none",
-            dragging && "cursor-grabbing",
-            dragging
-              ? "transition-none"
-              : "transition-[border-color,box-shadow] duration-200 ease-in-out",
-            hasRedBorder && !dragging
-              ? "border-red-500/80 shadow-[0_0_10px_rgba(239,68,68,0.28)]"
-              : isRedistributed && !dragging && redistributionReason === 'inactivity'
-              ? "border-blue-900 dark:border-blue-800 hover:border-blue-700 hover:shadow-[0_4px_18px_0_rgba(30,58,138,0.35)]"
-              : isRedistributed && !dragging
-              ? "border-slate-600 dark:border-slate-500 hover:border-slate-400 hover:shadow-[0_4px_18px_0_rgba(100,116,139,0.35)]"
+            "lead-card rounded-lg border bg-card shadow-none overflow-hidden relative group select-none",
+            dragging && "cursor-grabbing shadow-lg",
+            dragging ? "transition-none" : "transition-[border-color,box-shadow] duration-150 ease-out",
+            isFreshLead && !dragging
+              ? "border-info/60"
               : (isMarkedDuplicate || isDuplicate) && !dragging
-              ? "border-yellow-400 dark:border-yellow-500 hover:border-yellow-400 hover:shadow-[0_4px_18px_0_rgba(234,179,8,0.25)]"
-              : "border-border hover:border-primary hover:shadow-[0_4px_18px_0_rgba(0,0,0,0.25)]"
+              ? "border-warning/40 hover:border-warning/70"
+              : "border-border hover:border-border-strong hover:shadow-[0_1px_3px_rgba(0,0,0,0.06)]"
           )}
         >
-          <div className="p-2">
-            <div className="flex items-start justify-between gap-2">
-              <div className="min-w-0 flex-1">
-                <h3 className="font-semibold text-xs text-foreground leading-tight truncate">
-                  {name}
-                </h3>
-                <div className="mt-1 flex items-center gap-1 flex-wrap" data-lead-badges>
-                  {attentionLabel && (attentionKind === 'needs_reply' || attentionKind === 'overdue' || attentionKind === 'today') && (
+          <div className="p-3">
+            <div className="flex items-start gap-2">
+              <h3 className="min-w-0 flex-1 truncate text-[13px] font-semibold leading-5 text-foreground" title={name}>
+                {name}
+              </h3>
+              {displayValue > 0 && (
+                <span className="shrink-0 text-[13px] font-semibold leading-5 tabular-nums text-foreground/80">
+                  {formatBRL(displayValue)}
+                </span>
+              )}
+            </div>
+
+            {detailLine && (
+              <p className="mt-0.5 truncate text-xs tabular-nums text-muted-foreground" title={detailLine}>
+                {detailLine}
+              </p>
+            )}
+
+            {hasBadges && (
+              <div className="mt-2 flex flex-wrap items-center gap-1" data-lead-badges>
+                {showAttention && (
+                  <Badge
+                    variant="secondary"
+                    title={ATTENTION_TITLES[attentionKind as "needs_reply" | "overdue" | "today"]}
+                    className={cn(
+                      badgeBase,
+                      attentionKind === 'needs_reply' && "bg-warning-tint text-warning hover:bg-warning-tint",
+                      attentionKind === 'overdue' && "bg-destructive-tint text-destructive hover:bg-destructive-tint",
+                      attentionKind === 'today' && "bg-info-tint text-info hover:bg-info-tint",
+                    )}
+                  >
+                    {attentionKind === 'needs_reply' ? <MessageCircle className="h-3 w-3" /> : <CalendarCheck className="h-3 w-3" />}
+                    {attentionLabel}
+                  </Badge>
+                )}
+                {isFreshLead && (
+                  <Badge variant="secondary" className={cn(badgeBase, "bg-info-tint text-info hover:bg-info-tint")} title="Lead criado há menos de 10 minutos.">
+                    Novo
+                  </Badge>
+                )}
+                {isRedistributed && (() => {
+                  const isInactivity = redistributionReason === 'inactivity';
+                  const isLost = redistributionReason === 'lost';
+                  const tooltip = isLost
+                    ? "Lead recuperado da etapa Perdido e redistribuído pela roleta."
+                    : isInactivity
+                    ? (redistributedFromName && redistributionMinutes
+                        ? `Lead redistribuído automaticamente porque o responsável anterior (${redistributedFromName}) não interagiu em ${redistributionMinutes} min.`
+                        : "Lead redistribuído automaticamente para este responsável.")
+                    : (redistributedFromName
+                        ? `Lead redistribuído pela roleta (vinha de ${redistributedFromName}).`
+                        : "Lead redistribuído pela roleta.");
+                  return (
                     <Badge
                       variant="secondary"
-                      title={ATTENTION_TITLES[attentionKind]}
-                      className={cn(
-                        "w-fit text-[9px] px-1.5 py-0 h-4 flex items-center gap-0.5 cursor-default",
-                        attentionKind === 'needs_reply' && "bg-amber-50 text-amber-800 border-amber-300 dark:bg-amber-950/50 dark:text-amber-300 dark:border-amber-700",
-                        attentionKind === 'overdue' && "bg-red-50 text-red-700 border-red-300 dark:bg-red-950/50 dark:text-red-300 dark:border-red-800",
-                        attentionKind === 'today' && "bg-sky-50 text-sky-700 border-sky-300 dark:bg-sky-950/50 dark:text-sky-300 dark:border-sky-800",
-                      )}
+                      title={tooltip}
+                      className={cn(badgeBase, "bg-secondary text-foreground/80 hover:bg-secondary")}
                     >
-                      {attentionKind === 'needs_reply' ? <MessageCircle className="h-2.5 w-2.5" /> : <CalendarCheck className="h-2.5 w-2.5" />}
-                      {attentionLabel}
+                      <RefreshCw className="h-3 w-3" />
+                      Redistribuído
                     </Badge>
-                  )}
-                  {isRedistributed && (() => {
-                    const isInactivity = redistributionReason === 'inactivity';
-                    const isLost = redistributionReason === 'lost';
-                    const colorClass = isInactivity
-                      ? "bg-blue-950 text-blue-300 border-blue-800"
-                      : "bg-slate-800 text-slate-300 border-slate-700";
-                    const tooltip = isLost
-                      ? "Lead recuperado da etapa Perdido e redistribuído pela roleta."
-                      : isInactivity
-                      ? (redistributedFromName && redistributionMinutes
-                          ? `Lead redistribuído automaticamente porque o responsável anterior (${redistributedFromName}) não interagiu em ${redistributionMinutes} min.`
-                          : "Lead redistribuído automaticamente para este responsável.")
-                      : (redistributedFromName
-                          ? `Lead redistribuído pela roleta (vinha de ${redistributedFromName}).`
-                          : "Lead redistribuído pela roleta.");
-                    return (
-                      <Badge
-                        variant="secondary"
-                        title={tooltip}
-                        className={`w-fit text-[9px] px-1.5 py-0 h-4 flex items-center gap-0.5 ${colorClass} cursor-default`}
-                      >
-                        <RefreshCw className="h-2.5 w-2.5" />
-                        Redistribuído
-                      </Badge>
-                    );
-                  })()}
-                  {(isMarkedDuplicate || isDuplicate) && (
-                    <Badge
-                      variant="secondary"
-                      title={isMarkedDuplicate
-                        ? "Novo registro criado para um lead que já existia no CRM."
-                        : "Existe outro lead com o mesmo telefone ou e-mail."}
-                      className="w-fit text-[9px] px-1.5 py-0 h-4 flex items-center gap-0.5 bg-yellow-50 text-yellow-700 border-yellow-300 dark:bg-yellow-950/50 dark:text-yellow-400 dark:border-yellow-700"
-                    >
-                      <Copy className="h-2.5 w-2.5" />
-                      Duplicado
-                    </Badge>
-                  )}
-                  {duplicateAttemptsCount > 0 && (
-                    <Badge
-                      variant="secondary"
-                      className="w-fit text-[9px] px-1.5 py-0 h-4 flex items-center gap-0.5 bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/50 dark:text-amber-400 dark:border-amber-800"
-                    >
-                      <RefreshCw className="h-2.5 w-2.5" />
-                      {duplicateAttemptsCount} {duplicateAttemptsCount === 1 ? 'retorno' : 'retornos'}
-                    </Badge>
-                  )}
-                  {isFacebookLead && (
-                    <Badge
-                      variant="secondary"
-                      className="w-fit text-[9px] px-1.5 py-0 h-4 flex items-center gap-0.5 bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/50 dark:text-blue-400 dark:border-blue-800"
-                    >
-                      <svg
-                        className="h-2.5 w-2.5"
-                        viewBox="0 0 24 24"
-                        fill="currentColor"
-                      >
-                        <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" />
-                      </svg>
-                      Meta Ads
-                    </Badge>
-                  )}
-                  {isWhatsAppLead && (
-                    <Badge
-                      variant="secondary"
-                      className="w-fit text-[9px] px-1.5 py-0 h-4 flex items-center gap-0.5 bg-green-50 text-green-700 border-green-200 dark:bg-green-950/50 dark:text-green-400 dark:border-green-800"
-                    >
-                      <svg
-                        className="h-2.5 w-2.5"
-                        viewBox="0 0 24 24"
-                        fill="currentColor"
-                      >
-                        <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z" />
-                      </svg>
-                      WhatsApp
-                    </Badge>
-                  )}
-                  {isWebhookLead && !isFacebookLead && !isWhatsAppLead && (
-                    <Badge
-                      variant="secondary"
-                      className="w-fit text-[9px] px-1.5 py-0 h-4 flex items-center gap-0.5 bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-950/50 dark:text-purple-400 dark:border-purple-800"
-                    >
-                      <Globe className="h-2.5 w-2.5" />
-                      Webhook
-                    </Badge>
-                  )}
-                  <LeadTagsBadgeStatic tags={tags} />
-                </div>
+                  );
+                })()}
+                {(isMarkedDuplicate || isDuplicate) && (
+                  <Badge
+                    variant="secondary"
+                    title={isMarkedDuplicate
+                      ? "Novo registro criado para um lead que já existia no CRM."
+                      : "Existe outro lead com o mesmo telefone ou e-mail."}
+                    className={cn(badgeBase, "bg-warning-tint text-warning hover:bg-warning-tint")}
+                  >
+                    <Copy className="h-3 w-3" />
+                    Duplicado
+                  </Badge>
+                )}
+                {duplicateAttemptsCount > 0 && (
+                  <Badge variant="secondary" className={cn(badgeBase, "bg-secondary text-muted-foreground hover:bg-secondary")}>
+                    <RefreshCw className="h-3 w-3" />
+                    {duplicateAttemptsCount} {duplicateAttemptsCount === 1 ? 'retorno' : 'retornos'}
+                  </Badge>
+                )}
+                <LeadTagsBadgeStatic tags={tags} />
               </div>
-              <div className="flex items-center gap-0.5 flex-shrink-0">
+            )}
+
+            {leadItems.length > 0 && (
+              <div className="mt-2 flex items-center gap-1">
+                {leadItems.slice(0, 3).map((item, idx) => (
+                  <div
+                    key={idx}
+                    className="flex h-6 w-6 items-center justify-center rounded-md bg-secondary text-muted-foreground"
+                    title={item.items?.name}
+                  >
+                    {getItemIcon(item.items?.icon, "h-3.5 w-3.5")}
+                  </div>
+                ))}
+                {leadItems.length > 3 && (
+                  <div className="flex h-6 w-6 items-center justify-center rounded-md bg-secondary text-[10px] font-medium text-muted-foreground">
+                    +{leadItems.length - 3}
+                  </div>
+                )}
+              </div>
+            )}
+
+            <div className="mt-2.5 flex items-center gap-1.5 border-t border-border pt-2">
+              {responsavelAvatarUrl ? (
+                <img src={responsavelAvatarUrl} alt="" className="h-5 w-5 shrink-0 rounded-full object-cover" />
+              ) : (
+                <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-secondary text-[10px] font-semibold text-muted-foreground" aria-hidden="true">
+                  {responsibleInitial}
+                </span>
+              )}
+              <span className="min-w-0 truncate text-xs text-muted-foreground" title={`Responsável: ${responsibleLabel}`}>
+                {compactResponsibleName}
+              </span>
+              {relativeCreated && (
+                <span className="shrink-0 text-xs tabular-nums text-muted-foreground" title={`Criado em ${date}`}>
+                  · {relativeCreated}
+                </span>
+              )}
+
+              <div className="ml-auto flex shrink-0 items-center gap-0.5">
                 {!dragging && (
                   <CopyLeadButton
                     name={name}
@@ -355,180 +370,101 @@ const LeadCardView: React.FC<LeadCardViewProps> = ({
                 )}
                 {dataAgendamentoReuniao && !dragging && (
                   <button
-                    onPointerDown={(e) => e.stopPropagation()}
-                    onMouseDown={(e) => e.stopPropagation()}
-                    onTouchStart={(e) => e.stopPropagation()}
+                    type="button"
+                    {...stopDrag}
                     onClick={(e) => { e.stopPropagation(); if (onEdit) onEdit(); }}
                     title={
                       statusReuniao === 'no_show'
-                        ? `Reunião (No-show): ${new Date(dataAgendamentoReuniao).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' })}`
+                        ? `Reunião (no-show): ${new Date(dataAgendamentoReuniao).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' })}`
                         : `Reunião: ${new Date(dataAgendamentoReuniao).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' })}`
                     }
-                    className={cn(
-                      "h-4 w-4 flex items-center justify-center transition-colors",
-                      statusReuniao === 'no_show'
-                        ? "text-orange-500 hover:text-orange-400"
-                        : "text-blue-500 hover:text-blue-400"
-                    )}
+                    className={cn(iconButton, statusReuniao === 'no_show' ? "text-warning" : "text-info")}
                   >
-                    <CalendarDays className="h-3 w-3" />
+                    <CalendarDays className="h-3.5 w-3.5" />
                   </button>
                 )}
                 {dataAgendamentoVenda && !dragging && (
                   <button
-                    onPointerDown={(e) => e.stopPropagation()}
-                    onMouseDown={(e) => e.stopPropagation()}
-                    onTouchStart={(e) => e.stopPropagation()}
+                    type="button"
+                    {...stopDrag}
                     onClick={(e) => { e.stopPropagation(); if (onEdit) onEdit(); }}
                     title={`Venda: ${new Date(dataAgendamentoVenda).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' })}`}
-                    className="h-4 w-4 flex items-center justify-center text-yellow-500 hover:text-yellow-400 transition-colors"
+                    className={cn(iconButton, "text-success")}
                   >
-                    <CalendarCheck className="h-3 w-3" />
+                    <CalendarCheck className="h-3.5 w-3.5" />
                   </button>
                 )}
-              {!dragging && (
-                <button
-                  type="button"
-                  onPointerDown={(e) => e.stopPropagation()}
-                  onMouseDown={(e) => e.stopPropagation()}
-                  onTouchStart={(e) => e.stopPropagation()}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    navigate(`/chat?lead_id=${id}`);
-                  }}
-                  className="p-1 rounded hover:bg-muted/60 transition-colors"
-                  title="Abrir conversa"
-                  aria-label="Abrir conversa no chat"
-                >
-                  <MessageCircle className="h-4 w-4 text-muted-foreground" />
-                </button>
-              )}
-              <DropdownMenu onOpenChange={setIsDropdownOpen}>
-                <DropdownMenuTrigger
-                  asChild
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  <Button
-                    variant="ghostIcon"
-                    size="icon"
-                    className="h-4 w-4 -mt-0.5 flex-shrink-0"
-                  >
-                    <Pencil className="h-3 w-3 text-muted-foreground" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent
-                  align="end"
-                  className="bg-background z-50"
-                >
-                  <DropdownMenuItem
+                {!dragging && (
+                  <button
+                    type="button"
+                    {...stopDrag}
                     onClick={(e) => {
                       e.stopPropagation();
-                      if (onEdit) {
-                        onEdit();
-                      }
+                      navigate(`/chat?lead_id=${id}`);
                     }}
-                    onSelect={(e) => {
-                      e.preventDefault();
-                    }}
+                    className={iconButton}
+                    title="Abrir conversa"
+                    aria-label="Abrir conversa no chat"
                   >
-                    Editar
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onViewDetails?.();
-                    }}
-                    onSelect={(e) => e.preventDefault()}
-                  >
-                    Ver detalhes
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    className="text-destructive focus:text-destructive"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onDelete?.();
-                    }}
-                    onSelect={(e) => e.preventDefault()}
-                  >
-                    <Trash2 className="h-3.5 w-3.5 mr-2" />
-                    Excluir
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-              </div>
-            </div>
-
-            <div className="mt-1.5 space-y-0.5">
-              <div className="flex items-center gap-1 text-[11px] text-muted-foreground">
-                <Phone className="h-3 w-3 flex-shrink-0" />
-                <span className="truncate">{phone}</span>
-              </div>
-              <div className="flex items-center justify-between gap-1 text-[11px] text-muted-foreground">
-                <div className="min-w-0 flex items-center gap-1">
-                  <Calendar className="h-3 w-3 flex-shrink-0" />
-                  <span className="whitespace-nowrap">{date}</span>
-                </div>
-                <span
-                  className="max-w-[34%] truncate rounded-full bg-muted px-1 py-0.5 text-[9px] text-muted-foreground"
-                  title={`Responsável: ${responsibleLabel}`}
-                >
-                  {compactResponsibleName}
-                </span>
-              </div>
-            </div>
-
-        {leadItems.length > 0 && (
-          <div className="mt-2 pt-2 border-t border-border">
-            <div className="flex items-center justify-between pl-2 pr-1">
-              <div className="text-[11px]">
-                <span className="text-muted-foreground">Valor: </span>
-                <span className="font-semibold text-green-600">
-                  R$ {totalValue.toFixed(2)}
-                </span>
-              </div>
-              <div className="flex items-center gap-1">
-                {leadItems.slice(0, 3).map((item, idx) => (
-                  <div
-                    key={idx}
-                    className="h-6 w-6 rounded-md bg-primary/10 flex items-center justify-center"
-                    title={item.items?.name}
-                  >
-                    {getItemIcon(item.items?.icon, "h-3 w-3 text-primary")}
-                  </div>
-                ))}
-                {leadItems.length > 3 && (
-                  <div className="h-6 w-6 rounded-md bg-primary/10 flex items-center justify-center text-[10px] font-medium text-primary">
-                    +{leadItems.length - 3}
-                  </div>
+                    <MessageCircle className="h-3.5 w-3.5" />
+                  </button>
                 )}
+                <DropdownMenu onOpenChange={setIsDropdownOpen}>
+                  <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+                    <button type="button" className={iconButton} aria-label="Mais ações do lead" {...stopDrag}>
+                      <MoreHorizontal className="h-3.5 w-3.5" />
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="z-50">
+                    <DropdownMenuItem
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onEdit?.();
+                      }}
+                      onSelect={(e) => e.preventDefault()}
+                    >
+                      Editar
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onViewDetails?.();
+                      }}
+                      onSelect={(e) => e.preventDefault()}
+                    >
+                      Ver detalhes
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      className="text-destructive focus:text-destructive"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onDelete?.();
+                      }}
+                      onSelect={(e) => e.preventDefault()}
+                    >
+                      <Trash2 className="h-3.5 w-3.5 mr-2" />
+                      Excluir
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </div>
             </div>
           </div>
-        )}
-      </div>
 
-      {/* Faixa verde lateral com ícone de olho - esconder durante drag */}
-      {!dragging && (
-        <div
-          className="absolute top-1/2 -translate-y-1/2 right-0 w-[50px] h-[30px] bg-primary rounded-l-lg flex items-center justify-center cursor-pointer z-20 translate-x-full opacity-0 group-hover:translate-x-0 group-hover:opacity-100 transition-all duration-300 ease-out"
-          onPointerDown={(e) => {
-            e.stopPropagation();
-          }}
-          onMouseDown={(e) => {
-            e.stopPropagation();
-          }}
-          onTouchStart={(e) => {
-            e.stopPropagation();
-          }}
-          onClick={(e) => {
-            e.stopPropagation();
-            onViewDetails?.();
-          }}
-        >
-          <Eye className="h-4 w-4 text-primary-foreground" />
-        </div>
-      )}
-
+          {/* Atalho para os detalhes ao passar o mouse - escondido durante o arraste */}
+          {!dragging && (
+            <div
+              className="absolute top-3 right-0 h-7 w-9 bg-foreground text-background rounded-l-md flex items-center justify-center cursor-pointer z-20 translate-x-full opacity-0 group-hover:translate-x-0 group-hover:opacity-100 transition-all duration-200 ease-out"
+              {...stopDrag}
+              onClick={(e) => {
+                e.stopPropagation();
+                onViewDetails?.();
+              }}
+              title="Ver detalhes"
+            >
+              <Eye className="h-3.5 w-3.5" />
+            </div>
+          )}
         </Card>
       </ContextMenuTrigger>
       <ContextMenuContent className="bg-background z-50">

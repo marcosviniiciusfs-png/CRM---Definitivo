@@ -1,5 +1,6 @@
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
+import { readSidebarLocked } from "@/lib/sidebarLock";
 import { AutomationRulesModal } from "@/components/AutomationRulesModal";
 import { AutomationDashboardModal } from "@/components/AutomationDashboardModal";
 import { GoogleCalendarModal } from "@/components/GoogleCalendarModal";
@@ -13,6 +14,9 @@ import googleCalendarIcon from "@/assets/google-calendar-icon.png";
 import { cn } from "@/lib/utils";
 import { AnnouncementPopup } from "@/components/AnnouncementPopup";
 import { useAnnouncements } from "@/hooks/useAnnouncements";
+import { useIsMobile } from "@/hooks/use-mobile";
+import { MobileBottomNav } from "@/components/MobileBottomNav";
+import { CelebrationWatcher } from "@/components/CelebrationWatcher";
 
 interface DashboardLayoutProps {
   children: ReactNode;
@@ -28,7 +32,8 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
   const [dashboardModalOpen, setDashboardModalOpen] = useState(false);
   const [calendarModalOpen, setCalendarModalOpen] = useState(false);
   const isOnChatPage = location.pathname === "/chat";
-  const isPipelinePage = location.pathname === '/pipeline';
+  const isPipelinePage = location.pathname === '/pipeline' || location.pathname === '/demo-pipeline';
+  const isMobile = useIsMobile();
   const hasHeaderActions = isOnChatPage || isSuperAdmin;
   const { currentAnnouncement, dismissAnnouncement } = useAnnouncements();
 
@@ -66,23 +71,21 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
     dismissAnnouncement(announcementId, dontShowAgain);
   };
 
-  // Inicializar com estado do localStorage para evitar flash
-  const getInitialOpen = () => {
-    if (typeof window !== 'undefined') {
-      return localStorage.getItem('sidebar-locked') === 'true';
-    }
-    return false;
-  };
+  // Inicializar com estado do localStorage para evitar flash (aberto por padrão)
+  const getInitialOpen = readSidebarLocked;
 
   return (
     <SidebarProvider defaultOpen={getInitialOpen()}>
       <div className="flex h-screen w-full overflow-hidden">
         <AppSidebar />
         <main className="flex-1 flex flex-col h-screen overflow-hidden bg-background">
-          <header className="relative z-10 h-2.5 shrink-0 overflow-visible border-b bg-card">
-            <div className="absolute left-3 top-2 flex items-center gap-4 lg:hidden">
-              <SidebarTrigger className="lg:hidden" />
-            </div>
+          <header className="relative z-10 h-2.5 shrink-0 overflow-visible">
+            {/* No celular o menu abre pela navegação inferior; o chat não tem essa barra. */}
+            {isMobile && isOnChatPage && (
+              <div className="absolute left-3 top-2 flex items-center gap-4">
+                <SidebarTrigger />
+              </div>
+            )}
             {hasHeaderActions && (
               <div className="absolute right-3 top-2 flex items-center gap-1 sm:gap-2">
                 {isOnChatPage && (
@@ -136,7 +139,9 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
               "flex-1 overflow-x-hidden",
               isPipelinePage
                 ? "overflow-hidden p-0"
-                : "overflow-y-auto px-2 pb-2 pt-0 sm:px-3 sm:pb-3 sm:pt-0 md:px-4 md:pb-4 md:pt-0"
+                : "overflow-y-auto px-2 pb-2 pt-0 sm:px-3 sm:pb-3 sm:pt-0 md:px-4 md:pb-4 md:pt-0",
+              // Espaço da navegação inferior no celular.
+              isMobile && "pb-[calc(4rem+env(safe-area-inset-bottom,0px))] sm:pb-[calc(4rem+env(safe-area-inset-bottom,0px))] md:pb-[calc(4rem+env(safe-area-inset-bottom,0px))]"
             )}
           >
             <div className={cn("min-w-0 w-full max-w-full", isPipelinePage && "h-full")}>
@@ -145,6 +150,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
           </div>
         </main>
       </div>
+      {isMobile && !isOnChatPage && <MobileBottomNav />}
       <AutomationRulesModal 
         open={automationModalOpen} 
         onOpenChange={setAutomationModalOpen} 
@@ -157,6 +163,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
         open={calendarModalOpen}
         onOpenChange={setCalendarModalOpen}
       />
+      <CelebrationWatcher />
       <AnnouncementPopup
         announcement={currentAnnouncement}
         onDismiss={handleDismissAnnouncement}

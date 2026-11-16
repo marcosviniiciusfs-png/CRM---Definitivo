@@ -19,3 +19,12 @@ export const demoSectionAccess: Record<string, boolean> = {
   integrations: true,
   settings: true,
 };
+
+const DEMO_URLS: Record<string, string> = {
+  "/pipeline": "/demo-pipeline",
+  "/dashboard": "/demo-dashboard",
+  "/ranking": "/demo-ranking",
+};
+
+/** Nas rotas de demonstração (só em DEV), os links do menu apontam para a versão demo. */
+export const demoAwareUrl = (url: string) => (isDemoRoute() && DEMO_URLS[url]) || url;

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAdminAuth } from "@/contexts/AdminAuthContext";
+import { useAuth } from "@/contexts/AuthContext";
 import { Shield, Eye, EyeOff, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import kairozLogo from "@/assets/kairoz-logo-full-new.png";
@@ -8,13 +9,15 @@ import kairozLogo from "@/assets/kairoz-logo-full-new.png";
 export default function AdminLogin() {
     const navigate = useNavigate();
     const { adminLogin, isAdminAuthenticated } = useAdminAuth();
+    const { user, isSuperAdmin, loading: authLoading, roleLoading } = useAuth();
+    const crmReady = !authLoading && (!user || !roleLoading);
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
     const [showPassword, setShowPassword] = useState(false);
     const [loading, setLoading] = useState(false);
 
-    // Redirecionar se já autenticado
-    if (isAdminAuthenticated) {
+    // Redirecionar se já autenticado no painel e logado no CRM como super admin
+    if (isAdminAuthenticated && crmReady && user && isSuperAdmin) {
         navigate("/admin", { replace: true });
         return null;
     }
@@ -66,6 +69,13 @@ export default function AdminLogin() {
                     </div>
 
                     {/* Form */}
+                    {crmReady && (!user || !isSuperAdmin) && (
+                        <div role="alert" className="mb-4 rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-200">
+                            {!user
+                                ? "Entre no CRM com sua conta de super admin antes de abrir o painel."
+                                : "Esta conta do CRM não é super admin. Entre com a conta de super admin do painel."}
+                        </div>
+                    )}
                     <form onSubmit={handleSubmit} className="space-y-4">
                         <div className="space-y-1.5">
                             <label className="text-sm font-medium text-gray-400" htmlFor="admin-email">

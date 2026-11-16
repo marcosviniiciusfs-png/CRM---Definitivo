@@ -15,6 +15,7 @@ import { CadastradoPorBadge } from "@/lib/leadSourceHelper";
 import { fetchOrganizationMembersSafe } from "@/hooks/useOrganizationMembers";
 import { getLeadDuplicateMetadata } from "@/lib/leadDuplicate";
 import { isMeetingScheduleActivity, parseMeetingSchedule } from "@/lib/meetingSchedule";
+import { useSegmentTerms } from "@/hooks/useOrganizationSegment";
 
 interface LeadDetailsDialogProps {
   open: boolean;
@@ -71,6 +72,7 @@ interface CalendarEventDetails {
 }
 
 export const LeadDetailsDialog = ({ open, onOpenChange, leadId, leadName, onEdit }: LeadDetailsDialogProps) => {
+  const segmentTerms = useSegmentTerms();
   const { user, isSuperAdmin } = useAuth();
   const [details, setDetails] = useState<LeadDetails | null>(null);
   const [activities, setActivities] = useState<ActivityWithUser[]>([]);
@@ -328,7 +330,7 @@ export const LeadDetailsDialog = ({ open, onOpenChange, leadId, leadName, onEdit
             <div className="space-y-2">
               <div className="flex items-center gap-2 text-muted-foreground">
                 <DollarSign className="h-4 w-4" />
-                <h3 className="font-semibold text-sm">Valor do negócio</h3>
+                <h3 className="font-semibold text-sm">{segmentTerms.dealValue}</h3>
               </div>
               <p className="text-xl sm:text-2xl font-bold text-primary">
                 {formatCurrency(details?.valor || 0)}

@@ -22,6 +22,7 @@ import { z } from "zod";
 import { CollaboratorDashboard } from "@/components/CollaboratorDashboard";
 import { RoleManagementTab } from "@/components/RoleManagementTab";
 import { CommissionsTab } from "@/components/CommissionsTab";
+import { useOrganizationSegment } from "@/hooks/useOrganizationSegment";
 
 const emailSchema = z.string().email({ message: "Email inválido" });
 
@@ -89,6 +90,8 @@ const Colaboradores = () => {
   const { toast } = useToast();
   const { isReady, organizationId: contextOrgId, user } = useOrganizationReady();
   const { permissions: contextPermissions } = useOrganization();
+  // Modo consórcio: as comissões ficam em /comissoes (Fase 4); a comissão genérica some daqui.
+  const { isConsorcio } = useOrganizationSegment();
   const queryClient = useQueryClient();
   const [isMutating, setIsMutating] = useState(false);
 
@@ -583,10 +586,12 @@ const Colaboradores = () => {
             <Shield className="h-4 w-4" />
             <span className="hidden sm:inline">Cargos</span>
           </TabsTrigger>
+          {!isConsorcio && (
           <TabsTrigger value="comissoes" className="gap-2 rounded-none px-4 sm:px-6 py-3 data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:shadow-none hover:bg-muted/50 transition-all duration-200">
             <DollarSign className="h-4 w-4" />
             <span className="hidden sm:inline">Comissões</span>
           </TabsTrigger>
+          )}
           <TabsTrigger value="dashboard" className="gap-2 rounded-none px-4 sm:px-6 py-3 data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:shadow-none hover:bg-muted/50 transition-all duration-200">
             <BarChart3 className="h-4 w-4" />
             <span className="hidden sm:inline">Dashboard de colaboradores</span>
@@ -825,7 +830,7 @@ const Colaboradores = () => {
                                   </>
                                 );
                               })()}
-                              {colab.user_id && pendingCommissionsByUser[colab.user_id] > 0 && (
+                              {!isConsorcio && colab.user_id && pendingCommissionsByUser[colab.user_id] > 0 && (
                                 <p className="text-xs text-amber-600">
                                   Comissão: R$ {pendingCommissionsByUser[colab.user_id].toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                                 </p>
@@ -885,9 +890,11 @@ const Colaboradores = () => {
           {organizationId && <RoleManagementTab organizationId={organizationId} userRole={userRole} />}
         </TabsContent>
 
+        {!isConsorcio && (
         <TabsContent value="comissoes">
           {organizationId && <CommissionsTab organizationId={organizationId} userRole={userRole} />}
         </TabsContent>
+        )}
 
         <TabsContent value="dashboard">
           {organizationId && <CollaboratorDashboard organizationId={organizationId} />}

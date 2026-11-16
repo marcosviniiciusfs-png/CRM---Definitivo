@@ -1,5 +1,6 @@
 import { Navigate } from "react-router-dom";
 import { useAdminAuth } from "@/contexts/AdminAuthContext";
+import { useAuth } from "@/contexts/AuthContext";
 import { Loader2 } from "lucide-react";
 
 interface AdminRouteProps {
@@ -18,8 +19,11 @@ interface AdminRouteProps {
  */
 export function SuperAdminRoute({ children }: AdminRouteProps) {
   const { isAdminAuthenticated, adminLoading } = useAdminAuth();
+  // Além da senha do painel, exige a sessão do CRM de um super admin (user_roles).
+  const { user, isSuperAdmin, loading, roleLoading } = useAuth();
 
-  if (adminLoading) {
+  // roleLoading só termina quando há usuário logado.
+  if (adminLoading || loading || (!!user && roleLoading)) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-gray-950">
         <div className="text-center space-y-3">
@@ -30,7 +34,7 @@ export function SuperAdminRoute({ children }: AdminRouteProps) {
     );
   }
 
-  if (!isAdminAuthenticated) {
+  if (!user || !isSuperAdmin || !isAdminAuthenticated) {
     return <Navigate to="/admin-login" replace />;
   }
 
