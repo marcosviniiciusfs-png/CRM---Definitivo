@@ -4,6 +4,16 @@
 // deno-lint-ignore no-explicit-any
 type Supabase = any;
 
+// Em produção o status fica em maiúsculas (CONNECTED / DISCONNECTED / WAITING_QR),
+// o mesmo valor que send-whatsapp-message exige.
+const CONNECTED = "CONNECTED";
+
+// Coluna de tarefas concluídas: o banco de produção não tem kanban_columns.is_completion_stage,
+// então a coluna é reconhecida pelo título ("Concluído", "Concluídas"...).
+export function isDoneColumnTitle(title: string | null | undefined): boolean {
+  return /^conclu/i.test(String(title ?? "").trim());
+}
+
 /** Canal do lead, se conectado e da mesma organização; senão o primeiro canal conectado da organização. */
 export async function resolveLeadInstanceName(
   supabase: Supabase,
@@ -17,7 +27,7 @@ export async function resolveLeadInstanceName(
       .select("instance_name, status, organization_id")
       .eq("id", lead.whatsapp_instance_id)
       .maybeSingle();
-    if (data && data.organization_id === lead.organization_id && data.status === "connected") {
+    if (data && data.organization_id === lead.organization_id && data.status === CONNECTED) {
       return data.instance_name;
     }
   }
@@ -26,7 +36,7 @@ export async function resolveLeadInstanceName(
     .from("whatsapp_instances")
     .select("instance_name")
     .eq("organization_id", lead.organization_id)
-    .eq("status", "connected")
+    .eq("status", CONNECTED)
     .order("created_at", { ascending: true })
     .limit(1)
     .maybeSingle();
@@ -37,7 +47,7 @@ export async function resolveLeadInstanceName(
 export async function findFirstTaskColumnId(supabase: Supabase, organizationId: string): Promise<string | null> {
   const { data: board } = await supabase
     .from("kanban_boards")
-    .select("id, kanban_columns(id, position, is_completion_stage)")
+    .select("id, kanban_columns(id, position, title)")
     .eq("organization_id", organizationId)
     .order("created_at", { ascending: true })
     .limit(1)
@@ -46,9 +56,9 @@ export async function findFirstTaskColumnId(supabase: Supabase, organizationId: 
   const columns = [...((board?.kanban_columns as {
     id: string;
     position: number | null;
-    is_completion_stage: boolean | null;
+    title: string | null;
   }[]) ?? [])]
-    .filter((column) => !column.is_completion_stage)
+    .filter((column) => !isDoneColumnTitle(column.title))
     .sort((a, b) => (a.position ?? 0) - (b.position ?? 0));
   return columns[0]?.id ?? null;
 }

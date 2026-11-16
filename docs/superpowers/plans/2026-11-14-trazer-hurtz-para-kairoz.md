@@ -167,9 +167,13 @@ mostra o estado na prioridade acima.
 - Aviso diário às 8h de tarefas que vencem hoje e vencidas.
 - O Pipeline não escuta UPDATE de leads em tempo real: o selo "Responder" atualiza quando a tela
   recarrega os leads. A versão mobile (`MobilePipelineView`) ainda não mostra os selos.
-- `send-scheduled-reminders` (lembrete manual por agendamento) procura canal com status `'CONNECTED'`
-  em maiúsculas e provavelmente nunca envia. Corrigir solta de uma vez os lembretes antigos
-  pendentes; precisa de limpeza antes.
+- Correção (16/11): em produção o status do canal é `'CONNECTED'` em maiúsculas, então
+  `send-scheduled-reminders` está certo; quem estava errado eram as funções novas, já corrigidas
+  em `_shared/lead-outbound.ts`.
+- O banco de produção não tem `kanban_columns.is_completion_stage` (nem `stage_color`,
+  `block_backward_movement`, `auto_delete_*`), embora o frontend use: a tela de configuração de
+  coluna de tarefa (`StageSettingsModal`) não deve funcionar lá. As funções novas reconhecem a
+  coluna de concluídas pelo título e por `kanban_cards.completed_at`.
 
 ---
 

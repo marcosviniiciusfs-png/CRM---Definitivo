@@ -89,6 +89,8 @@ WHERE l.id = w.id_lead
 
 -- Tarefas abertas dos leads do Pipeline numa chamada só (POST, sem limite de URL).
 -- SECURITY INVOKER: cada usuário só vê as tarefas que o RLS de kanban_cards já mostra.
+-- Aberta = sem completed_at e fora da coluna de concluídas. O banco de produção não tem
+-- kanban_columns.is_completion_stage, então a coluna de concluídas é reconhecida pelo título.
 CREATE OR REPLACE FUNCTION public.lead_open_tasks(p_lead_ids uuid[])
 RETURNS TABLE (lead_id uuid, card_id uuid, due_date text)
 LANGUAGE sql
@@ -100,7 +102,8 @@ AS $$
   FROM public.kanban_cards c
   JOIN public.kanban_columns col ON col.id = c.column_id
   WHERE c.lead_id = ANY (p_lead_ids)
-    AND COALESCE(col.is_completion_stage, false) = false;
+    AND c.completed_at IS NULL
+    AND btrim(col.title) !~* '^conclu';
 $$;
 
 REVOKE ALL ON FUNCTION public.lead_open_tasks(uuid[]) FROM PUBLIC;
