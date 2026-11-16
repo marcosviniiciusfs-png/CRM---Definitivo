@@ -52,7 +52,7 @@ export const FacebookFormData = ({ description, customFields }: FacebookFormData
             <svg className="h-5 w-5 text-blue-600" viewBox="0 0 24 24" fill="currentColor">
               <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" />
             </svg>
-            <h3 className="font-semibold text-sm">Dados do Formulário Meta Ads</h3>
+            <h3 className="font-semibold text-sm">Dados do formulário do Meta Ads</h3>
           </div>
           <Badge variant="secondary" className="text-xs">Meta Ads</Badge>
         </div>
@@ -78,7 +78,7 @@ export const FacebookFormData = ({ description, customFields }: FacebookFormData
               {customFields.campaign_id && (
                 <div className="flex items-center gap-2 flex-wrap">
                   <Hash className="h-3.5 w-3.5 text-blue-600 flex-shrink-0" />
-                  <span className="text-muted-foreground flex-shrink-0">ID da Campanha:</span>
+                  <span className="text-muted-foreground flex-shrink-0">ID da campanha:</span>
                   <span className="font-mono text-xs bg-muted px-1.5 py-0.5 rounded break-all">{customFields.campaign_id}</span>
                 </div>
               )}
@@ -135,7 +135,7 @@ export const FacebookFormData = ({ description, customFields }: FacebookFormData
   const formInfo = description.split('=== INFORMAÇÕES DO FORMULÁRIO ===')[0];
   const formIdMatch = formInfo.match(/Formulário: (.+)/);
   const campaignMatch = formInfo.match(/Campanha: (.+)/);
-  const campaignIdMatch = formInfo.match(/ID da Campanha: (.+)/) || formInfo.match(/\(ID: ([^)]+)\)/);
+  const campaignIdMatch = formInfo.match(/ID da campanha: (.+)/) || formInfo.match(/\(ID: ([^)]+)\)/);
   const cleanCampaignId = campaignIdMatch?.[1]?.trim() || null;
 
   const cleanFormName = formIdMatch?.[1]?.trim() === 'undefined' ? null : formIdMatch?.[1]?.trim();
@@ -148,7 +148,7 @@ export const FacebookFormData = ({ description, customFields }: FacebookFormData
           <svg className="h-5 w-5 text-blue-600" viewBox="0 0 24 24" fill="currentColor">
             <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" />
           </svg>
-          <h3 className="font-semibold text-sm">Dados do Formulário Meta Ads</h3>
+          <h3 className="font-semibold text-sm">Dados do formulário do Meta Ads</h3>
         </div>
         <Badge variant="secondary" className="text-xs">Meta Ads</Badge>
       </div>
@@ -173,7 +173,7 @@ export const FacebookFormData = ({ description, customFields }: FacebookFormData
             {cleanCampaignId && (
               <div className="flex items-center gap-2 flex-wrap">
                 <Hash className="h-3.5 w-3.5 text-blue-600 flex-shrink-0" />
-                <span className="text-muted-foreground flex-shrink-0">ID da Campanha:</span>
+                <span className="text-muted-foreground flex-shrink-0">ID da campanha:</span>
                 <span className="font-mono text-xs bg-muted px-1.5 py-0.5 rounded break-all">{cleanCampaignId}</span>
               </div>
             )}

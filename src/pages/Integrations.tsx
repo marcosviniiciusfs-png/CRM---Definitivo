@@ -35,7 +35,7 @@ const COMING_SOON = [
   },
   {
     id: "slack", name: "Slack", cat: "Comunicação",
-    desc: "Notificações em tempo real de novos leads no seu workspace.",
+    desc: "Receba avisos de novos leads no seu workspace.",
     color: "#E01E5A", bg: "rgba(224,30,90,.05)", br: "rgba(224,30,90,.15)",
     ic: (
       <svg viewBox="0 0 24 24" fill="#E01E5A" width="22" height="22">
@@ -55,7 +55,7 @@ const COMING_SOON = [
   },
   {
     id: "notion", name: "Notion", cat: "Produtividade",
-    desc: "Sincronize contatos e crie documentações automáticas no Notion.",
+    desc: "Sincronize leads e crie documentação automática no Notion.",
     color: "#AAA", bg: "rgba(255,255,255,.03)", br: "rgba(255,255,255,.1)",
     ic: (
       <svg viewBox="0 0 24 24" fill="#AAA" width="22" height="22">
@@ -112,7 +112,7 @@ function ComingSoonCard({ g }: { g: typeof COMING_SOON[number] }) {
       </div>
       <p className="text-[12.5px] text-muted-foreground leading-relaxed flex-1 line-clamp-2">{g.desc}</p>
       <div className="flex justify-end">
-        <div className="text-[11.5px] font-medium bg-muted border border-border rounded-[5px] px-3 py-1.5 text-muted-foreground">🔒 Em breve</div>
+        <div className="text-[11.5px] font-medium bg-muted border border-border rounded-[5px] px-3 py-1.5 text-muted-foreground">Em breve</div>
       </div>
     </div>
   );
@@ -167,11 +167,11 @@ function WhatsAppCard({
       </div>
 
       {loading ? (
-        <p className="text-[12.5px] text-muted-foreground leading-relaxed flex-1">Verificando conexão...</p>
+        <p className="text-[12.5px] text-muted-foreground leading-relaxed flex-1">Verificando conexão…</p>
       ) : isConnected ? (
         <div className="flex-1 flex flex-col justify-between">
           <p className="text-[12.5px] text-muted-foreground leading-relaxed">
-            Receba e envie mensagens diretamente para seus leads com número Business.
+            Receba e envie mensagens para seus leads com um número Business.
           </p>
           <div className="flex justify-end mt-2">
             <div className="flex items-center gap-1.5 bg-[#25D366]/15 px-3 py-1.5 rounded-full">
@@ -183,13 +183,13 @@ function WhatsAppCard({
       ) : (
         <div className="flex-1 flex flex-col justify-between">
           <p className="text-[12.5px] text-muted-foreground leading-relaxed">
-            Receba e envie mensagens diretamente para seus leads com número Business.
+            Receba e envie mensagens para seus leads com um número Business.
           </p>
           <div className="flex justify-end">
             <button
               onClick={canManage ? onManage : undefined}
               disabled={!canManage}
-              title={!canManage ? "Apenas admins podem gerenciar integrações" : undefined}
+              title={!canManage ? "Só administradores podem gerenciar integrações." : undefined}
               className="rounded-[5px] text-[12px] font-bold px-[15px] py-[7px] text-white bg-gradient-to-br from-[#128C7E] to-[#25D366] shadow-[0_3px_12px_rgba(37,211,102,.3)] transition-all hover:shadow-lg disabled:opacity-45 disabled:cursor-not-allowed"
             >Conectar WhatsApp</button>
           </div>
@@ -247,7 +247,7 @@ function FacebookCard({
       </div>
 
       {loading ? (
-        <p className="text-[12.5px] text-muted-foreground flex-1">Verificando conexão...</p>
+        <p className="text-[12.5px] text-muted-foreground flex-1">Verificando conexão…</p>
       ) : isConnected ? (
         <div className="flex-1 flex flex-col justify-between">
           <div className="flex flex-col gap-1.5">
@@ -272,7 +272,7 @@ function FacebookCard({
               <span className={`text-[11px] font-semibold ${configuredForms > 0 ? "text-success" : "text-muted-foreground"}`}>
                 {configuredForms > 0
                   ? `${configuredForms} formulário${configuredForms !== 1 ? "s" : ""}`
-                  : "Nenhum ativo"}
+                  : "Nenhum formulário ativo"}
               </span>
             </div>
           </div>
@@ -280,23 +280,23 @@ function FacebookCard({
             <button
               onClick={canManage ? onManage : undefined}
               disabled={!canManage}
-              title={!canManage ? "Apenas admins podem gerenciar integrações" : undefined}
+              title={!canManage ? "Só administradores podem gerenciar integrações." : undefined}
               className="border border-[#1877F2]/30 rounded-[5px] text-[12px] font-semibold px-3.5 py-1.5 bg-[#1877F2]/10 text-[#1877F2] transition-all hover:bg-[#1877F2]/20 disabled:opacity-45 disabled:cursor-not-allowed"
-            >Gerenciar Formulários</button>
+            >Gerenciar formulários</button>
           </div>
         </div>
       ) : (
         <div className="flex-1 flex flex-col justify-between">
           <p className="text-[12.5px] text-muted-foreground leading-relaxed">
-            Importe leads automaticamente das campanhas de anúncios do Facebook Ads.
+            Importe leads das campanhas de anúncios do Facebook Ads automaticamente.
           </p>
           <div className="flex justify-end">
             <button
               onClick={canManage ? onManage : undefined}
               disabled={!canManage}
-              title={!canManage ? "Apenas admins podem gerenciar integrações" : undefined}
+              title={!canManage ? "Só administradores podem gerenciar integrações." : undefined}
               className="rounded-[5px] text-[12px] font-bold px-[15px] py-[7px] text-white bg-gradient-to-br from-[#1877F2] to-[#1565C0] shadow-[0_3px_12px_rgba(24,119,242,.35)] transition-all hover:shadow-lg disabled:opacity-45 disabled:cursor-not-allowed"
-            >Conectar ao Facebook</button>
+            >Conectar Facebook</button>
           </div>
         </div>
       )}
@@ -355,17 +355,17 @@ function MetaConversionsCard({
       </div>
 
       {loading ? (
-        <p className="text-[12.5px] text-muted-foreground flex-1">Verificando configuração...</p>
+        <p className="text-[12.5px] text-muted-foreground flex-1">Verificando configuração…</p>
       ) : isActive ? (
         <div className="flex-1 flex flex-col justify-between">
           <div className="py-2 px-2.5 rounded-[5px] bg-muted/50 border border-border text-[12px] text-[#0082FB]">
-            Pixel configurado e rastreando conversões
+            Pixel configurado e rastreando conversões.
           </div>
           <div className="flex justify-end">
             <button
               onClick={canManage ? onManage : undefined}
               disabled={!canManage}
-              title={!canManage ? "Apenas admins podem gerenciar integrações" : undefined}
+              title={!canManage ? "Só administradores podem gerenciar integrações." : undefined}
               className="border border-[#0082FB]/30 rounded-[5px] text-[12px] font-semibold px-3.5 py-1.5 bg-[#0082FB]/10 text-[#0082FB] transition-all hover:bg-[#0082FB]/20 disabled:opacity-45 disabled:cursor-not-allowed"
             >Gerenciar Pixel</button>
           </div>
@@ -373,13 +373,13 @@ function MetaConversionsCard({
       ) : (
         <div className="flex-1 flex flex-col justify-between">
           <p className="text-[12.5px] text-muted-foreground leading-relaxed">
-            Envie eventos de conversão ao Meta e otimize suas campanhas de anúncios.
+            Envie eventos de conversão à Meta e melhore suas campanhas de anúncios.
           </p>
           <div className="flex justify-end">
             <button
               onClick={canManage ? onManage : undefined}
               disabled={!canManage}
-              title={!canManage ? "Apenas admins podem gerenciar integrações" : undefined}
+              title={!canManage ? "Só administradores podem gerenciar integrações." : undefined}
               className="rounded-[5px] text-[12px] font-bold px-[15px] py-[7px] text-white bg-gradient-to-br from-[#0082FB] to-[#0050A0] shadow-[0_3px_12px_rgba(0,130,251,.35)] transition-all hover:shadow-lg disabled:opacity-45 disabled:cursor-not-allowed"
             >Configurar Pixel</button>
           </div>
@@ -431,8 +431,8 @@ function GoogleCalendarCard({
       console.error("Erro ao iniciar conexão:", err);
       const isSetupError = err.message?.includes("SETUP_REQUIRED");
       toast({
-        title: isSetupError ? "Configuração necessária" : "Erro ao conectar",
-        description: err.message || "Não foi possível iniciar a conexão com o Google Calendar",
+        title: isSetupError ? "Configuração necessária" : "Não foi possível conectar o Google Calendar",
+        description: isSetupError ? err.message : "Tente novamente.",
         variant: "destructive",
         duration: isSetupError ? 10000 : 5000,
       });
@@ -471,11 +471,11 @@ function GoogleCalendarCard({
       </div>
 
       {loading ? (
-        <p className="text-[12.5px] text-muted-foreground flex-1">Verificando conexão...</p>
+        <p className="text-[12.5px] text-muted-foreground flex-1">Verificando conexão…</p>
       ) : isConnected ? (
         <div className="flex-1 flex flex-col justify-between">
           <div className="py-2 px-2.5 rounded-[5px] bg-muted/50 border border-border text-[12px] text-[#4285F4]">
-            Calendário sincronizado com seu Google Calendar
+            Calendário sincronizado com o Google Calendar.
           </div>
           <div className="flex justify-end">
             <button
@@ -487,15 +487,15 @@ function GoogleCalendarCard({
       ) : (
         <div className="flex-1 flex flex-col justify-between">
           <p className="text-[12.5px] text-muted-foreground leading-relaxed">
-            Agende reuniões e sincronize eventos com seu calendário automaticamente.
+            Sincronize seus agendamentos com o Google Calendar automaticamente.
           </p>
           <div className="flex justify-end">
             <button
               onClick={canManage ? handleConnect : undefined}
               disabled={!canManage || connecting}
-              title={!canManage ? "Apenas admins podem gerenciar integrações" : undefined}
+              title={!canManage ? "Só administradores podem gerenciar integrações." : undefined}
               className="rounded-[5px] text-[12px] font-bold px-[15px] py-[7px] text-white bg-gradient-to-br from-[#4285F4] to-[#2B63C3] shadow-[0_3px_12px_rgba(66,133,244,.35)] transition-all hover:shadow-lg disabled:opacity-45 disabled:cursor-not-allowed"
-            >{connecting ? "Conectando..." : "Conectar Google Calendar"}</button>
+            >{connecting ? "Conectando…" : "Conectar Google Calendar"}</button>
           </div>
         </div>
       )}
@@ -642,9 +642,9 @@ const Integrations = () => {
     if (gcalStatus === 'google_calendar') {
       refreshIntegrations();
       if (gcalSuccess === 'true') {
-        toast({ title: "Google Calendar conectado!", description: "Sincronização ativa.", duration: 4000 });
+        toast({ title: "Google Calendar conectado", description: "Sincronização ativa.", duration: 4000 });
       } else if (gcalError) {
-        toast({ title: "Erro ao conectar", description: gcalError === 'access_denied' ? "Você negou o acesso." : "Falha na conexão. Tente novamente.", variant: "destructive", duration: 5000 });
+        toast({ title: "Não foi possível conectar o Google Calendar", description: gcalError === 'access_denied' ? "Você negou o acesso. Conecte novamente e permita o acesso." : "Tente novamente.", variant: "destructive", duration: 5000 });
       }
       window.history.replaceState({}, '', window.location.pathname);
     }
@@ -678,7 +678,7 @@ const Integrations = () => {
       <div className="flex flex-col items-center justify-center min-h-screen p-6 text-center bg-background">
         <div className="h-10 w-10 animate-spin rounded-full border-4 border-blue-600 border-t-transparent mb-4" />
         <h2 className="text-xl font-semibold">Conectando ao Facebook</h2>
-        <p className="text-muted-foreground mt-2">Esta janela fechara automaticamente em instantes.</p>
+        <p className="text-muted-foreground mt-2">Esta janela fecha sozinha em instantes.</p>
       </div>
     );
   }
@@ -688,7 +688,7 @@ const Integrations = () => {
   if (!isReady || !organizationId) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
-        <LoadingAnimation text="Carregando integrações..." />
+        <LoadingAnimation text="Carregando integrações…" />
       </div>
     );
   }
@@ -713,7 +713,7 @@ const Integrations = () => {
               </div>
               <h1 className="text-lg sm:text-xl md:text-[22px] font-bold tracking-tight text-foreground">Integrações</h1>
             </div>
-            <p className="hidden sm:block text-[13px] text-muted-foreground">Conecte serviços externos e automatize seus fluxos de trabalho</p>
+            <p className="hidden sm:block text-[13px] text-muted-foreground">Conecte serviços externos e automatize o trabalho da equipe</p>
           </div>
           <div className="flex gap-2.5 flex-shrink-0">
             <div className="px-4 py-2.5 rounded-[5px] text-center bg-primary/7 border border-primary/20">
@@ -736,7 +736,7 @@ const Integrations = () => {
               onClick={() => setTab(t)}
             >
               <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 transition-all ${tab === t ? "bg-primary" : "bg-muted-foreground/30"}`}/>
-              {t === "connections" ? "Conexões" : t === "webhooks" ? "Webhooks" : t === "logs" ? "Logs" : "Trackeamento"}
+              {t === "connections" ? "Conexões" : t === "webhooks" ? "Webhooks" : t === "logs" ? "Logs" : "Rastreamento"}
             </button>
           ))}
         </div>

@@ -52,7 +52,7 @@ export default function FormWebhookLogs() {
       setLogs(data || []);
     } catch (error: any) {
       console.error("Error loading logs:", error);
-      toast.error("Erro ao carregar logs");
+      toast.error("Não foi possível carregar os logs. Tente novamente.");
     } finally {
       setLoading(false);
     }
@@ -69,13 +69,13 @@ export default function FormWebhookLogs() {
 
       if (error) throw error;
 
-      toast.success("Log excluído com sucesso");
+      toast.success("Log excluído.");
       setLogs(logs.filter((log) => log.id !== selectedLog));
       setDeleteDialogOpen(false);
       setSelectedLog(null);
     } catch (error: any) {
       console.error("Error deleting log:", error);
-      toast.error("Erro ao excluir log");
+      toast.error("Não foi possível excluir o log. Tente novamente.");
     }
   };
 
@@ -88,11 +88,11 @@ export default function FormWebhookLogs() {
 
       if (error) throw error;
 
-      toast.success("Todos os logs foram excluídos");
+      toast.success("Logs excluídos.");
       setLogs([]);
     } catch (error: any) {
       console.error("Error clearing logs:", error);
-      toast.error("Erro ao limpar logs");
+      toast.error("Não foi possível excluir os logs. Tente novamente.");
     }
   };
 
@@ -161,9 +161,9 @@ export default function FormWebhookLogs() {
               <ArrowLeft className="w-4 h-4 mr-2" />
               Voltar
             </Button>
-            <h1 className="text-3xl font-bold">Logs do Webhook de Formulários</h1>
+            <h1 className="text-3xl font-bold">Logs do Webhook de formulários</h1>
             <p className="text-muted-foreground mt-2">
-              Monitore e diagnostique o recebimento de leads por formulários externos
+              Acompanhe e diagnostique o recebimento de leads por formulários externos.
             </p>
           </div>
           <div className="flex gap-2">
@@ -173,7 +173,7 @@ export default function FormWebhookLogs() {
             </Button>
             <Button variant="destructive" onClick={handleClearAllLogs}>
               <Trash2 className="w-4 h-4 mr-2" />
-              Limpar Todos
+              Limpar todos
             </Button>
           </div>
         </div>
@@ -191,7 +191,7 @@ export default function FormWebhookLogs() {
         ) : logs.length === 0 ? (
           <Card>
             <CardContent className="p-12 text-center">
-              <p className="text-muted-foreground">Nenhum log encontrado</p>
+              <p className="text-muted-foreground">Nenhum log registrado ainda.</p>
             </CardContent>
           </Card>
         ) : (
@@ -230,7 +230,7 @@ export default function FormWebhookLogs() {
                     {log.lead_id && (
                       <div>
                         <span className="text-muted-foreground">
-                          Lead Criado:
+                          Lead criado:
                         </span>
                         <p className="font-mono text-xs">{log.lead_id}</p>
                       </div>
@@ -240,7 +240,7 @@ export default function FormWebhookLogs() {
                   {log.error_message && (
                     <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-3">
                       <p className="text-sm text-destructive font-medium mb-1">
-                        Mensagem de Erro:
+                        Mensagem de erro:
                       </p>
                       <p className="text-sm text-destructive/90">
                         {log.error_message}
@@ -268,10 +268,9 @@ export default function FormWebhookLogs() {
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Excluir Log</AlertDialogTitle>
+            <AlertDialogTitle>Excluir log</AlertDialogTitle>
             <AlertDialogDescription>
-              Tem certeza que deseja excluir este log? Esta ação não pode ser
-              desfeita.
+              Excluir este log? Não dá para desfazer.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

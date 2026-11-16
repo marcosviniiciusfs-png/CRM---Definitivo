@@ -328,9 +328,9 @@ export default function Atividades() {
     <div className="space-y-4 sm:space-y-8 min-w-0 overflow-hidden">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-foreground mb-2">Histórico de Atividades</h1>
+          <h1 className="text-3xl font-bold text-foreground mb-2">Histórico de atividades</h1>
           <p className="text-muted-foreground">
-            Acompanhe todas as atividades e interações no sistema
+            Acompanhe as atividades dos colaboradores e as mensagens dos leads.
           </p>
         </div>
       </div>
@@ -347,7 +347,7 @@ export default function Atividades() {
           </TabsTrigger>
           <TabsTrigger value="system" className="flex items-center gap-1.5 sm:gap-2 rounded-none px-3 sm:px-6 py-2.5 sm:py-3 text-xs sm:text-sm data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:shadow-none hover:bg-muted/50 transition-all duration-200">
             <Activity className="h-4 w-4" />
-            <span className="hidden sm:inline">Outras Atividades</span>
+            <span className="hidden sm:inline">Outras atividades</span>
             <span className="sm:hidden">Outras</span>
           </TabsTrigger>
         </TabsList>
@@ -356,7 +356,7 @@ export default function Atividades() {
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder="Buscar..."
+              placeholder="Buscar por nome ou texto"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="pl-9"
@@ -364,10 +364,10 @@ export default function Atividades() {
           </div>
           <Select value={filterColaborador} onValueChange={setFilterColaborador}>
             <SelectTrigger className="w-full md:w-[200px]">
-              <SelectValue placeholder="Todos Colaboradores" />
+              <SelectValue placeholder="Todos os colaboradores" />
             </SelectTrigger>
             <SelectContent className="bg-background z-50">
-              <SelectItem value="todos">Todos Colaboradores</SelectItem>
+              <SelectItem value="todos">Todos os colaboradores</SelectItem>
               {colaboradores.map((colab) => (
                 <SelectItem key={colab.id} value={colab.id}>
                   {colab.name || colab.email}
@@ -380,8 +380,8 @@ export default function Atividades() {
         <TabsContent value="messages" className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle>Histórico de Mensagens</CardTitle>
-              <CardDescription>Mensagens enviadas e recebidas pelos leads</CardDescription>
+              <CardTitle>Histórico de mensagens</CardTitle>
+              <CardDescription>Mensagens enviadas e recebidas pelos leads.</CardDescription>
             </CardHeader>
             <CardContent>
               <ScrollArea className="h-[600px] pr-4">
@@ -400,7 +400,7 @@ export default function Atividades() {
                 ) : filteredMessages.length === 0 ? (
                   <div className="text-center py-12">
                     <MessageSquare className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                    <p className="text-muted-foreground">Nenhuma mensagem encontrada</p>
+                    <p className="text-muted-foreground">Nenhuma mensagem encontrada.</p>
                   </div>
                 ) : (
                   <div className="space-y-4">
@@ -449,8 +449,8 @@ export default function Atividades() {
         <TabsContent value="sessions" className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle>Histórico de Conexões</CardTitle>
-              <CardDescription>Registro de login e logout dos colaboradores</CardDescription>
+              <CardTitle>Histórico de conexões</CardTitle>
+              <CardDescription>Entradas e saídas dos colaboradores no sistema.</CardDescription>
             </CardHeader>
             <CardContent>
               <ScrollArea className="h-[600px] pr-4">
@@ -469,7 +469,7 @@ export default function Atividades() {
                 ) : filteredSessions.length === 0 ? (
                   <div className="text-center py-12">
                     <LogIn className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                    <p className="text-muted-foreground">Nenhuma sessão encontrada</p>
+                    <p className="text-muted-foreground">Nenhuma conexão encontrada.</p>
                   </div>
                 ) : (
                   <div className="space-y-4">
@@ -501,7 +501,7 @@ export default function Atividades() {
                             <div className="flex items-center gap-2 text-muted-foreground">
                               <LogIn className="h-4 w-4" />
                               <span>
-                                Login: {format(new Date(session.login_at), 'dd/MM/yyyy HH:mm', { locale: ptBR })}
+                                Entrada: {format(new Date(session.login_at), 'dd/MM/yyyy HH:mm', { locale: ptBR })}
                                 {' '}({formatDistanceToNow(new Date(session.login_at), {
                                   addSuffix: true,
                                   locale: ptBR,
@@ -513,7 +513,7 @@ export default function Atividades() {
                               <div className="flex items-center gap-2 text-muted-foreground">
                                 <LogOut className="h-4 w-4" />
                                 <span>
-                                  Logout: {format(new Date(session.logout_at), 'dd/MM/yyyy HH:mm', { locale: ptBR })}
+                                  Saída: {format(new Date(session.logout_at), 'dd/MM/yyyy HH:mm', { locale: ptBR })}
                                   {' '}({formatDistanceToNow(new Date(session.logout_at), {
                                     addSuffix: true,
                                     locale: ptBR,
@@ -542,8 +542,8 @@ export default function Atividades() {
         <TabsContent value="system" className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle>Outras Atividades</CardTitle>
-              <CardDescription>Mudanças de etapa, atribuições e tags</CardDescription>
+              <CardTitle>Outras atividades</CardTitle>
+              <CardDescription>Mudanças de etapa, responsáveis e tags.</CardDescription>
             </CardHeader>
             <CardContent>
               <ScrollArea className="h-[600px] pr-4">
@@ -562,7 +562,7 @@ export default function Atividades() {
                 ) : filteredSystemActivities.length === 0 ? (
                   <div className="text-center py-12">
                     <Activity className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                    <p className="text-muted-foreground">Nenhuma atividade encontrada</p>
+                    <p className="text-muted-foreground">Nenhuma atividade encontrada.</p>
                   </div>
                 ) : (
                   <div className="space-y-4">

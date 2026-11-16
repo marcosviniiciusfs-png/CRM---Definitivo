@@ -156,7 +156,7 @@ export const WebhookIntegrationsTab = ({ organizationId }: WebhookIntegrationsTa
       setWebhooks(webhooksWithMeta);
     } catch (error) {
       console.error("Erro ao carregar webhooks:", error);
-      toast.error("Erro ao carregar webhooks");
+      toast.error("Não foi possível carregar os Webhooks. Tente novamente.");
     } finally {
       setLoading(false);
     }
@@ -194,12 +194,12 @@ export const WebhookIntegrationsTab = ({ organizationId }: WebhookIntegrationsTa
         await supabase.from("lead_tags").delete().eq("id", selectedWebhook.tag_id);
       }
 
-      toast.success("Webhook excluído com sucesso!");
+      toast.success("Webhook excluído.");
       setDeleteDialogOpen(false);
       loadWebhooks();
     } catch (error) {
       console.error("Erro ao excluir webhook:", error);
-      toast.error("Erro ao excluir webhook");
+      toast.error("Não foi possível excluir o Webhook. Tente novamente.");
     } finally {
       setDeleting(false);
     }
@@ -261,14 +261,14 @@ export const WebhookIntegrationsTab = ({ organizationId }: WebhookIntegrationsTa
               <Link2 className="h-6 w-6 text-muted-foreground" />
             </div>
             <div>
-              <h3 className="font-medium">Nenhum webhook configurado</h3>
+              <h3 className="font-medium">Nenhum Webhook configurado ainda.</h3>
               <p className="text-sm text-muted-foreground mt-1">
-                Crie um webhook para receber leads de formulários externos automaticamente
+                Crie um Webhook para receber leads de formulários externos automaticamente.
               </p>
             </div>
             <Button onClick={() => setCreateModalOpen(true)} className="mt-2">
               <Plus className="h-4 w-4 mr-2" />
-              Criar Primeiro Webhook
+              Criar Webhook
             </Button>
           </div>
         </Card>
@@ -310,8 +310,7 @@ export const WebhookIntegrationsTab = ({ organizationId }: WebhookIntegrationsTa
           <AlertDialogHeader>
             <AlertDialogTitle>Excluir Webhook?</AlertDialogTitle>
             <AlertDialogDescription>
-              Esta ação não pode ser desfeita. O webhook "{selectedWebhook?.name || selectedWebhook?.tagName}" 
-              será excluído permanentemente e não receberá mais leads.
+              O Webhook "{selectedWebhook?.name || selectedWebhook?.tagName}" deixa de receber leads e a tag associada também é excluída. Não dá para desfazer.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -321,7 +320,7 @@ export const WebhookIntegrationsTab = ({ organizationId }: WebhookIntegrationsTa
               disabled={deleting}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
-              {deleting ? "Excluindo..." : "Excluir"}
+              {deleting ? "Excluindo…" : "Excluir"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

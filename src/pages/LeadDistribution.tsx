@@ -185,19 +185,19 @@ export default function LeadDistribution() {
       queryClient.invalidateQueries({ queryKey: ["lead-distribution-configs"] });
       if (redistributed > 0) {
         const msg = skipped > 0
-          ? `${redistributed} leads redistribuidos. ${skipped} aguardando configuracao de roleta/agente.`
-          : `${redistributed} leads redistribuidos com sucesso!`;
+          ? `${redistributed} ${redistributed === 1 ? "lead redistribuído" : "leads redistribuídos"}. ${skipped} ${skipped === 1 ? "lead esperando" : "leads esperando"} uma roleta ou um responsável.`
+          : `${redistributed} ${redistributed === 1 ? "lead redistribuído" : "leads redistribuídos"}.`;
         toast.success(msg);
       } else if (skipped > 0) {
-        toast.warning(`${skipped} leads aguardando configuracao de roleta/agente.`);
+        toast.warning(`${skipped} ${skipped === 1 ? "lead esperando" : "leads esperando"} uma roleta ou um responsável.`);
       } else {
-        toast.info("Nenhum lead para redistribuir");
+        toast.info("Nenhum lead para redistribuir.");
       }
       setRedistributeOpen(false);
       setTimeout(() => setRedistProgress({ current: 0, total: 0, isRunning: false }), 3000);
     },
     onError: () => {
-      toast.error("Erro ao redistribuir leads");
+      toast.error("Não foi possível redistribuir os leads. Tente novamente.");
       setRedistProgress({ current: 0, total: 0, isRunning: false });
     },
   });
@@ -255,19 +255,19 @@ export default function LeadDistribution() {
       queryClient.invalidateQueries({ queryKey: ["lead-distribution-configs"] });
       if (redistributed > 0) {
         const msg = skipped > 0
-          ? `${redistributed} leads perdidos redistribuidos. ${skipped} aguardando configuracao.`
-          : `${redistributed} leads perdidos redistribuidos!`;
+          ? `${redistributed} ${redistributed === 1 ? "lead perdido redistribuído" : "leads perdidos redistribuídos"}. ${skipped} ${skipped === 1 ? "lead esperando" : "leads esperando"} uma roleta ou um responsável.`
+          : `${redistributed} ${redistributed === 1 ? "lead perdido redistribuído" : "leads perdidos redistribuídos"}.`;
         toast.success(msg);
       } else if (skipped > 0) {
-        toast.warning(`${skipped} leads perdidos aguardando configuracao de roleta/agente.`);
+        toast.warning(`${skipped} ${skipped === 1 ? "lead perdido esperando" : "leads perdidos esperando"} uma roleta ou um responsável.`);
       } else {
-        toast.info("Nenhum lead perdido para redistribuir");
+        toast.info("Nenhum lead perdido para redistribuir.");
       }
       setRedistributeLostOpen(false);
       setTimeout(() => setRedistProgress({ current: 0, total: 0, isRunning: false }), 3000);
     },
     onError: () => {
-      toast.error("Erro ao redistribuir leads perdidos");
+      toast.error("Não foi possível redistribuir os leads perdidos. Tente novamente.");
       setRedistProgress({ current: 0, total: 0, isRunning: false });
     },
   });
@@ -344,18 +344,19 @@ export default function LeadDistribution() {
       queryClient.invalidateQueries({ queryKey: ["multi-collaborator-active-leads-count"] });
       if (redistributed > 0) {
         const msg = skipped > 0
-          ? `${redistributed} leads redistribuidos. ${skipped} aguardando configuracao de roleta/agente.`
-          : `${redistributed} leads redistribuidos com sucesso!`;
+          ? `${redistributed} ${redistributed === 1 ? "lead redistribuído" : "leads redistribuídos"}. ${skipped} ${skipped === 1 ? "lead esperando" : "leads esperando"} uma roleta ou um responsável.`
+          : `${redistributed} ${redistributed === 1 ? "lead redistribuído" : "leads redistribuídos"}.`;
         toast.success(msg);
       } else if (skipped > 0) {
-        toast.warning(`${skipped} leads aguardando configuracao de roleta/agente.`);
+        toast.warning(`${skipped} ${skipped === 1 ? "lead esperando" : "leads esperando"} uma roleta ou um responsável.`);
       } else {
-        toast.info("Nenhum lead foi redistribuido");
+        toast.info("Nenhum lead foi redistribuído.");
       }
       setTimeout(() => setRedistProgress({ current: 0, total: 0, isRunning: false }), 3000);
     },
     onError: (err: Error) => {
-      toast.error(`Erro: ${err.message || "falha ao redistribuir"}`);
+      console.error("Erro ao redistribuir leads do colaborador:", err);
+      toast.error("Não foi possível redistribuir os leads. Tente novamente.");
       setRedistProgress({ current: 0, total: 0, isRunning: false });
     },
   });
@@ -368,9 +369,9 @@ export default function LeadDistribution() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["lead-distribution-configs"] });
-      toast.success("Roleta excluida");
+      toast.success("Roleta excluída.");
     },
-    onError: () => toast.error("Erro ao excluir roleta"),
+    onError: () => toast.error("Não foi possível excluir a roleta. Tente novamente."),
   });
 
   if (orgLoading || !isReady) return <LoadingAnimation />;
@@ -380,8 +381,8 @@ export default function LeadDistribution() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Roleta de Leads</h1>
-          <p className="text-muted-foreground mt-1">Distribuicao inteligente e automatica entre sua equipe</p>
+          <h1 className="text-2xl font-bold tracking-tight">Roleta de leads</h1>
+          <p className="text-muted-foreground mt-1">Reparta os leads automaticamente entre os colaboradores.</p>
         </div>
         <div className="flex items-center gap-2">
           {permissions.canCreateRoulettes && (
@@ -428,7 +429,7 @@ export default function LeadDistribution() {
         <div className="rounded-xl border bg-emerald-50 dark:bg-emerald-500/10 p-4 space-y-2">
           <div className="flex items-center justify-between">
             <span className="text-sm font-medium text-emerald-700 dark:text-emerald-400">
-              {redistProgress.current} leads redistribuidos
+              {redistProgress.current} {redistProgress.current === 1 ? "lead redistribuído" : "leads redistribuídos"}
             </span>
           </div>
           <Progress value={100} className="h-2" />
@@ -445,10 +446,10 @@ export default function LeadDistribution() {
               </div>
               <div>
                 <p className="text-sm font-semibold text-orange-800 dark:text-orange-300">
-                  {unassignedCount} lead{unassignedCount !== 1 ? "s" : ""} sem responsavel
+                  {unassignedCount} {unassignedCount === 1 ? "lead sem responsável" : "leads sem responsável"}
                 </p>
                 <p className="text-xs text-orange-600/70 dark:text-orange-400/60">
-                  Leads que nao foram distribuidos automaticamente
+                  Leads que não foram distribuídos automaticamente.
                 </p>
               </div>
             </div>
@@ -474,10 +475,10 @@ export default function LeadDistribution() {
               </div>
               <div>
                 <p className="text-sm font-semibold text-red-800 dark:text-red-300">
-                  {lostLeadsCount} lead{lostLeadsCount !== 1 ? "s" : ""} na etapa Perdido
+                  {lostLeadsCount} {lostLeadsCount === 1 ? "lead" : "leads"} na etapa Perdido
                 </p>
                 <p className="text-xs text-red-600/70 dark:text-red-400/60">
-                  Redistribua esses leads para tentar novamente com outro colaborador
+                  Redistribua esses leads para tentar de novo com outro colaborador.
                 </p>
               </div>
             </div>
@@ -500,7 +501,7 @@ export default function LeadDistribution() {
             <Shuffle className="h-3.5 w-3.5" /> Roletas
           </TabsTrigger>
           <TabsTrigger value="agents" className="gap-1.5">
-            <Users className="h-3.5 w-3.5" /> Agentes
+            <Users className="h-3.5 w-3.5" /> Colaboradores
           </TabsTrigger>
           {permissions.canCreateRoulettes && (
             <TabsTrigger value="rules" className="gap-1.5">
@@ -508,7 +509,7 @@ export default function LeadDistribution() {
             </TabsTrigger>
           )}
           <TabsTrigger value="history" className="gap-1.5">
-            <History className="h-3.5 w-3.5" /> Historico
+            <History className="h-3.5 w-3.5" /> Histórico
           </TabsTrigger>
         </TabsList>
 
@@ -521,13 +522,13 @@ export default function LeadDistribution() {
               <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-muted mb-4">
                 <RefreshCw className="h-6 w-6 text-muted-foreground" />
               </div>
-              <p className="text-sm font-medium text-muted-foreground mb-1">Nenhuma roleta configurada</p>
+              <p className="text-sm font-medium text-muted-foreground mb-1">Nenhuma roleta ainda.</p>
               <p className="text-xs text-muted-foreground mb-4">
-                Crie sua primeira roleta para comecar a distribuir leads automaticamente
+                Crie uma roleta para começar a distribuir leads automaticamente.
               </p>
               {permissions.canCreateRoulettes && (
                 <Button onClick={() => { setEditConfig(null); setCreateModalOpen(true); }} variant="outline" className="gap-2">
-                  <Plus className="h-4 w-4" /> Criar primeira roleta
+                  <Plus className="h-4 w-4" /> Criar roleta
                 </Button>
               )}
             </div>
@@ -540,7 +541,7 @@ export default function LeadDistribution() {
                   funnelName={funnelsMap?.[(config as any).funnel_id] || null}
                   onEdit={() => { setEditConfig(config); setCreateModalOpen(true); }}
                   onDelete={() => {
-                    if (confirm("Tem certeza que deseja excluir esta roleta?")) {
+                    if (confirm("Excluir esta roleta? Não dá para desfazer.")) {
                       deleteMutation.mutate(config.id);
                     }
                   }}
@@ -584,8 +585,8 @@ export default function LeadDistribution() {
         onConfirm={(configId) => redistributeMutation.mutate(configId)}
         isPending={redistributeMutation.isPending}
         showAutoOption={true}
-        title="Redistribuir Leads sem Responsavel"
-        description="Escolha qual roleta usar para redistribuir os leads."
+        title="Redistribuir leads sem responsável"
+        description="Escolha qual roleta vai redistribuir os leads."
       />
 
       {/* Redistribute lost leads dialog */}
@@ -596,8 +597,8 @@ export default function LeadDistribution() {
         onConfirm={(configId) => redistributeLostMutation.mutate(configId)}
         isPending={redistributeLostMutation.isPending}
         showAutoOption={true}
-        title="Redistribuir Leads Perdidos"
-        description="Esses leads serao movidos da etapa Perdido para o inicio do funil e redistribuidos entre os colaboradores."
+        title="Redistribuir leads perdidos"
+        description="Esses leads saem da etapa Perdido, voltam para o início do funil e são redistribuídos entre os colaboradores."
       />
     </div>
   );

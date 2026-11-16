@@ -26,12 +26,12 @@ export const CreateWebhookModal = ({
 
   const handleCreate = async () => {
     if (!name.trim()) {
-      toast.error("Digite um nome para o webhook");
+      toast.error("Preencha o nome do Webhook.");
       return;
     }
 
     if (!tagName.trim()) {
-      toast.error("Digite um nome para a tag");
+      toast.error("Preencha o nome da tag.");
       return;
     }
 
@@ -62,14 +62,14 @@ export const CreateWebhookModal = ({
 
       if (webhookError) throw webhookError;
 
-      toast.success("Webhook criado com sucesso!");
+      toast.success("Webhook criado.");
       setName("");
       setTagName("");
       onOpenChange(false);
       onCreated();
     } catch (error: any) {
       console.error("Erro ao criar webhook:", error);
-      toast.error("Erro ao criar webhook. Tente novamente.");
+      toast.error("Não foi possível criar o Webhook. Tente novamente.");
     } finally {
       setLoading(false);
     }
@@ -79,7 +79,7 @@ export const CreateWebhookModal = ({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Criar Novo Webhook</DialogTitle>
+          <DialogTitle>Criar Webhook</DialogTitle>
         </DialogHeader>
 
         <div className="space-y-4 py-4">
@@ -92,12 +92,12 @@ export const CreateWebhookModal = ({
               placeholder="Ex: Landing Page, Formulário Site"
             />
             <p className="text-xs text-muted-foreground">
-              Nome para identificar este webhook na lista
+              Nome para identificar este Webhook na lista.
             </p>
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="tag-name">Nome da Tag</Label>
+            <Label htmlFor="tag-name">Nome da tag</Label>
             <Input
               id="tag-name"
               value={tagName}
@@ -105,7 +105,7 @@ export const CreateWebhookModal = ({
               placeholder="Ex: Landing Page, Site, Campanha"
             />
             <p className="text-xs text-muted-foreground">
-              Esta tag será aplicada automaticamente aos leads criados por este webhook
+              Esta tag é aplicada automaticamente aos leads criados por este Webhook.
             </p>
           </div>
         </div>

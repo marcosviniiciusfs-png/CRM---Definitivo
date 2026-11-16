@@ -258,9 +258,9 @@ const RankingCard = ({
           {rep.full_name || "Colaborador"}
         </p>
         <div className="flex items-center gap-2 text-[10px] text-indigo-300/80">
-          <span>Mês {rep.won_leads}</span>
+          <span>Vendas {rep.won_leads}</span>
           <span className="text-indigo-500">•</span>
-          <span>Vendas {rep.total_leads}</span>
+          <span>Leads {rep.total_leads}</span>
         </div>
       </div>
 
@@ -325,8 +325,8 @@ export function SalesLeaderboard({
     return (
       <div className="flex flex-col items-center justify-center py-16 text-center">
         <Trophy className="h-16 w-16 text-indigo-400/40 mb-4" />
-        <p className="text-indigo-300/60 text-lg">Nenhum dado de vendas disponível</p>
-        <p className="text-indigo-400/40 text-sm mt-1">Realize vendas para aparecer no ranking</p>
+        <p className="text-indigo-300/60 text-lg">Nenhuma venda neste período.</p>
+        <p className="text-indigo-400/40 text-sm mt-1">Feche vendas para aparecer no ranking.</p>
       </div>
     );
   }
@@ -342,7 +342,7 @@ export function SalesLeaderboard({
       <div className="space-y-4">
         <h3 className="text-sm font-medium text-indigo-300/60 px-2 flex items-center gap-2">
           <Trophy className="h-4 w-4" />
-          Lista de Colaboradores
+          Lista de colaboradores
         </h3>
         
         <div className="space-y-2 max-h-[500px] overflow-y-auto pr-2">
@@ -353,7 +353,7 @@ export function SalesLeaderboard({
 
         {/* Bottom Info */}
         <div className="flex items-center justify-end gap-2 text-xs text-indigo-400/40 pt-2">
-          <span>© Ranking Kairoz em tempo real</span>
+          <span>© Ranking KairoZ em tempo real</span>
         </div>
       </div>
     </div>

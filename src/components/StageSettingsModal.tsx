@@ -94,8 +94,8 @@ export const StageSettingsModal = ({
 
     if (error) {
       toast({
-        title: "Erro ao salvar",
-        description: "Não foi possível salvar as configurações.",
+        title: "Não foi possível salvar",
+        description: "Não foi possível salvar as configurações. Tente novamente.",
         variant: "destructive",
       });
       return;
@@ -103,7 +103,7 @@ export const StageSettingsModal = ({
 
     toast({
       title: "Configurações salvas",
-      description: "As configurações da etapa foram atualizadas.",
+      description: "Configurações da etapa atualizadas.",
     });
 
     onSettingsUpdated();
@@ -124,7 +124,7 @@ export const StageSettingsModal = ({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Configurações da Etapa</DialogTitle>
+          <DialogTitle>Configurações da etapa</DialogTitle>
           <DialogDescription>
             Configure o comportamento da etapa "{columnTitle}"
           </DialogDescription>
@@ -142,10 +142,10 @@ export const StageSettingsModal = ({
                 <CheckCircle className="h-5 w-5 text-green-500 mt-0.5" />
                 <div className="space-y-0.5">
                   <Label htmlFor="completion-stage" className="text-sm font-medium">
-                    Etapa de Conclusão
+                    Etapa de conclusão
                   </Label>
                   <p className="text-xs text-muted-foreground">
-                    Tarefas terão borda verde indicando conclusão
+                    As tarefas ganham borda verde para indicar conclusão.
                   </p>
                 </div>
               </div>
@@ -164,10 +164,10 @@ export const StageSettingsModal = ({
                 <ArrowRightLeft className="h-5 w-5 text-amber-500 mt-0.5" />
                 <div className="space-y-0.5">
                   <Label htmlFor="block-backward" className="text-sm font-medium">
-                    Bloquear Retrocesso
+                    Bloquear retrocesso
                   </Label>
                   <p className="text-xs text-muted-foreground">
-                    Impede mover tarefas para etapas anteriores
+                    Impede mover tarefas para etapas anteriores.
                   </p>
                 </div>
               </div>
@@ -187,10 +187,10 @@ export const StageSettingsModal = ({
                   <Trash2 className="h-5 w-5 text-destructive mt-0.5" />
                   <div className="space-y-0.5">
                     <Label htmlFor="auto-delete" className="text-sm font-medium">
-                      Exclusão Automática
+                      Exclusão automática
                     </Label>
                     <p className="text-xs text-muted-foreground">
-                      Exclui tarefas após tempo definido
+                      Exclui as tarefas depois do tempo definido.
                     </p>
                   </div>
                 </div>
@@ -216,7 +216,7 @@ export const StageSettingsModal = ({
                         auto_delete_hours: e.target.value ? parseInt(e.target.value) : null,
                       })
                     }
-                    placeholder="Ex: 72 (3 dias)"
+                    placeholder="Ex.: 72 (3 dias)"
                     className="h-8"
                   />
                   <p className="text-xs text-muted-foreground">
@@ -228,7 +228,7 @@ export const StageSettingsModal = ({
 
             {/* Cor da Etapa */}
             <div className="space-y-2">
-              <Label className="text-sm font-medium">Cor da Etapa (opcional)</Label>
+              <Label className="text-sm font-medium">Cor da etapa (opcional)</Label>
               <div className="flex flex-wrap gap-2">
                 {stageColors.map((option) => (
                   <button

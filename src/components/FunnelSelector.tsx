@@ -166,7 +166,7 @@ export const FunnelSelector = ({
         .maybeSingle();
 
       if (!stageData) {
-        toast.error("Funil sem etapas configuradas");
+        toast.error("Este funil não tem etapas. Configure as etapas antes de escolher o funil.");
         return;
       }
 
@@ -215,11 +215,11 @@ export const FunnelSelector = ({
       const funnel = funnels.find(f => f.id === funnelId);
       if (funnel) setSelectedFunnelName(funnel.name);
 
-      toast.success("Direcionamento atualizado!");
+      toast.success("Direcionamento atualizado.");
       onMappingChange?.();
     } catch (error) {
       console.error("Error updating mapping:", error);
-      toast.error("Erro ao atualizar direcionamento");
+      toast.error("Não foi possível atualizar o direcionamento. Tente novamente.");
     } finally {
       setUpdating(false);
     }
@@ -259,7 +259,7 @@ export const FunnelSelector = ({
       onMappingRemoved?.();
     } catch (error) {
       console.error("Error removing mapping:", error);
-      toast.error("Erro ao desativar formulário");
+      toast.error("Não foi possível desativar o formulário. Tente novamente.");
     } finally {
       setUpdating(false);
     }
@@ -282,7 +282,7 @@ export const FunnelSelector = ({
   if (funnels.length === 0) {
     return (
       <div className="p-3 text-sm text-amber-500 border border-amber-200 bg-amber-50 dark:bg-amber-950 dark:border-amber-800 rounded mt-3">
-        Nenhum funil encontrado. Crie um funil de vendas primeiro.
+        Nenhum funil criado ainda. Crie um funil de vendas primeiro.
       </div>
     );
   }
@@ -327,7 +327,7 @@ export const FunnelSelector = ({
       {selectedFunnel && (
         <p className="flex items-center gap-1 text-[11px] text-success mt-2">
           <CheckCircle className="h-3 w-3" />
-          Leads adicionados à primeira etapa
+          Os leads entram na primeira etapa.
         </p>
       )}
     </div>

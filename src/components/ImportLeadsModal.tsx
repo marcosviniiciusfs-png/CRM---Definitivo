@@ -143,15 +143,15 @@ const getValue = (row: any, columnName: string, columnIndex: number): string => 
 
 const CRM_FIELDS = [
   { value: "ignore", label: "Ignorar" },
-  { value: "nome_lead", label: "Nome do Lead *" },
+  { value: "nome_lead", label: "Nome do lead *" },
   { value: "telefone_lead", label: "Telefone *" },
-  { value: "email", label: "Email" },
+  { value: "email", label: "E-mail" },
   { value: "empresa", label: "Empresa" },
   { value: "valor", label: "Valor" },
   { value: "responsavel", label: "Responsável" },
-  { value: "descricao_negocio", label: "Descrição do Negócio" },
+  { value: "descricao_negocio", label: "Descrição do negócio" },
   { value: "source", label: "Origem" },
-  { value: "additional_data", label: "→ Dados Adicionais" },
+  { value: "additional_data", label: "→ Dados adicionais" },
 ];
 
 // Fields that can be overwritten when updating a duplicate
@@ -228,7 +228,7 @@ export function ImportLeadsModal({ open, onOpenChange }: ImportLeadsModalProps) 
       if (jsonData.length === 0) {
         toast({
           title: "Arquivo vazio",
-          description: "A planilha não contém dados para importar",
+          description: "A planilha não tem dados para importar.",
           variant: "destructive",
         });
         return;
@@ -238,7 +238,7 @@ export function ImportLeadsModal({ open, onOpenChange }: ImportLeadsModalProps) 
       if (jsonData.length > 100) {
         toast({
           title: "Limite excedido",
-          description: `A planilha contém ${jsonData.length} registros. O limite máximo é 100 leads por importação. Divida a planilha em múltiplos arquivos de até 100 registros.`,
+          description: `A planilha tem ${jsonData.length} registros. O limite é de 100 leads por importação. Divida a planilha em arquivos de até 100 registros.`,
           variant: "destructive",
         });
         return;
@@ -320,8 +320,8 @@ export function ImportLeadsModal({ open, onOpenChange }: ImportLeadsModalProps) 
     } catch (error) {
       console.error("Erro ao processar arquivo:", error);
       toast({
-        title: "Erro ao processar arquivo",
-        description: "Verifique se o arquivo está no formato correto (Excel ou CSV)",
+        title: "Não foi possível ler o arquivo",
+        description: "Confira se o arquivo está em Excel ou CSV e tente novamente.",
         variant: "destructive",
       });
     }
@@ -364,7 +364,7 @@ export function ImportLeadsModal({ open, onOpenChange }: ImportLeadsModalProps) 
     if (!hasTelefone) {
       toast({
         title: "Mapeamento obrigatório",
-        description: "É necessário mapear uma coluna para o campo Telefone",
+        description: "Mapeie uma coluna para o campo Telefone.",
         variant: "destructive",
       });
       return false;
@@ -373,7 +373,7 @@ export function ImportLeadsModal({ open, onOpenChange }: ImportLeadsModalProps) 
     if (!hasNome) {
       toast({
         title: "Mapeamento obrigatório",
-        description: "É necessário mapear uma coluna para o campo Nome do Lead",
+        description: "Mapeie uma coluna para o campo Nome do lead.",
         variant: "destructive",
       });
       return false;
@@ -447,7 +447,7 @@ export function ImportLeadsModal({ open, onOpenChange }: ImportLeadsModalProps) 
     if (!selectedFunnel) {
       toast({
         title: "Funil não selecionado",
-        description: "Selecione o funil de destino antes de importar",
+        description: "Selecione o funil de destino antes de importar.",
         variant: "destructive",
       });
       return;
@@ -455,7 +455,7 @@ export function ImportLeadsModal({ open, onOpenChange }: ImportLeadsModalProps) 
     if (!selectedStage) {
       toast({
         title: "Etapa não selecionada",
-        description: "Selecione a etapa inicial antes de importar",
+        description: "Selecione a etapa inicial antes de importar.",
         variant: "destructive",
       });
       return;
@@ -463,7 +463,7 @@ export function ImportLeadsModal({ open, onOpenChange }: ImportLeadsModalProps) 
     if (!organizationId) {
       toast({
         title: "Organização não identificada",
-        description: "Recarregue a página e tente novamente",
+        description: "Recarregue a página e tente novamente.",
         variant: "destructive",
       });
       return;
@@ -485,13 +485,13 @@ export function ImportLeadsModal({ open, onOpenChange }: ImportLeadsModalProps) 
     if (validLeads.length === 0) {
       toast({
         title: "Nenhum lead válido",
-        description: "Todos os registros estão faltando nome ou telefone",
+        description: "Todos os registros estão sem nome ou telefone.",
         variant: "destructive",
       });
       setImportResults({
         success: 0,
         errors: invalidLeads.length,
-        errorDetails: invalidLeads.map((_, i) => `Registro ${i + 1}: faltando nome ou telefone`),
+        errorDetails: invalidLeads.map((_, i) => `Registro ${i + 1}: sem nome ou telefone`),
       });
       setImporting(false);
       return;
@@ -529,7 +529,7 @@ export function ImportLeadsModal({ open, onOpenChange }: ImportLeadsModalProps) 
 
     // Track invalid rows
     invalidLeads.forEach((lead, i) => {
-      errorDetails.push(`Registro ${i + 1}: faltando ${!lead.nome_lead ? 'nome' : 'telefone'}`);
+      errorDetails.push(`Registro ${i + 1}: sem ${!lead.nome_lead ? 'nome' : 'telefone'}`);
     });
 
     for (const lead of validLeads) {
@@ -569,7 +569,7 @@ export function ImportLeadsModal({ open, onOpenChange }: ImportLeadsModalProps) 
             console.error('[handleImport] Insert chunk error:', error);
             errorCount += chunk.length;
             chunk.forEach((lead, idx) => {
-              errorDetails.push(`Lead ${i + idx + 1} (${lead.nome_lead}): ${error.message}`);
+              errorDetails.push(`Lead ${i + idx + 1} (${lead.nome_lead}): não foi possível importar`);
             });
           } else {
             const inserted = (data as { inserted?: number } | null)?.inserted ?? 0;
@@ -577,14 +577,14 @@ export function ImportLeadsModal({ open, onOpenChange }: ImportLeadsModalProps) 
             if (inserted < chunk.length) {
               const failed = chunk.length - inserted;
               errorCount += failed;
-              errorDetails.push(`Chunk ${i / CHUNK_SIZE + 1}: ${failed} lead(s) ignorado(s) (sem nome ou telefone)`);
+              errorDetails.push(`Lote ${i / CHUNK_SIZE + 1}: ${failed} ${failed === 1 ? 'lead ignorado' : 'leads ignorados'} (sem nome ou telefone)`);
             }
           }
         } catch (err: any) {
           console.error('[handleImport] Insert chunk exception:', err);
           errorCount += chunk.length;
           chunk.forEach((lead, idx) => {
-            errorDetails.push(`Lead ${i + idx + 1} (${lead.nome_lead}): ${err.message}`);
+            errorDetails.push(`Lead ${i + idx + 1} (${lead.nome_lead}): não foi possível importar`);
           });
         }
 
@@ -606,8 +606,8 @@ export function ImportLeadsModal({ open, onOpenChange }: ImportLeadsModalProps) 
 
     if (successCount > 0 || duplicates.length > 0) {
       const parts: string[] = [];
-      if (successCount > 0) parts.push(`${successCount} novos importados`);
-      if (duplicates.length > 0) parts.push(`${duplicates.length} duplicados encontrados`);
+      if (successCount > 0) parts.push(`${successCount} ${successCount === 1 ? "novo importado" : "novos importados"}`);
+      if (duplicates.length > 0) parts.push(`${duplicates.length} ${duplicates.length === 1 ? "duplicado encontrado" : "duplicados encontrados"}`);
       toast({
         title: "Importação concluída",
         description: parts.join(" • "),
@@ -638,8 +638,8 @@ export function ImportLeadsModal({ open, onOpenChange }: ImportLeadsModalProps) 
     if (error) {
       console.error('[handleUpdateDuplicate] Error:', error);
       toast({
-        title: "Erro ao atualizar",
-        description: `Não foi possível atualizar o lead ${dup.newData.nome_lead}: ${error.message}`,
+        title: "Não foi possível atualizar",
+        description: `Não foi possível atualizar o lead ${dup.newData.nome_lead}. Tente novamente.`,
         variant: "destructive",
       });
       setDuplicateLeads(prev => prev.map((d, i) => i === index ? { ...d, updating: false } : d));
@@ -649,7 +649,7 @@ export function ImportLeadsModal({ open, onOpenChange }: ImportLeadsModalProps) 
     setDuplicateLeads(prev => prev.map((d, i) => i === index ? { ...d, action: "update" as const, updating: false } : d));
     toast({
       title: "Lead atualizado",
-      description: `${dup.newData.nome_lead} foi atualizado com os novos dados`,
+      description: `${dup.newData.nome_lead} atualizado com os novos dados.`,
     });
   };
 
@@ -710,13 +710,13 @@ export function ImportLeadsModal({ open, onOpenChange }: ImportLeadsModalProps) 
     if (failed > 0) {
       toast({
         title: "Atualização parcial",
-        description: `${updated} leads atualizados, ${failed} falharam`,
+        description: `${updated} ${updated === 1 ? "lead atualizado" : "leads atualizados"}. ${failed} ${failed === 1 ? "não foi atualizado" : "não foram atualizados"}.`,
         variant: "destructive",
       });
     } else {
       toast({
-        title: "Todos atualizados",
-        description: `${updated} leads duplicados foram atualizados com sucesso`,
+        title: "Duplicados atualizados",
+        description: `${updated} ${updated === 1 ? "lead duplicado atualizado" : "leads duplicados atualizados"}.`,
       });
     }
   };
@@ -726,16 +726,16 @@ export function ImportLeadsModal({ open, onOpenChange }: ImportLeadsModalProps) 
     setDuplicateLeads(prev => prev.map(d => d.action === "pending" ? { ...d, action: "ignore" as const } : d));
     toast({
       title: "Duplicados ignorados",
-      description: "Todos os leads duplicados foram ignorados",
+      description: "Leads duplicados ignorados.",
     });
   };
 
   const getStepTitle = () => {
     switch (step) {
-      case 1: return "Upload do Arquivo";
-      case 2: return "Mapeamento de Campos";
+      case 1: return "Envio do arquivo";
+      case 2: return "Mapeamento de campos";
       case 3: return "Configuração";
-      case 4: return "Resultado da Importação";
+      case 4: return "Resultado da importação";
       default: return "";
     }
   };
@@ -758,7 +758,7 @@ export function ImportLeadsModal({ open, onOpenChange }: ImportLeadsModalProps) 
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <FileSpreadsheet className="h-5 w-5 text-primary" />
-            Importar Leads - {getStepTitle()}
+            Importar leads - {getStepTitle()}
           </DialogTitle>
         </DialogHeader>
 
@@ -799,7 +799,7 @@ export function ImportLeadsModal({ open, onOpenChange }: ImportLeadsModalProps) 
                 <p className="text-lg font-medium mb-2">Arraste sua planilha aqui</p>
                 <p className="text-sm text-muted-foreground mb-4">ou clique para selecionar</p>
                 <p className="text-xs text-muted-foreground">Formatos aceitos: .xlsx, .xls, .csv</p>
-                <p className="text-xs text-amber-600 dark:text-amber-400 mt-2 font-medium">Máximo: 100 leads por importação</p>
+                <p className="text-xs text-amber-600 dark:text-amber-400 mt-2 font-medium">Máximo de 100 leads por importação</p>
                 <input
                   id="file-input"
                   type="file"
@@ -837,9 +837,9 @@ export function ImportLeadsModal({ open, onOpenChange }: ImportLeadsModalProps) 
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead className="w-[200px]">Coluna da Planilha</TableHead>
+                      <TableHead className="w-[200px]">Coluna da planilha</TableHead>
                       <TableHead className="w-[200px]">Mapear para</TableHead>
-                      <TableHead>Preview (3 primeiras linhas)</TableHead>
+                      <TableHead>Prévia (3 primeiras linhas)</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -879,7 +879,7 @@ export function ImportLeadsModal({ open, onOpenChange }: ImportLeadsModalProps) 
             <div className="p-6 space-y-6">
               <div className="grid gap-6">
                 <div className="space-y-2">
-                  <Label>Funil de Destino</Label>
+                  <Label>Funil de destino</Label>
                   <Select value={selectedFunnel} onValueChange={handleFunnelChange}>
                     <SelectTrigger>
                       <SelectValue placeholder="Selecione o funil" />
@@ -895,7 +895,7 @@ export function ImportLeadsModal({ open, onOpenChange }: ImportLeadsModalProps) 
                 </div>
 
                 <div className="space-y-2">
-                  <Label>Etapa Inicial</Label>
+                  <Label>Etapa inicial</Label>
                   <Select value={selectedStage} onValueChange={setSelectedStage}>
                     <SelectTrigger>
                       <SelectValue placeholder="Selecione a etapa inicial" />
@@ -912,7 +912,7 @@ export function ImportLeadsModal({ open, onOpenChange }: ImportLeadsModalProps) 
               </div>
 
               <div className="bg-muted/50 rounded-lg p-4 space-y-3">
-                <h4 className="font-medium">Resumo da Importação</h4>
+                <h4 className="font-medium">Resumo da importação</h4>
                 <div className="grid grid-cols-2 gap-4 text-sm">
                   <div>
                     <span className="text-muted-foreground">Total de registros:</span>
@@ -937,7 +937,7 @@ export function ImportLeadsModal({ open, onOpenChange }: ImportLeadsModalProps) 
               <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg p-3 text-sm text-amber-800 dark:text-amber-300 flex items-start gap-2">
                 <AlertCircle className="h-4 w-4 flex-shrink-0 mt-0.5" />
                 <span>
-                  Leads duplicados (mesmo telefone) serão detectados automaticamente. Você poderá escolher o que fazer com cada um.
+                  Leads duplicados (mesmo telefone) são detectados automaticamente. Você escolhe o que fazer com cada um.
                 </span>
               </div>
             </div>
@@ -978,10 +978,10 @@ export function ImportLeadsModal({ open, onOpenChange }: ImportLeadsModalProps) 
                         <p className="text-sm text-muted-foreground">
                           Duplicados
                           {updatedCount > 0 && (
-                            <span className="text-green-600 ml-1">({updatedCount} atualizados)</span>
+                            <span className="text-green-600 ml-1">({updatedCount} {updatedCount === 1 ? "atualizado" : "atualizados"})</span>
                           )}
                           {ignoredCount > 0 && (
-                            <span className="text-muted-foreground ml-1">({ignoredCount} ignorados)</span>
+                            <span className="text-muted-foreground ml-1">({ignoredCount} {ignoredCount === 1 ? "ignorado" : "ignorados"})</span>
                           )}
                         </p>
                       </div>
@@ -1028,11 +1028,11 @@ export function ImportLeadsModal({ open, onOpenChange }: ImportLeadsModalProps) 
                             <ChevronDown className="h-4 w-4 text-amber-600" />
                           )}
                           <span className="font-medium text-amber-800 dark:text-amber-200">
-                            Leads Duplicados ({duplicateLeads.length})
+                            Leads duplicados ({duplicateLeads.length})
                           </span>
                           {pendingCount > 0 && (
                             <Badge variant="outline" className="bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300">
-                              {pendingCount} pendente{pendingCount > 1 ? "s" : ""}
+                              {pendingCount} {pendingCount === 1 ? "pendente" : "pendentes"}
                             </Badge>
                           )}
                         </div>
@@ -1047,7 +1047,7 @@ export function ImportLeadsModal({ open, onOpenChange }: ImportLeadsModalProps) 
                               disabled={importing}
                             >
                               <RefreshCw className="h-3.5 w-3.5 mr-1" />
-                              Atualizar Todos
+                              Atualizar todos
                             </Button>
                             <Button
                               size="sm"
@@ -1056,7 +1056,7 @@ export function ImportLeadsModal({ open, onOpenChange }: ImportLeadsModalProps) 
                               onClick={handleIgnoreAll}
                             >
                               <Ban className="h-3.5 w-3.5 mr-1" />
-                              Ignorar Todos
+                              Ignorar todos
                             </Button>
                           </div>
                         )}
@@ -1104,7 +1104,7 @@ export function ImportLeadsModal({ open, onOpenChange }: ImportLeadsModalProps) 
                                       return null;
                                     })}
                                     {UPDATABLE_FIELDS.every(f => !dup.newData[f] || String(dup.newData[f]) === String(dup.existingData[f as keyof typeof dup.existingData] ?? "")) && (
-                                      <span className="text-muted-foreground/50 italic">Nenhuma alteração nos dados</span>
+                                      <span className="text-muted-foreground/50 italic">Nenhuma alteração nos dados.</span>
                                     )}
                                   </div>
                                 </div>
@@ -1206,7 +1206,7 @@ export function ImportLeadsModal({ open, onOpenChange }: ImportLeadsModalProps) 
             >
               {step === 3 ? (
                 <>
-                  Importar {parsedData.length} leads
+                  Importar {parsedData.length} {parsedData.length === 1 ? "lead" : "leads"}
                   <Check className="h-4 w-4 ml-2" />
                 </>
               ) : (

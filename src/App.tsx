@@ -30,6 +30,7 @@ const Pipeline = lazy(() => import("./pages/Pipeline"));
 const FunnelBuilder = lazy(() => import("./pages/FunnelBuilder"));
 const LeadDetails = lazy(() => import("./pages/LeadDetails"));
 const LeadMetrics = lazy(() => import("./pages/LeadMetrics"));
+const Painel = lazy(() => import("./pages/Painel"));
 const LeadDistribution = lazy(() => import("./pages/LeadDistribution"));
 const Chat = lazy(() => import("./pages/Chat"));
 const Ranking = lazy(() => import("./pages/Ranking"));
@@ -112,6 +113,7 @@ const App = () => {
                         <Route path="/leads/:id" element={<ProtectedRoute><DashboardLayout><LazyPage><LeadDetails /></LazyPage></DashboardLayout></ProtectedRoute>} />
                         {/* Features controladas por SectionGate - acessiveis quando liberadas via admin */}
                         <Route path="/lead-metrics" element={<ProtectedRoute><SectionGate><DashboardLayout><LazyPage><LeadMetrics /></LazyPage></DashboardLayout></SectionGate></ProtectedRoute>} />
+                        <Route path="/painel" element={<ProtectedRoute><DashboardLayout><LazyPage><Painel /></LazyPage></DashboardLayout></ProtectedRoute>} />
                         <Route path="/lead-distribution" element={<ProtectedRoute><SectionGate><DashboardLayout><LazyPage><LeadDistribution /></LazyPage></DashboardLayout></SectionGate></ProtectedRoute>} />
                         <Route path="/chat" element={<ProtectedRoute><SectionGate><DashboardLayout><LazyPage><Chat /></LazyPage></DashboardLayout></SectionGate></ProtectedRoute>} />
                         <Route path="/ranking" element={<ProtectedRoute><DashboardLayout><LazyPage><Ranking /></LazyPage></DashboardLayout></ProtectedRoute>} />

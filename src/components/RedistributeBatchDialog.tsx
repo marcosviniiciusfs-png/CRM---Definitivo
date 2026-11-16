@@ -32,7 +32,7 @@ interface RedistributeBatchDialogProps {
 const methodLabels: Record<string, string> = {
   round_robin: "Rodízio",
   weighted: "Por porcentagem",
-  load_based: "Por Carga",
+  load_based: "Por carga",
   random: "Aleatório",
 };
 
@@ -43,8 +43,8 @@ export function RedistributeBatchDialog({
   onConfirm,
   isPending = false,
   showAutoOption = true,
-  title = "Escolha a Roleta",
-  description = "Selecione qual roleta usar para a redistribuição dos leads.",
+  title = "Escolha a roleta",
+  description = "Selecione qual roleta vai redistribuir os leads.",
 }: RedistributeBatchDialogProps) {
   const [selectedConfigId, setSelectedConfigId] = useState<string | null>(null);
 
@@ -79,7 +79,7 @@ export function RedistributeBatchDialog({
         {!hasConfigs ? (
           <div className="flex items-center gap-2 p-4 text-amber-600 bg-amber-50 dark:bg-amber-950/20 rounded-md">
             <AlertCircle className="h-5 w-5 shrink-0" />
-            <p className="text-sm">Nenhuma roleta ativa encontrada.</p>
+            <p className="text-sm">Nenhuma roleta ativa. Crie ou ative uma roleta para redistribuir.</p>
           </div>
         ) : (
           <RadioGroup
@@ -93,7 +93,7 @@ export function RedistributeBatchDialog({
                 <Label htmlFor="auto" className="flex-1 cursor-pointer">
                   <div className="font-medium">Automático</div>
                   <div className="text-sm text-muted-foreground">
-                    O sistema escolhe a melhor roleta para cada lead
+                    O KairoZ escolhe a melhor roleta para cada lead.
                   </div>
                 </Label>
               </div>
@@ -114,7 +114,7 @@ export function RedistributeBatchDialog({
                       <Users className="h-3 w-3" />
                       {agentCount === 0
                         ? "Todos os colaboradores ativos"
-                        : `${agentCount} colaborador${agentCount !== 1 ? "es" : ""}`}
+                        : `${agentCount} ${agentCount === 1 ? "colaborador" : "colaboradores"}`}
                     </div>
                   </Label>
                 </div>
@@ -134,7 +134,7 @@ export function RedistributeBatchDialog({
               } else if (selectedConfigId) {
                 onConfirm(selectedConfigId);
               } else {
-                toast.error("Selecione uma roleta");
+                toast.error("Selecione uma roleta.");
                 return;
               }
               onOpenChange(false);

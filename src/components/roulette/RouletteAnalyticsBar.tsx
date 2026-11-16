@@ -66,11 +66,11 @@ export function RouletteAnalyticsBar() {
 
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-      {/* Card 1: Leads distribuidos hoje */}
+      {/* Card 1: Leads distribuídos hoje */}
       <div className="rounded-lg bg-muted/50 p-4">
         <div className="flex items-center justify-between mb-2">
           <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-            Leads distribuidos hoje
+            Leads distribuídos hoje
           </span>
           {stats && stats.delta !== 0 && (
             <span className={`inline-flex items-center gap-0.5 text-[10px] font-semibold rounded-full px-1.5 py-0.5 ${
@@ -98,7 +98,7 @@ export function RouletteAnalyticsBar() {
                   isToday ? "bg-primary" : count > 0 ? "bg-primary/30" : "bg-muted"
                 }`}
                 style={{ height: `${height}px` }}
-                title={`${count} leads`}
+                title={`${count} ${count === 1 ? "lead" : "leads"}`}
               />
             );
           })}

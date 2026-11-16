@@ -204,3 +204,12 @@ verify_jwt = true
 # on the VPS while the Google secrets are intentionally not configured.
 [functions.link-bio-marcos-submit]
 verify_jwt = false
+
+[functions.process-stage-actions]
+verify_jwt = false
+
+[functions.send-appointment-reminders]
+verify_jwt = false
+
+[functions.panel-meta-insights]
+verify_jwt = false

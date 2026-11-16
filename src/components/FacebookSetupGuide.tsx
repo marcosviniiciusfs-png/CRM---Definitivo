@@ -9,17 +9,17 @@ export const FacebookSetupGuide = () => {
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-amber-700 dark:text-amber-400">
           <AlertTriangle className="h-5 w-5" />
-          Configuração do App Facebook (Administrador)
+          Configuração do app do Facebook (administrador)
         </CardTitle>
         <CardDescription>
-          Siga estes passos para permitir que todos os usuários da organização possam conectar suas contas do Facebook
+          Siga estes passos para permitir que todos os colaboradores da organização conectem suas contas do Facebook.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         <Alert className="bg-red-50 dark:bg-red-950 border-red-200 dark:border-red-800">
           <AlertTriangle className="h-4 w-4 text-red-600 dark:text-red-400" />
           <AlertDescription className="text-sm text-red-800 dark:text-red-200">
-            <strong>⚠️ PROBLEMA IDENTIFICADO:</strong> Se o app já está "Ativo/Público" mas outros usuários ainda veem "Recurso indisponível", 
+            <strong>Problema identificado:</strong> Se o app já está "Ativo/Público" mas outros usuários ainda veem "Recurso indisponível", 
             o problema é que as <strong>permissões avançadas (leads_retrieval) NÃO estão aprovadas pela Meta</strong>. 
             Apenas o administrador do app tem acesso automático. Siga os passos abaixo.
           </AlertDescription>
@@ -29,10 +29,10 @@ export const FacebookSetupGuide = () => {
           <div>
             <h3 className="font-semibold text-sm mb-3 flex items-center gap-2">
               <span className="flex items-center justify-center w-6 h-6 rounded-full bg-primary text-primary-foreground text-xs">1</span>
-              Adicionar como Funções do App (Solução Rápida - RECOMENDADO)
+              Adicionar como funções do app (solução rápida, recomendada)
             </h3>
             <div className="ml-8 space-y-2 text-sm text-muted-foreground">
-              <p className="font-medium text-foreground">✅ Esta é a solução mais rápida para dar acesso imediato aos usuários:</p>
+              <p className="font-medium text-foreground">Esta é a solução mais rápida para dar acesso imediato:</p>
               <ol className="list-decimal list-inside space-y-1 ml-2">
                 <li>Acesse <a href="https://developers.facebook.com/apps" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline inline-flex items-center gap-1">Facebook Developers Console <ExternalLink className="h-3 w-3" /></a></li>
                 <li>Selecione seu App [CRM-KAIROZ] - 01</li>
@@ -46,7 +46,7 @@ export const FacebookSetupGuide = () => {
                 </li>
                 <li>Digite o nome do Facebook ou email dos usuários</li>
                 <li>Os usuários receberão um convite e devem aceitar pelo Facebook</li>
-                <li><strong className="text-green-600 dark:text-green-400">✓ Pronto! Eles terão acesso imediato sem precisar de App Review</strong></li>
+                <li><strong className="text-green-600 dark:text-green-400">Pronto. Eles têm acesso imediato, sem precisar de App Review.</strong></li>
               </ol>
             </div>
           </div>
@@ -57,7 +57,7 @@ export const FacebookSetupGuide = () => {
               App Review da Meta (Para Acesso Público Ilimitado)
             </h3>
             <div className="ml-8 space-y-2 text-sm text-muted-foreground">
-              <p><strong className="text-amber-600 dark:text-amber-400">⚠️ IMPORTANTE:</strong> Tornar o app "Ativo/Público" NÃO é suficiente! As permissões especiais precisam de aprovação da Meta.</p>
+              <p><strong className="text-amber-600 dark:text-amber-400">Importante:</strong> Tornar o app "Ativo/Público" não basta. As permissões especiais precisam de aprovação da Meta.</p>
               <p className="mt-2">Para permitir que <strong>qualquer usuário</strong> (não apenas funções do app) conecte:</p>
               <ol className="list-decimal list-inside space-y-1 ml-2">
                 <li>No Facebook Developers Console, vá em <strong>App Review {'>'} Permissions and Features</strong></li>
@@ -89,13 +89,13 @@ export const FacebookSetupGuide = () => {
           <div className="border-t pt-4">
             <h3 className="font-semibold text-sm mb-3 flex items-center gap-2">
               <CheckCircle className="h-5 w-5 text-green-500" />
-              Verificar Status
+              Verificar status
             </h3>
             <div className="ml-7 space-y-2 text-sm text-muted-foreground">
               <p>Você saberá que está funcionando quando:</p>
               <ul className="list-disc list-inside ml-2 space-y-1">
                 <li>No Facebook Developers, o status do App mostra <strong className="text-green-600 dark:text-green-400">"Ativo"</strong> ou <strong>"Online"</strong></li>
-                <li>Outros usuários conseguem clicar em "Conectar ao Facebook" sem ver erros</li>
+                <li>Outros colaboradores conseguem clicar em "Conectar Facebook" sem ver erros</li>
                 <li>A tela de autorização do Facebook aparece normalmente</li>
               </ul>
             </div>
@@ -103,7 +103,7 @@ export const FacebookSetupGuide = () => {
 
           <Alert className="bg-blue-50 dark:bg-blue-950 border-blue-200 dark:border-blue-800">
             <AlertDescription className="text-sm text-blue-800 dark:text-blue-200">
-              <strong>💡 Resumo das Soluções:</strong><br/>
+              <strong>Resumo das soluções:</strong><br/>
               • <strong>Opção 1:</strong> Rápida e funciona imediatamente - adicione usuários como funções do app (Administradores/Desenvolvedores)<br/>
               • <strong>Opção 2:</strong> Para acesso público ilimitado - requer App Review da Meta (demora dias)<br/>
               <br/>

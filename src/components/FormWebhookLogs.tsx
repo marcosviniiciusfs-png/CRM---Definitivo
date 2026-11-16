@@ -55,7 +55,7 @@ export function FormWebhookLogs() {
     } catch (error: any) {
       console.error('Error loading webhook logs:', error);
       toast({
-        title: "Erro ao carregar logs",
+        title: "Não foi possível carregar os logs",
         description: error.message,
         variant: "destructive",
       });
@@ -66,7 +66,7 @@ export function FormWebhookLogs() {
 
   const clearLogs = async () => {
     if (!user) return;
-    if (!confirm('Tem certeza que deseja limpar todos os logs?')) return;
+    if (!confirm('Excluir todos os logs? Não dá para desfazer.')) return;
 
     try {
       const { error } = await supabase
@@ -77,15 +77,15 @@ export function FormWebhookLogs() {
       if (error) throw error;
 
       toast({
-        title: "Logs limpos",
-        description: "Todos os logs foram removidos com sucesso.",
+        title: "Logs excluídos",
+        description: "Todos os logs foram removidos.",
       });
       
       loadLogs();
     } catch (error: any) {
       console.error('Error clearing logs:', error);
       toast({
-        title: "Erro ao limpar logs",
+        title: "Não foi possível excluir os logs",
         description: error.message,
         variant: "destructive",
       });
@@ -141,7 +141,7 @@ export function FormWebhookLogs() {
         <div>
           <CardTitle>Logs do Webhook</CardTitle>
           <CardDescription>
-            Histórico de requisições recebidas no webhook de formulários
+            Histórico das requisições recebidas no Webhook de formulários.
           </CardDescription>
         </div>
         <div className="flex gap-2">
@@ -161,18 +161,18 @@ export function FormWebhookLogs() {
             disabled={loading || logs.length === 0}
           >
             <Trash2 className="h-4 w-4 mr-2" />
-            Limpar
+            Limpar logs
           </Button>
         </div>
       </CardHeader>
       <CardContent>
         {loading ? (
           <div className="text-center py-8 text-muted-foreground">
-            Carregando logs...
+            Carregando logs…
           </div>
         ) : logs.length === 0 ? (
           <div className="text-center py-8 text-muted-foreground">
-            Nenhum log encontrado
+            Nenhum log registrado ainda.
           </div>
         ) : (
           <>
@@ -196,7 +196,7 @@ export function FormWebhookLogs() {
                         onClick={() => window.open(`/leads/${log.lead_id}`, '_blank')}
                       >
                         <ExternalLink className="h-4 w-4 mr-2" />
-                        Ver Lead
+                        Ver lead
                       </Button>
                     )}
                   </div>

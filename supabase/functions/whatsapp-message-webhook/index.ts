@@ -11,6 +11,24 @@ import {
 } from "../_shared/evolution-config.ts";
 import { maybeApplyAdLeadTag } from "../_shared/ad-lead-tagging.ts";
 import { sendLeadGroupAlert } from "../_shared/lead-group-alert.ts";
+import { extractWhatsAppDisplayName } from "../_shared/whatsapp-display-name.ts";
+import {
+  extractSelfReportedName,
+  isPhoneLikeName,
+} from "../_shared/whatsapp-self-reported-name.ts";
+
+// Variantes do mesmo telefone (com/sem "+", com/sem DDI 55) para vincular ao lead
+// já existente (ex.: lead que chegou pelo site) em vez de criar um duplicado.
+function phoneLookupVariants(raw: string): string[] {
+  const digits = (raw || "").replace(/\D/g, "");
+  if (!digits) return [];
+  const bases = new Set<string>([digits]);
+  if (digits.startsWith("55") && (digits.length === 12 || digits.length === 13)) bases.add(digits.slice(2));
+  if (!digits.startsWith("55") && (digits.length === 10 || digits.length === 11)) bases.add("55" + digits);
+  const variants = new Set<string>();
+  for (const b of bases) { variants.add(b); variants.add("+" + b); }
+  return [...variants];
+}
 
 // Função auxiliar para baixar mídia usando Evolution API e fazer upload para Supabase Storage
 async function downloadAndUploadMedia(
@@ -997,7 +1015,10 @@ serve(async (req) => {
 
         // Adicionar dados da mensagem se disponível
         if (data?.key?.remoteJid) logData.remote_jid = data.key.remoteJid;
-        if (data?.pushName) logData.sender_name = data.pushName;
+        const displayNameForLog = extractWhatsAppDisplayName(data, {
+          isFromMe: Boolean(data?.key?.fromMe),
+        });
+        if (displayNameForLog) logData.sender_name = displayNameForLog;
         if (data?.message) {
           const msgContent = data.message?.conversation ||
               data.message?.extendedTextMessage?.text ||
@@ -1042,6 +1063,7 @@ serve(async (req) => {
 
     // Determinar direção da mensagem
     const isFromMe = messageKey.fromMe || false;
+    const contactDisplayName = extractWhatsAppDisplayName(data, { isFromMe });
 
     // CRÍTICO: Extrair número de telefone do remetente usando múltiplas estratégias
     // Prioridade: senderPn > remoteJid > participant
@@ -1485,12 +1507,17 @@ serve(async (req) => {
     // ========================================
 
     // Verificar se o lead já existe
-    const { data: existingLead, error: leadSearchError } = await supabase
-      .from("leads")
-      .select("id, nome_lead, funnel_id, funnel_stage_id, whatsapp_instance_id")
-      .eq("telefone_lead", phoneNumber)
-      .eq("organization_id", organizationId)
-      .maybeSingle();
+    const phoneVariants = phoneLookupVariants(phoneNumber);
+    const { data: existingLeads, error: leadSearchError } = phoneVariants.length === 0
+      ? { data: [], error: null }
+      : await supabase
+          .from("leads")
+          .select("id, nome_lead, funnel_id, funnel_stage_id, whatsapp_instance_id")
+          .in("telefone_lead", phoneVariants)
+          .eq("organization_id", organizationId)
+          .order("created_at", { ascending: true })
+          .limit(1);
+    const existingLead = existingLeads && existingLeads.length > 0 ? existingLeads[0] : null;
 
     if (leadSearchError) {
       console.error("❌ Erro ao buscar lead:", leadSearchError);
@@ -1505,21 +1532,32 @@ serve(async (req) => {
       leadId = existingLead.id;
       leadName = existingLead.nome_lead;
 
-      // SINCRONIZAÇÃO AUTOMÁTICA: Atualizar nome se pushName estiver disponível e for diferente.
-      // CRITICO: ignorar para mensagens fromMe — o pushName desses eventos e o nome do
-      // dono da conta WhatsApp (vendedor), nao do contato. Se atualizassemos, todos os
-      // leads recebiam o nome do vendedor.
-      if (!isFromMe && pushName && pushName !== existingLead.nome_lead) {
-        console.log("🔄 Atualizando nome do lead:", pushName);
+      // SINCRONIZAÇÃO AUTOMÁTICA: só preenche o nome quando o lead ainda está
+      // identificado pelo telefone. Nome real (inclusive editado pelo vendedor)
+      // nunca é sobrescrito. Para fromMe, o helper de display ignora pushName solto
+      // (nome do vendedor) e a mensagem não é usada (foi o vendedor quem escreveu).
+      const existingNameIsPhoneLike = isPhoneLikeName(
+        existingLead.nome_lead,
+        phoneNumber,
+      );
+      const nextLeadName = existingNameIsPhoneLike
+        ? (!isFromMe ? extractSelfReportedName(messageContent) : null) ||
+          contactDisplayName
+        : null;
+
+      if (
+        nextLeadName && nextLeadName !== existingLead.nome_lead
+      ) {
+        console.log("🔄 Atualizando nome do lead:", nextLeadName);
         await supabase
           .from("leads")
           .update({
-            nome_lead: pushName,
+            nome_lead: nextLeadName,
             updated_at: new Date().toISOString(),
           })
           .eq("id", existingLead.id);
 
-        leadName = pushName;
+        leadName = nextLeadName;
       }
 
       // Associate lead to channel if not yet linked
@@ -1662,11 +1700,13 @@ serve(async (req) => {
 
       console.log("🆕 Criando novo lead...");
 
-      // Usar pushName so quando a mensagem foi recebida (ENTRADA): nesse caso
-      // pushName e o nome do contato no WhatsApp dele.
-      // Para fromMe (vendedor enviou pelo celular para um contato novo), o
-      // pushName e o nome do vendedor — nao serve como nome do lead.
-      const newLeadName = (!isFromMe && pushName) ? pushName : phoneNumber;
+      // Usa nome salvo/display do contato quando o payload trouxer esse dado.
+      // Se a primeira mensagem do lead se apresentar ("meu nome é X"), usa esse nome.
+      // Se nao houver nome confiavel, cai para o telefone para evitar lead vazio.
+      const selfReportedName = !isFromMe
+        ? extractSelfReportedName(messageContent)
+        : null;
+      const newLeadName = selfReportedName || contactDisplayName || phoneNumber;
 
       // 🎯 BUSCAR MAPEAMENTO DE FUNIL PARA WHATSAPP
       console.log("🔍 Buscando mapeamento de funil para WhatsApp...");
@@ -1788,6 +1828,8 @@ serve(async (req) => {
         leadId: newLead.id,
         organizationId,
         sourceLabel: "WhatsApp",
+        // Só a mensagem do próprio lead (não a do vendedor) e só texto: mídia vira "[Áudio]" etc.
+        firstMessage: !isFromMe && !mediaType ? messageContent : null,
       }).catch((err: any) => console.error("lead-group-alert:", err));
 
       const profilePicturePromise = supabase.functions.invoke(

@@ -223,7 +223,7 @@ export const WebhookConfigModal = ({
   const handleCopyUrl = () => {
     navigator.clipboard.writeText(webhookUrl);
     setCopied(true);
-    toast.success("URL copiada!");
+    toast.success("URL copiada.");
     setTimeout(() => setCopied(false), 2000);
   };
 
@@ -241,11 +241,11 @@ export const WebhookConfigModal = ({
 
       if (error) throw error;
 
-      toast.success("Token regenerado! A URL anterior não funcionará mais.");
+      toast.success("Token regenerado. A URL anterior deixou de funcionar.");
       onUpdated();
     } catch (error) {
       console.error("Erro ao regenerar token:", error);
-      toast.error("Erro ao regenerar token");
+      toast.error("Não foi possível regenerar o token. Tente novamente.");
     } finally {
       setRegenerating(false);
     }
@@ -307,12 +307,12 @@ export const WebhookConfigModal = ({
         }
       }
 
-      toast.success("Webhook atualizado!");
+      toast.success("Webhook atualizado.");
       onOpenChange(false);
       onUpdated();
     } catch (error) {
       console.error("Erro ao salvar webhook:", error);
-      toast.error("Erro ao salvar webhook");
+      toast.error("Não foi possível salvar o Webhook. Tente novamente.");
     } finally {
       setLoading(false);
     }
@@ -342,7 +342,7 @@ export const WebhookConfigModal = ({
               id="config-name"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="Nome do webhook"
+              placeholder="Nome do Webhook"
             />
           </div>
 
@@ -351,7 +351,7 @@ export const WebhookConfigModal = ({
             <div className="space-y-0.5">
               <Label>Status</Label>
               <p className="text-xs text-muted-foreground">
-                Webhooks inativos não criarão leads
+                Webhooks inativos não criam leads.
               </p>
             </div>
             <Switch checked={isActive} onCheckedChange={setIsActive} />
@@ -367,7 +367,7 @@ export const WebhookConfigModal = ({
               </Button>
             </div>
             <p className="text-xs text-muted-foreground">
-              Use esta URL como destino do seu formulário. Envie dados via POST com os campos:{" "}
+              Use esta URL como destino do seu formulário. Envie os dados por POST com os campos{" "}
               <code className="px-1 py-0.5 bg-muted rounded">nome</code> e{" "}
               <code className="px-1 py-0.5 bg-muted rounded">telefone</code> (obrigatórios).
             </p>
@@ -384,19 +384,19 @@ export const WebhookConfigModal = ({
             ) : (
               <RefreshCw className="h-4 w-4 mr-2" />
             )}
-            Regenerar Token
+            Regenerar token
           </Button>
 
           {/* Seletor de Funil */}
           <div className="space-y-2 pt-2 border-t">
             <Label className="flex items-center gap-1.5">
               <ArrowRight className="h-3.5 w-3.5" />
-              Direcionar leads para:
+              Enviar leads para:
             </Label>
             {loadingFunnels ? (
               <div className="flex items-center gap-2 text-sm text-muted-foreground py-2">
                 <Loader2 className="h-4 w-4 animate-spin" />
-                Carregando funis...
+                Carregando funis…
               </div>
             ) : (
               <div className="space-y-2">
@@ -435,15 +435,15 @@ export const WebhookConfigModal = ({
           <div className="space-y-2 pt-2 border-t">
             <Label className="flex items-center gap-1.5">
               <UserCircle className="h-3.5 w-3.5" />
-              Responsável Padrão
+              Responsável padrão
             </Label>
             <p className="text-xs text-muted-foreground mb-2">
-              Leads criados por este webhook serão atribuídos a este responsável
+              Os leads criados por este Webhook ficam com este responsável.
             </p>
             {loadingColaboradores ? (
               <div className="flex items-center gap-2 text-sm text-muted-foreground py-2">
                 <Loader2 className="h-4 w-4 animate-spin" />
-                Carregando colaboradores...
+                Carregando colaboradores…
               </div>
             ) : (
               <Select value={selectedResponsibleId} onValueChange={setSelectedResponsibleId}>
@@ -452,7 +452,7 @@ export const WebhookConfigModal = ({
                     <div className="flex items-center gap-2">
                       {(() => {
                         const colab = colaboradores.find(c => c.user_id === selectedResponsibleId);
-                        if (!colab) return <SelectValue placeholder="Distribuição Automática" />;
+                        if (!colab) return <SelectValue placeholder="Roleta" />;
                         return (
                           <>
                             <Avatar className="h-5 w-5">
@@ -467,14 +467,14 @@ export const WebhookConfigModal = ({
                       })()}
                     </div>
                   ) : (
-                    <SelectValue placeholder="Distribuição Automática" />
+                    <SelectValue placeholder="Roleta" />
                   )}
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="auto">
                     <div className="flex items-center gap-2">
                       <UserCircle className="h-4 w-4 text-muted-foreground" />
-                      <span>Distribuição Automática</span>
+                      <span>Roleta</span>
                     </div>
                   </SelectItem>
                   {colaboradores.map((colab) => (
@@ -500,7 +500,7 @@ export const WebhookConfigModal = ({
             <div className="space-y-2 pt-2 border-t">
               <Label className="flex items-center gap-1.5">
                 <Tag className="h-3.5 w-3.5" />
-                Tag Associada
+                Tag associada
               </Label>
               <Input
                 value={editedTagName}
@@ -508,7 +508,7 @@ export const WebhookConfigModal = ({
                 placeholder="Nome da tag"
               />
               <p className="text-xs text-muted-foreground">
-                Esta tag será automaticamente aplicada aos leads recebidos por este webhook
+                Esta tag é aplicada automaticamente aos leads recebidos por este Webhook.
               </p>
             </div>
           )}

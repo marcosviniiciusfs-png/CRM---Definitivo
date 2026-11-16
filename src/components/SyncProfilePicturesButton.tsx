@@ -27,7 +27,7 @@ export const SyncProfilePicturesButton = () => {
     try {
       toast({
         title: "Sincronização iniciada",
-        description: "Buscando fotos de perfil de todos os leads...",
+        description: "Buscando as fotos de perfil dos leads…",
       });
 
       const { data, error } = await supabase.functions.invoke(
@@ -40,7 +40,7 @@ export const SyncProfilePicturesButton = () => {
         const { results } = data;
         toast({
           title: "Sincronização concluída",
-          description: `${results.synced} fotos sincronizadas, ${results.skipped} leads sem foto pública, ${results.failed} erros`,
+          description: `${results.synced === 1 ? "1 foto sincronizada" : `${results.synced} fotos sincronizadas`}, ${results.skipped === 1 ? "1 lead sem foto pública" : `${results.skipped} leads sem foto pública`}, ${results.failed === 1 ? "1 falha" : `${results.failed} falhas`}.`,
         });
       } else {
         throw new Error(data?.error || "Erro desconhecido");
@@ -48,8 +48,8 @@ export const SyncProfilePicturesButton = () => {
     } catch (error: any) {
       console.error("Erro ao sincronizar fotos:", error);
       toast({
-        title: "Erro na sincronização",
-        description: error.message || "Não foi possível sincronizar as fotos",
+        title: "Não foi possível sincronizar as fotos",
+        description: "Tente novamente.",
         variant: "destructive",
       });
     } finally {
@@ -64,12 +64,12 @@ export const SyncProfilePicturesButton = () => {
           {syncing ? (
             <>
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              Sincronizando...
+              Sincronizando…
             </>
           ) : (
             <>
               <RefreshCw className="mr-2 h-4 w-4" />
-              Sincronizar Fotos
+              Sincronizar fotos
             </>
           )}
         </Button>
@@ -78,9 +78,7 @@ export const SyncProfilePicturesButton = () => {
         <AlertDialogHeader>
           <AlertDialogTitle>Sincronizar fotos de perfil?</AlertDialogTitle>
           <AlertDialogDescription>
-            Esta ação irá buscar as fotos de perfil do WhatsApp de todos os
-            leads existentes. Isso pode levar alguns minutos dependendo da
-            quantidade de leads.
+            Busca as fotos de perfil do WhatsApp de todos os leads. Pode levar alguns minutos, dependendo da quantidade de leads.
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>

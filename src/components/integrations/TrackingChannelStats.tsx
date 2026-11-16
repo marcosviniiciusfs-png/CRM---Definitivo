@@ -106,7 +106,7 @@ export function TrackingChannelStats({ instanceId, keywords }: Props) {
           </div>
         ) : (
           <div className="text-[11px] text-muted-foreground italic">
-            Cadastre keywords acima para ver estatísticas.
+            Cadastre palavras-chave acima para ver as estatísticas.
           </div>
         )
       ) : (

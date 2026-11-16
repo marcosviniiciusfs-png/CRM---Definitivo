@@ -52,7 +52,7 @@ export function BulkMoveStageDialog({
         <DialogHeader>
           <DialogTitle>Mover etapa</DialogTitle>
           <DialogDescription>
-            Selecione a etapa de destino para os {selectedCount} leads selecionados.
+            {selectedCount === 1 ? "Selecione a etapa de destino do lead selecionado." : `Selecione a etapa de destino dos ${selectedCount} leads selecionados.`}
           </DialogDescription>
         </DialogHeader>
 

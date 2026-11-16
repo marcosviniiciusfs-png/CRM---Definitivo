@@ -14,6 +14,93 @@ export type Database = {
   }
   public: {
     Tables: {
+      appointment_reminder_settings: {
+        Row: {
+          d1_afternoon_enabled: boolean
+          d1_afternoon_message: string
+          d1_morning_enabled: boolean
+          d1_morning_message: string
+          day_of_enabled: boolean
+          day_of_message: string
+          enabled: boolean
+          no_show_task_enabled: boolean
+          organization_id: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          d1_afternoon_enabled?: boolean
+          d1_afternoon_message?: string
+          d1_morning_enabled?: boolean
+          d1_morning_message?: string
+          day_of_enabled?: boolean
+          day_of_message?: string
+          enabled?: boolean
+          no_show_task_enabled?: boolean
+          organization_id: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          d1_afternoon_enabled?: boolean
+          d1_afternoon_message?: string
+          d1_morning_enabled?: boolean
+          d1_morning_message?: string
+          day_of_enabled?: boolean
+          day_of_message?: string
+          enabled?: boolean
+          no_show_task_enabled?: boolean
+          organization_id?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
+      appointment_reminders: {
+        Row: {
+          appointment_at: string
+          created_at: string
+          finished_at: string | null
+          id: string
+          kind: string
+          last_error: string | null
+          lead_id: string
+          organization_id: string
+          result: Json | null
+          scheduled_for: string
+          started_at: string | null
+          status: string
+        }
+        Insert: {
+          appointment_at: string
+          created_at?: string
+          finished_at?: string | null
+          id?: string
+          kind: string
+          last_error?: string | null
+          lead_id: string
+          organization_id: string
+          result?: Json | null
+          scheduled_for: string
+          started_at?: string | null
+          status?: string
+        }
+        Update: {
+          appointment_at?: string
+          created_at?: string
+          finished_at?: string | null
+          id?: string
+          kind?: string
+          last_error?: string | null
+          lead_id?: string
+          organization_id?: string
+          result?: Json | null
+          scheduled_for?: string
+          started_at?: string | null
+          status?: string
+        }
+        Relationships: []
+      }
       admin_credentials: {
         Row: {
           created_at: string
@@ -891,6 +978,7 @@ export type Database = {
           icon: string | null
           id: string
           is_final: boolean
+          linked_event: string | null
           max_days_in_stage: number | null
           name: string
           position: number
@@ -909,6 +997,7 @@ export type Database = {
           icon?: string | null
           id?: string
           is_final?: boolean
+          linked_event?: string | null
           max_days_in_stage?: number | null
           name: string
           position: number
@@ -927,6 +1016,7 @@ export type Database = {
           icon?: string | null
           id?: string
           is_final?: boolean
+          linked_event?: string | null
           max_days_in_stage?: number | null
           name?: string
           position?: number
@@ -1643,6 +1733,7 @@ export type Database = {
       leads: {
         Row: {
           additional_data: Json | null
+          aguardando_resposta_desde: string | null
           avatar_url: string | null
           calendar_event_id: string | null
           created_at: string
@@ -1680,6 +1771,7 @@ export type Database = {
         }
         Insert: {
           additional_data?: Json | null
+          aguardando_resposta_desde?: string | null
           avatar_url?: string | null
           calendar_event_id?: string | null
           created_at?: string
@@ -1717,6 +1809,7 @@ export type Database = {
         }
         Update: {
           additional_data?: Json | null
+          aguardando_resposta_desde?: string | null
           avatar_url?: string | null
           calendar_event_id?: string | null
           created_at?: string
@@ -3485,6 +3578,37 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      panel_ad_entries_daily: {
+        Args: { p_organization_id: string; p_from: string; p_to: string }
+        Returns: {
+          day: string
+          leads: number
+          source_key: string
+          source_label: string
+        }[]
+      }
+      panel_attendance: {
+        Args: { p_organization_id: string; p_from: string; p_to: string; p_funnel_id?: string }
+        Returns: {
+          attended: number
+          confirmed: number
+          day: string
+          lost: number
+          new_leads: number
+          no_show: number
+          scheduled: number
+          scheduled_from_ads: number
+          won: number
+        }[]
+      }
+      lead_open_tasks: {
+        Args: { p_lead_ids: string[] }
+        Returns: {
+          card_id: string
+          due_date: string | null
+          lead_id: string
+        }[]
+      }
       admin_logout_system: {
         Args: { p_token: string }
         Returns: undefined

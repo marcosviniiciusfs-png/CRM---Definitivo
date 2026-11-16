@@ -40,9 +40,9 @@ export function BulkDeleteDialog({
     <AlertDialog open={open} onOpenChange={(o) => { if (!o) onClose(); }}>
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>Excluir {selectedCount} lead(s)?</AlertDialogTitle>
+          <AlertDialogTitle>Excluir {selectedCount} {selectedCount === 1 ? "lead" : "leads"}?</AlertDialogTitle>
           <AlertDialogDescription>
-            Esta ação não pode ser desfeita. Os leads selecionados serão excluídos permanentemente.
+            {selectedCount === 1 ? "O lead selecionado será excluído." : "Os leads selecionados serão excluídos."} Não dá para desfazer.
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
@@ -53,7 +53,7 @@ export function BulkDeleteDialog({
             className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
           >
             {isLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-            Excluir definitivamente
+            Excluir
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>

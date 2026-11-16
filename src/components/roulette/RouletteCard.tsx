@@ -63,7 +63,7 @@ function getSourceIcon(source: string) {
 }
 
 function getMethodLabel(method: string): string {
-  const labels: Record<string, string> = { round_robin: "Rodizio", weighted: "Por porcentagem", load_based: "Por Carga", random: "Aleatorio", conversion_priority: "Smart AI" };
+  const labels: Record<string, string> = { round_robin: "Rodízio", weighted: "Por porcentagem", load_based: "Por carga", random: "Aleatório", conversion_priority: "Smart AI" };
   return labels[method] || method;
 }
 
@@ -114,7 +114,7 @@ export function RouletteCard({ config, funnelName, onEdit, onDelete, canDelete }
 
       return targetIds.map(id => ({
         user_id: id,
-        full_name: profileMap.get(id) || "Agente",
+        full_name: profileMap.get(id) || "Colaborador",
         max_capacity: settingsMap.get(id)?.max_capacity || 50,
         currentLoad: loadCounts.get(id) || 0,
         is_paused: settingsMap.get(id)?.is_paused || false,
@@ -176,9 +176,9 @@ export function RouletteCard({ config, funnelName, onEdit, onDelete, canDelete }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["lead-distribution-configs"] });
-      toast.success(config.is_active ? "Roleta pausada" : "Roleta ativada");
+      toast.success(config.is_active ? "Roleta pausada." : "Roleta ativada.");
     },
-    onError: () => toast.error("Erro ao alterar status"),
+    onError: () => toast.error("Não foi possível alterar o status da roleta. Tente novamente."),
   });
 
   return (
@@ -219,7 +219,7 @@ export function RouletteCard({ config, funnelName, onEdit, onDelete, canDelete }
           )}
           {!funnelName && (
             <span className="rounded-full bg-secondary px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
-              Generica
+              Genérica
             </span>
           )}
         </div>
@@ -272,11 +272,11 @@ export function RouletteCard({ config, funnelName, onEdit, onDelete, canDelete }
           <div className="text-xs font-bold">{stats?.week ?? 0}</div>
         </div>
         <div className="py-2 px-1.5">
-          <div className="text-[9px] text-muted-foreground mb-0.5">Proximo</div>
+          <div className="text-[9px] text-muted-foreground mb-0.5">Próximo</div>
           <div className="text-[10px] font-semibold truncate">{stats?.nextAgent ?? "—"}</div>
         </div>
         <div className="py-2 px-1.5">
-          <div className="text-[9px] text-muted-foreground mb-0.5">Ultima</div>
+          <div className="text-[9px] text-muted-foreground mb-0.5">Última</div>
           <div className="text-[10px] font-medium">
             {stats?.lastAt
               ? formatDistanceToNow(new Date(stats.lastAt), { addSuffix: true, locale: ptBR })

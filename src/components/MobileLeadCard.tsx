@@ -104,9 +104,9 @@ export function MobileLeadCard({
           <button
             onClick={handleCopyInfo}
             className="text-sm font-medium text-foreground truncate text-left w-full active:text-primary transition-colors"
-            title="Toque para copiar informações"
+            title="Toque para copiar as informações"
           >
-            {copiedInfo ? <span className="text-green-500">Copiado!</span> : (lead.nome_lead || 'Sem nome')}
+            {copiedInfo ? <span className="text-green-500">Copiado</span> : (lead.nome_lead || 'Sem nome')}
           </button>
           {responsavelName && (
             <p className="text-[11px] text-muted-foreground truncate">{responsavelName}</p>
@@ -165,8 +165,8 @@ export function MobileLeadCard({
             <span
               className="flex items-center gap-1 text-[10px] px-1.5 py-0.5 bg-amber-50 text-amber-700 border border-amber-200 rounded-full"
               title={isMarkedDuplicate
-                ? 'Novo registro criado para um contato que já existia no CRM'
-                : 'Existe outro lead com o mesmo telefone ou e-mail'}
+                ? 'Novo registro criado para um lead que já existia no CRM.'
+                : 'Existe outro lead com o mesmo telefone ou e-mail.'}
             >
               <AlertCircle className="h-2.5 w-2.5" />
               Duplicado

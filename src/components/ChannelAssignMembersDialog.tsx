@@ -167,13 +167,13 @@ export function ChannelAssignMembersDialog({
 
       toast({
         title: "Atribuições salvas",
-        description: `${selected.size} colaborador(es) atribuído(s) ao canal "${channelName}".`,
+        description: `${selected.size === 1 ? "1 colaborador atribuído" : `${selected.size} colaboradores atribuídos`} ao canal "${channelName}".`,
       });
       onOpenChange(false);
     } catch (err: any) {
       toast({
-        title: "Erro ao salvar atribuições",
-        description: err.message,
+        title: "Não foi possível salvar as atribuições",
+        description: "Tente novamente.",
         variant: "destructive",
       });
     } finally {
@@ -192,7 +192,7 @@ export function ChannelAssignMembersDialog({
           Atribuir colaboradores ao canal {channelName}
         </DialogTitle>
         <DialogDescription className="sr-only">
-          Selecione os colaboradores que devem ter acesso a este canal.
+          Selecione os colaboradores que terão acesso a este canal.
         </DialogDescription>
 
         <div className="px-5 py-4 border-b">
@@ -204,7 +204,7 @@ export function ChannelAssignMembersDialog({
 
         <div className="px-2 py-2 border-b bg-muted/40">
           <p className="text-[11px] text-muted-foreground px-3 py-1.5">
-            ℹ️ Owner e admins veem todos os canais automaticamente — não aparecem aqui.
+            Proprietários e administradores veem todos os canais automaticamente e não aparecem aqui.
           </p>
         </div>
 
@@ -215,7 +215,7 @@ export function ChannelAssignMembersDialog({
             </div>
           ) : members.length === 0 ? (
             <div className="py-10 text-center text-sm text-muted-foreground">
-              Nenhum colaborador na organização.
+              Nenhum colaborador na organização ainda.
             </div>
           ) : (
             members.map((m) => {

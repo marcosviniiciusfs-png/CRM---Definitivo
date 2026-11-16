@@ -200,7 +200,7 @@ export function IntegratedLogsViewer() {
       setLogs(data);
     } catch (error: any) {
       console.error("Error loading logs:", error);
-      toast.error("Erro ao carregar logs: " + (error?.message || "tente novamente"));
+      toast.error("Não foi possível carregar os logs. Tente novamente." + (error?.message ? ` Detalhe: ${error.message}` : ""));
     } finally {
       setLoading(false);
     }
@@ -229,13 +229,13 @@ export function IntegratedLogsViewer() {
 
       if (error) throw error;
 
-      toast.success("Log excluído com sucesso");
+      toast.success("Log excluído.");
       setLogs(logs.filter((log) => log.id !== selectedLogId));
       setDeleteDialogOpen(false);
       setSelectedLogId(null);
     } catch (error: any) {
       console.error("Error deleting log:", error);
-      toast.error("Erro ao excluir log");
+      toast.error("Não foi possível excluir o log. Tente novamente.");
     }
   };
 
@@ -260,11 +260,11 @@ export function IntegratedLogsViewer() {
 
       if (error) throw error;
 
-      toast.success("Todos os logs foram excluídos");
+      toast.success("Logs excluídos.");
       setLogs([]);
     } catch (error: any) {
       console.error("Error clearing logs:", error);
-      toast.error("Erro ao limpar logs");
+      toast.error("Não foi possível excluir os logs. Tente novamente.");
     }
   };
 
@@ -333,25 +333,25 @@ export function IntegratedLogsViewer() {
             <div className="grid grid-cols-2 gap-4 text-sm">
               {log.facebook_lead_id && (
                 <div>
-                  <span className="text-muted-foreground">Lead ID (Facebook):</span>
+                  <span className="text-muted-foreground">ID do lead (Facebook):</span>
                   <p className="font-mono text-xs break-all">{log.facebook_lead_id}</p>
                 </div>
               )}
               {log.page_id && (
                 <div>
-                  <span className="text-muted-foreground">Página ID:</span>
+                  <span className="text-muted-foreground">ID da página:</span>
                   <p className="font-mono text-xs">{log.page_id}</p>
                 </div>
               )}
               {log.form_id && (
                 <div>
-                  <span className="text-muted-foreground">Formulário ID:</span>
+                  <span className="text-muted-foreground">ID do formulário:</span>
                   <p className="font-mono text-xs">{log.form_id}</p>
                 </div>
               )}
               {log.lead_id && (
                 <div>
-                  <span className="text-muted-foreground">Lead Criado:</span>
+                  <span className="text-muted-foreground">Lead criado:</span>
                   <p className="font-mono text-xs">{log.lead_id}</p>
                 </div>
               )}
@@ -394,7 +394,7 @@ export function IntegratedLogsViewer() {
             </div>
             {log.message_content && (
               <div className="mt-2 bg-muted/50 border rounded-lg p-3">
-                <p className="text-sm font-medium mb-1">Conteúdo da Mensagem:</p>
+                <p className="text-sm font-medium mb-1">Conteúdo da mensagem:</p>
                 <p className="text-sm text-muted-foreground">{log.message_content}</p>
               </div>
             )}
@@ -413,7 +413,7 @@ export function IntegratedLogsViewer() {
               )}
               {log.lead_id && (
                 <div>
-                  <span className="text-muted-foreground">Lead Criado:</span>
+                  <span className="text-muted-foreground">Lead criado:</span>
                   <p className="font-mono text-xs">{log.lead_id}</p>
                 </div>
               )}
@@ -434,7 +434,7 @@ export function IntegratedLogsViewer() {
             </div>
             {log.events_received && (
               <p className="text-green-600 text-xs">
-                {log.events_received} evento(s) recebido(s) pela Meta
+                {log.events_received === 1 ? "1 evento recebido" : `${log.events_received} eventos recebidos`} pela Meta
               </p>
             )}
           </div>
@@ -456,16 +456,16 @@ export function IntegratedLogsViewer() {
             <FileText className={`h-5 w-5 ${config.color}`} />
           </div>
           <div>
-            <CardTitle>Logs de Acompanhamento</CardTitle>
+            <CardTitle>Logs de acompanhamento</CardTitle>
             <CardDescription>
-              Monitore os webhooks e eventos das suas integrações
+              Acompanhe os Webhooks e os eventos das suas integrações.
             </CardDescription>
           </div>
         </div>
         <div className="flex items-center gap-2">
           <Select value={selectedSource} onValueChange={(v: LogSource) => setSelectedSource(v)}>
             <SelectTrigger className="w-[180px]">
-              <SelectValue placeholder="Selecionar fonte" />
+              <SelectValue placeholder="Selecione a fonte" />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="facebook">
@@ -511,7 +511,7 @@ export function IntegratedLogsViewer() {
             disabled={loading || logs.length === 0}
           >
             <Trash2 className="h-4 w-4 mr-2" />
-            Limpar
+            Limpar logs
           </Button>
         </div>
       </CardHeader>
@@ -527,7 +527,7 @@ export function IntegratedLogsViewer() {
             <div className={`mx-auto mb-4 ${config.color} opacity-50 flex justify-center`}>
               <IconComponent />
             </div>
-            <p>Nenhum log de {config.label} encontrado</p>
+            <p>Nenhum log de {config.label} registrado ainda.</p>
           </div>
         ) : (
           <ScrollArea className="h-[500px]">
@@ -620,9 +620,9 @@ export function IntegratedLogsViewer() {
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Excluir Log</AlertDialogTitle>
+            <AlertDialogTitle>Excluir log</AlertDialogTitle>
             <AlertDialogDescription>
-              Tem certeza que deseja excluir este log? Esta ação não pode ser desfeita.
+              Excluir este log? Não dá para desfazer.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

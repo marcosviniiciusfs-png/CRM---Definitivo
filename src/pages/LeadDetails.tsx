@@ -68,7 +68,7 @@ const LeadDetails = () => {
       if (leadError) throw leadError;
 
       if (!lead) {
-        toast.error("Lead não encontrado");
+        toast.error("Lead não encontrado.");
         navigate('/pipeline');
         return;
       }
@@ -110,7 +110,7 @@ const LeadDetails = () => {
       }
     } catch (error) {
       console.error('Error loading lead details:', error);
-      toast.error("Erro ao carregar detalhes do lead");
+      toast.error("Não foi possível carregar os detalhes do lead. Tente novamente.");
     } finally {
       setLoading(false);
     }
@@ -132,12 +132,12 @@ const LeadDetails = () => {
 
       if (error) throw error;
 
-      toast.success("Anotação salva com sucesso");
+      toast.success("Anotação salva.");
       setNewNote("");
       loadLeadDetails(); // Refresh activities
     } catch (error) {
       console.error('Error saving note:', error);
-      toast.error("Erro ao salvar anotação");
+      toast.error("Não foi possível salvar a anotação. Tente novamente.");
     } finally {
       setSavingNote(false);
     }
@@ -211,9 +211,9 @@ const LeadDetails = () => {
   if (!leadData) {
     return (
       <div className="flex flex-col items-center justify-center h-64 gap-4">
-        <p className="text-muted-foreground">Lead não encontrado</p>
+        <p className="text-muted-foreground">Lead não encontrado.</p>
         <Link to="/pipeline">
-          <Button variant="outline">Voltar para Leads</Button>
+          <Button variant="outline">Voltar para leads</Button>
         </Link>
       </div>
     );
@@ -240,13 +240,13 @@ const LeadDetails = () => {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Activity className="h-5 w-5 text-primary" />
-                Histórico de Atividades
+                Histórico de atividades
               </CardTitle>
             </CardHeader>
             <CardContent>
               {activities.length === 0 ? (
                 <p className="text-sm text-muted-foreground text-center py-4">
-                  Nenhuma atividade registrada
+                  Nenhuma atividade registrada ainda.
                 </p>
               ) : (
                 <div className="space-y-4">
@@ -283,12 +283,12 @@ const LeadDetails = () => {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <MessageSquare className="h-5 w-5 text-primary" />
-                Anotações Rápidas
+                Anotações rápidas
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <Textarea
-                placeholder="Adicione uma anotação sobre este lead..."
+                placeholder="Escreva uma anotação sobre este lead"
                 className="min-h-[100px]"
                 value={newNote}
                 onChange={(e) => setNewNote(e.target.value)}
@@ -304,7 +304,7 @@ const LeadDetails = () => {
                     Salvando...
                   </>
                 ) : (
-                  'Salvar Anotação'
+                  'Salvar anotação'
                 )}
               </Button>
             </CardContent>
@@ -314,7 +314,7 @@ const LeadDetails = () => {
         <div className="space-y-6">
           <Card>
             <CardHeader>
-              <CardTitle>Informações do Lead</CardTitle>
+              <CardTitle>Informações do lead</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               {leadData.empresa && (
@@ -331,7 +331,7 @@ const LeadDetails = () => {
                 <div className="flex items-start gap-3">
                   <Mail className="h-5 w-5 text-muted-foreground mt-0.5" />
                   <div>
-                    <p className="text-sm font-medium">Email</p>
+                    <p className="text-sm font-medium">E-mail</p>
                     <p className="text-sm text-muted-foreground">{leadData.email}</p>
                   </div>
                 </div>
@@ -348,7 +348,7 @@ const LeadDetails = () => {
               <div className="flex items-start gap-3">
                 <DollarSign className="h-5 w-5 text-muted-foreground mt-0.5" />
                 <div>
-                  <p className="text-sm font-medium">Valor Estimado</p>
+                  <p className="text-sm font-medium">Valor estimado</p>
                   <p className="text-lg font-bold text-primary">{formatCurrency(leadData.valor)}</p>
                 </div>
               </div>
@@ -372,7 +372,7 @@ const LeadDetails = () => {
 
           <Card>
             <CardHeader>
-              <CardTitle>Ações Rápidas</CardTitle>
+              <CardTitle>Ações rápidas</CardTitle>
             </CardHeader>
             <CardContent className="space-y-2">
               {leadData.telefone_lead && (
@@ -382,7 +382,7 @@ const LeadDetails = () => {
                   onClick={() => window.open(`tel:${leadData.telefone_lead}`, '_blank')}
                 >
                   <Phone className="h-4 w-4" />
-                  Fazer Ligação
+                  Fazer ligação
                 </Button>
               )}
               {leadData.email && (
@@ -392,7 +392,7 @@ const LeadDetails = () => {
                   onClick={() => window.open(`mailto:${leadData.email}`, '_blank')}
                 >
                   <Mail className="h-4 w-4" />
-                  Enviar Email
+                  Enviar e-mail
                 </Button>
               )}
               <Button

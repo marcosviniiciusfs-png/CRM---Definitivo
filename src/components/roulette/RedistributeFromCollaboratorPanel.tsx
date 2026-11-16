@@ -37,7 +37,7 @@ interface DistributionConfig {
 const methodLabels: Record<string, string> = {
   round_robin: "Rodízio",
   weighted: "Por porcentagem",
-  load_based: "Por Carga",
+  load_based: "Por carga",
   random: "Aleatório",
 };
 
@@ -191,7 +191,7 @@ export function RedistributeFromCollaboratorPanel({ onConfirm, isPending }: Prop
     ? destinationAgents.find(c => c.user_id === selectedDestinationUserId)?.display
     : selectedConfigId
       ? configs.find(c => c.id === selectedConfigId)?.name
-      : "Aleatório (distribuição automática pelas regras configuradas)";
+      : "Aleatório (a roleta é escolhida pelas regras configuradas)";
   const hasValidDestination = destinationMode === "random"
     || (destinationMode === "roulette" && !!selectedConfigId && configs.some(c => c.id === selectedConfigId))
     || (destinationMode === "collaborator"
@@ -228,7 +228,7 @@ export function RedistributeFromCollaboratorPanel({ onConfirm, isPending }: Prop
           <div className="min-w-0">
             <p className="text-sm font-semibold">Redistribuir leads de um colaborador</p>
             <p className="text-xs text-muted-foreground truncate">
-              Solta os leads de um ou mais agentes e os redistribui pelas roletas
+              Tire os leads de um ou mais colaboradores e redistribua pelas roletas.
             </p>
           </div>
         </div>
@@ -241,8 +241,8 @@ export function RedistributeFromCollaboratorPanel({ onConfirm, isPending }: Prop
           <DialogHeader>
             <DialogTitle>Redistribuir leads de colaboradores</DialogTitle>
             <DialogDescription>
-              Os leads ativos dos colaboradores selecionados serão desatribuídos e redistribuídos.
-              Os colaboradores permanecem ativos na organização.
+              Os leads ativos dos colaboradores selecionados saem deles e são redistribuídos.
+              Os colaboradores continuam ativos na organização.
             </DialogDescription>
           </DialogHeader>
 
@@ -263,7 +263,7 @@ export function RedistributeFromCollaboratorPanel({ onConfirm, isPending }: Prop
                     <span className={selectedIdsArray.length === 0 ? "text-muted-foreground" : ""}>
                       {selectedIdsArray.length === 0
                         ? "Selecionar colaboradores"
-                        : `${selectedIdsArray.length} colaborador(es) selecionado(s)`}
+                        : `${selectedIdsArray.length} ${selectedIdsArray.length === 1 ? "colaborador selecionado" : "colaboradores selecionados"}`}
                     </span>
                     <ChevronDown className="h-4 w-4 opacity-50 shrink-0" />
                   </Button>
@@ -273,7 +273,7 @@ export function RedistributeFromCollaboratorPanel({ onConfirm, isPending }: Prop
                     <div className="relative">
                       <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
                       <Input
-                        placeholder="Buscar colaborador..."
+                        placeholder="Buscar colaborador"
                         value={searchTerm}
                         onChange={e => setSearchTerm(e.target.value)}
                         className="pl-9 h-8 text-sm"
@@ -300,13 +300,13 @@ export function RedistributeFromCollaboratorPanel({ onConfirm, isPending }: Prop
                         />
                         <Label htmlFor="rfc-all" className="text-xs font-medium cursor-pointer flex-1">
                           {allFilteredSelected ? "Desmarcar todos" : "Selecionar todos"}
-                          {searchTerm && ` (${filteredCollaborators.length} filtrado${filteredCollaborators.length !== 1 ? "s" : ""})`}
+                          {searchTerm && ` (${filteredCollaborators.length} ${filteredCollaborators.length === 1 ? "filtrado" : "filtrados"})`}
                         </Label>
                       </div>
                     )}
                     {filteredCollaborators.length === 0 ? (
                       <div className="p-3 text-center text-xs text-muted-foreground">
-                        {collaborators.length === 0 ? "Nenhum colaborador ativo" : "Nenhum resultado"}
+                        {collaborators.length === 0 ? "Nenhum colaborador ativo." : "Nenhum colaborador encontrado."}
                       </div>
                     ) : (
                       filteredCollaborators.map(c => (
@@ -337,8 +337,8 @@ export function RedistributeFromCollaboratorPanel({ onConfirm, isPending }: Prop
                   </span>
                 ) : (
                   <span>
-                    Total de <strong>{activeLeadsCount ?? 0}</strong> lead(s) ativo(s) entre os{" "}
-                    <strong>{selectedIdsArray.length}</strong> colaborador(es) selecionado(s).
+                    Total: <strong>{activeLeadsCount ?? 0}</strong> {activeLeadsCount === 1 ? "lead ativo" : "leads ativos"} em{" "}
+                    <strong>{selectedIdsArray.length}</strong> {selectedIdsArray.length === 1 ? "colaborador selecionado" : "colaboradores selecionados"}.
                   </span>
                 )}
               </div>
@@ -391,7 +391,7 @@ export function RedistributeFromCollaboratorPanel({ onConfirm, isPending }: Prop
 
               {destinationMode === "random" && (
                 <p className="px-1 text-xs text-muted-foreground">
-                  O sistema escolhe automaticamente a melhor roleta para cada lead.
+                  O KairoZ escolhe a melhor roleta para cada lead.
                 </p>
               )}
 
@@ -407,7 +407,7 @@ export function RedistributeFromCollaboratorPanel({ onConfirm, isPending }: Prop
                   <SelectContent>
                     {configs.length === 0 ? (
                       <div className="px-2 py-3 text-center text-xs text-muted-foreground">
-                        Nenhuma roleta ativa
+                        Nenhuma roleta ativa.
                       </div>
                     ) : configs.map((config) => (
                       <SelectItem key={config.id} value={config.id}>
@@ -430,7 +430,7 @@ export function RedistributeFromCollaboratorPanel({ onConfirm, isPending }: Prop
                   <SelectContent>
                     {destinationAgents.length === 0 ? (
                       <div className="px-2 py-3 text-center text-xs text-muted-foreground">
-                        Nenhum outro colaborador ativo
+                        Nenhum outro colaborador ativo.
                       </div>
                     ) : destinationAgents.map((collaborator) => (
                       <SelectItem key={collaborator.user_id} value={collaborator.user_id}>
@@ -444,11 +444,11 @@ export function RedistributeFromCollaboratorPanel({ onConfirm, isPending }: Prop
           </div>
           ) : (
             <div className="rounded-lg border bg-muted/30 p-4 text-sm leading-relaxed">
-              Você está prestes a redistribuir <strong>{activeLeadsCount ?? 0}</strong> lead(s) de{" "}
-              <strong>{selectedIdsArray.length}</strong> colaborador(es) via{" "}
-              <strong>{selectedDestinationName}</strong>.
+              Redistribuir <strong>{activeLeadsCount ?? 0}</strong> {activeLeadsCount === 1 ? "lead" : "leads"} de{" "}
+              <strong>{selectedIdsArray.length}</strong> {selectedIdsArray.length === 1 ? "colaborador" : "colaboradores"} via{" "}
+              <strong>{selectedDestinationName}</strong>?
               <p className="mt-2 text-xs text-muted-foreground">
-                Os leads ganhos e perdidos não serão alterados. Esta ação não pode ser desfeita.
+                Os leads ganhos e perdidos não mudam. Não dá para desfazer.
               </p>
             </div>
           )}
@@ -464,7 +464,7 @@ export function RedistributeFromCollaboratorPanel({ onConfirm, isPending }: Prop
                   onClick={() => setShowConfirmation(true)}
                   disabled={!canConfirm}
                 >
-                  Redistribuir {activeLeadsCount ?? 0} lead(s)
+                  Redistribuir {activeLeadsCount ?? 0} {activeLeadsCount === 1 ? "lead" : "leads"}
                 </Button>
               </>
             ) : (
@@ -478,7 +478,7 @@ export function RedistributeFromCollaboratorPanel({ onConfirm, isPending }: Prop
                   disabled={isPending}
                 >
                   {isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-                  {isPending ? "Redistribuindo..." : "Confirmar redistribuição"}
+                  {isPending ? "Redistribuindo..." : "Redistribuir"}
                 </Button>
               </>
             )}

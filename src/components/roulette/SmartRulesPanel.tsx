@@ -68,17 +68,17 @@ const TIMEOUT_OPTIONS = [
 
 const CONDITION_FIELDS = [
   { value: "source", label: "Origem do lead" },
-  { value: "score_min", label: "Score minimo" },
-  { value: "score_max", label: "Score maximo" },
+  { value: "score_min", label: "Score mínimo" },
+  { value: "score_max", label: "Score máximo" },
   { value: "funnel", label: "Funil" },
-  { value: "form_response", label: "Resposta do formulario" },
+  { value: "form_response", label: "Resposta do formulário" },
   { value: "whatsapp_first_message", label: "Primeira mensagem do WhatsApp" },
 ];
 
 const CONDITION_OPERATORS = [
   { value: "equals", label: "igual a" },
   { value: "not_equals", label: "diferente de" },
-  { value: "contains", label: "contem" },
+  { value: "contains", label: "contém" },
   { value: "greater", label: "maior que" },
   { value: "less", label: "menor que" },
 ];
@@ -86,7 +86,7 @@ const CONDITION_OPERATORS = [
 const ACTIONS = [
   { value: "assign_to", label: "Atribuir para" },
   { value: "route_to_funnel", label: "Enviar para funil" },
-  { value: "skip", label: "Ignorar (nao distribuir)" },
+  { value: "skip", label: "Ignorar (não distribuir)" },
 ];
 
 // ── Rule Tooltip ──────────────────────────────────────────────
@@ -180,11 +180,16 @@ export function SmartRulesPanel() {
       }
     },
     onSuccess: () => {
-      toast.success("Regras salvas com sucesso");
+      toast.success("Regras salvas.");
     },
     onError: (error) => {
       queryClient.invalidateQueries({ queryKey: ["smart-rules", organizationId] });
-      toast.error(error instanceof Error ? error.message : "Erro ao salvar regras");
+      console.error("Erro ao salvar regras:", error);
+      toast.error(
+        error instanceof Error && error.message.startsWith("Crie pelo menos")
+          ? "Crie uma roleta antes de configurar as regras."
+          : "Não foi possível salvar as regras. Tente novamente."
+      );
     },
   });
 
@@ -297,7 +302,7 @@ export function SmartRulesPanel() {
         if (form.selected_form_id) registerForm("facebook", form.selected_form_id, form.selected_form_name || form.selected_form_id);
       });
       (selectedFormsResult.data || []).forEach((form: { form_id: string; form_name: string }) => registerForm("facebook", form.form_id, form.form_name || form.form_id));
-      (webhookResult.data || []).forEach(form => registerForm("webhook", form.webhook_token, form.name || "Formulario via webhook"));
+      (webhookResult.data || []).forEach(form => registerForm("webhook", form.webhook_token, form.name || "Formulário via webhook"));
 
       const liveFormResults = await Promise.all((facebookResult.data || []).map(integration =>
         supabase.functions.invoke("facebook-list-lead-forms", {
@@ -385,9 +390,9 @@ export function SmartRulesPanel() {
 
   return (
     <div className="space-y-4">
-      <h3 className="text-sm font-semibold">Regras inteligentes de distribuicao</h3>
+      <h3 className="text-sm font-semibold">Regras inteligentes de distribuição</h3>
       <p className="text-xs text-muted-foreground">
-        Configure regras avancadas para otimizar a distribuicao de leads automaticamente.
+        Configure regras avançadas para distribuir os leads de forma mais inteligente.
       </p>
 
       {/* ── System Rules ────────────────────────────── */}
@@ -400,10 +405,10 @@ export function SmartRulesPanel() {
             </div>
             <div className="min-w-0">
               <div className="flex items-center gap-1.5">
-                <p className="text-sm font-medium">Reagendamento para mesmo agente</p>
-                <RuleTooltip text="Se um lead ja foi atendido por um agente antes, ele sera automaticamente devolvido para esse mesmo agente. Exemplo: o lead 'Joao' conversou com a 'Maria' no passado — ao entrar na roleta novamente, vai direto para a Maria, independente do metodo de distribuicao." />
+                <p className="text-sm font-medium">Devolver ao mesmo responsável</p>
+                <RuleTooltip text="Se um colaborador já atendeu o lead antes, o lead volta para ele. Exemplo: o lead João conversou com a Maria no passado. Ao entrar na roleta de novo, vai direto para a Maria, qualquer que seja o método de distribuição." />
               </div>
-              <p className="text-[11px] text-muted-foreground">Se o lead ja teve contato com um agente, rotear para o mesmo</p>
+              <p className="text-[11px] text-muted-foreground">Se o lead já teve contato com um colaborador, devolve para o mesmo.</p>
             </div>
           </div>
           <Toggle checked={current.system.reroute_same_agent} onChange={() => updateSystemRule("reroute_same_agent", !current.system.reroute_same_agent)} />
@@ -418,10 +423,10 @@ export function SmartRulesPanel() {
               </div>
               <div className="min-w-0">
                 <div className="flex items-center gap-1.5">
-                  <p className="text-sm font-medium">Horario de trabalho</p>
-                  <RuleTooltip text="Define um horario limite para distribuicao. Leads que chegam fora desse horario nao sao distribuidos e ficam aguardando ate o proximo horario util. Exemplo: com horario 08:00-18:00, um lead que chega as 22h so sera distribuido no dia seguinte." />
+                  <p className="text-sm font-medium">Horário de trabalho</p>
+                  <RuleTooltip text="Define o horário em que os leads são distribuídos. Leads que chegam fora dele esperam até o próximo horário útil. Exemplo: com horário 08:00-18:00, um lead que chega às 22h só é distribuído no dia seguinte." />
                 </div>
-                <p className="text-[11px] text-muted-foreground">Leads fora do horario ficam em fila para o proximo dia util</p>
+                <p className="text-[11px] text-muted-foreground">Leads fora do horário esperam até o próximo dia útil.</p>
               </div>
             </div>
             <Toggle checked={current.system.work_hours_enabled} onChange={() => updateSystemRule("work_hours_enabled", !current.system.work_hours_enabled)} />
@@ -434,7 +439,7 @@ export function SmartRulesPanel() {
                 onChange={e => updateSystemRule("work_hours_start", e.target.value)}
                 className="bg-background border rounded-lg px-2 py-1 text-xs"
               />
-              <span className="text-xs text-muted-foreground">ate</span>
+              <span className="text-xs text-muted-foreground">até</span>
               <input
                 type="time"
                 value={current.system.work_hours_end}
@@ -453,10 +458,10 @@ export function SmartRulesPanel() {
             </div>
             <div className="flex-1">
               <div className="flex items-center gap-1.5">
-                <p className="text-sm font-medium">Redistribuicao automatica</p>
-                <RuleTooltip text="Se um agente receber um lead e nao fizer nenhuma interacao dentro do prazo definido, o lead e automaticamente redistribuido para outro agente disponivel. Exemplo: com prazo de 1h, se o agente 'Carlos' nao contatar o lead em 1 hora, o lead volta para a roleta e vai para outro agente." />
+                <p className="text-sm font-medium">Redistribuição automática</p>
+                <RuleTooltip text="Se um colaborador recebe um lead e não interage com ele dentro do prazo, o lead é redistribuído para outro colaborador disponível. Exemplo: com prazo de 1h, se o Carlos não contatar o lead em 1 hora, o lead volta para a roleta e vai para outro colaborador." />
               </div>
-              <p className="text-[11px] text-muted-foreground">Redistribui se o agente nao interagir dentro do prazo</p>
+              <p className="text-[11px] text-muted-foreground">Redistribui se o colaborador não interagir dentro do prazo.</p>
             </div>
           </div>
           <div className="flex gap-2 ml-11">
@@ -483,9 +488,9 @@ export function SmartRulesPanel() {
           <div>
             <div className="flex items-center gap-1.5">
               <h4 className="text-sm font-semibold">Regras personalizadas</h4>
-              <RuleTooltip text="Crie condicoes personalizadas para rotear leads automaticamente. Exemplo: 'Se origem for igual a facebook, atribuir para a Maria' ou 'Se score minimo for maior que 80, nao distribuir'. As regras sao avaliadas na ordem e a primeira que bater e executada." />
+              <RuleTooltip text="Crie condições para direcionar leads automaticamente. Exemplo: 'Se a origem for igual a Facebook, atribuir para a Maria' ou 'Se o score mínimo for maior que 80, não distribuir'. As regras são avaliadas na ordem, e vale a primeira que se aplicar." />
             </div>
-            <p className="text-[11px] text-muted-foreground">Crie regras condicionais para rotear leads automaticamente</p>
+            <p className="text-[11px] text-muted-foreground">Crie regras com condições para direcionar leads automaticamente.</p>
           </div>
           <Button variant="outline" size="sm" onClick={addCustomRule} className="gap-1 text-xs">
             <Plus className="h-3 w-3" /> Nova regra
@@ -494,8 +499,8 @@ export function SmartRulesPanel() {
 
         {current.custom.length === 0 ? (
           <div className="rounded-xl border border-dashed bg-muted/30 p-6 text-center">
-            <p className="text-xs text-muted-foreground">Nenhuma regra personalizada criada</p>
-            <p className="text-[11px] text-muted-foreground mt-1">Clique em "Nova regra" para criar uma condicao personalizada</p>
+            <p className="text-xs text-muted-foreground">Nenhuma regra personalizada ainda.</p>
+            <p className="text-[11px] text-muted-foreground mt-1">Clique em "Nova regra" para criar uma condição.</p>
           </div>
         ) : (
           <div className="space-y-3">
@@ -563,7 +568,7 @@ function CustomRuleCard({
       {/* Body */}
       {expanded && (
         <div className="px-4 pb-4 space-y-3">
-          <p className="text-[11px] text-muted-foreground font-medium uppercase tracking-wide">Condicao</p>
+          <p className="text-[11px] text-muted-foreground font-medium uppercase tracking-wide">Condição</p>
           <div className={`grid grid-cols-1 gap-2 ${rule.condition_field === "form_response" ? "md:grid-cols-5" : "md:grid-cols-3"}`}>
             <Select value={rule.condition_field} onValueChange={v => onChange({
               condition_field: v as CustomRule["condition_field"],
@@ -583,7 +588,7 @@ function CustomRuleCard({
                 const selected = connectedForms.find(form => `${form.source}:${form.id}` === v);
                 onChange({ condition_form_id: selected?.id, condition_form_source: selected?.source, condition_question: undefined, condition_value: "" });
               }}>
-                <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Selecione o formulario" /></SelectTrigger>
+                <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Selecione o formulário" /></SelectTrigger>
                 <SelectContent>
                   {connectedForms.map(form => <SelectItem key={`${form.source}:${form.id}`} value={`${form.source}:${form.id}`}>{form.name}</SelectItem>)}
                 </SelectContent>
@@ -629,7 +634,7 @@ function CustomRuleCard({
             )}
           </div>
 
-          <p className="text-[11px] text-muted-foreground font-medium uppercase tracking-wide">Acao</p>
+          <p className="text-[11px] text-muted-foreground font-medium uppercase tracking-wide">Ação</p>
           <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
             <Select value={rule.action} onValueChange={v => onChange({ action: v as CustomRule["action"] })}>
               <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
@@ -639,7 +644,7 @@ function CustomRuleCard({
             </Select>
             {rule.action === "assign_to" && (
               <Select value={rule.agent_id} onValueChange={v => onChange({ agent_id: v })}>
-                <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Selecione agente" /></SelectTrigger>
+                <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Selecione o colaborador" /></SelectTrigger>
                 <SelectContent>
                   {agents.map(a => <SelectItem key={a.user_id} value={a.user_id}>{a.full_name}</SelectItem>)}
                 </SelectContent>
@@ -647,7 +652,7 @@ function CustomRuleCard({
             )}
             {rule.action === "skip" && (
               <div className="h-8 flex items-center px-3 text-xs text-muted-foreground rounded-md border bg-muted/30">
-                Lead nao sera distribuido
+                O lead não será distribuído.
               </div>
             )}
             {rule.action === "route_to_funnel" && (
@@ -662,16 +667,16 @@ function CustomRuleCard({
 
           {/* Summary */}
           <p className="text-[11px] text-muted-foreground">
-            Se <span className="font-medium text-foreground">{rule.condition_field === "form_response" ? `${connectedForms.find(form => form.id === rule.condition_form_id && form.source === rule.condition_form_source)?.name || "selecionar formulario"} / ${rule.condition_question || "selecionar pergunta"}` : CONDITION_FIELDS.find(f => f.value === rule.condition_field)?.label}</span>{" "}
+            Se <span className="font-medium text-foreground">{rule.condition_field === "form_response" ? `${connectedForms.find(form => form.id === rule.condition_form_id && form.source === rule.condition_form_source)?.name || "selecionar formulário"} / ${rule.condition_question || "selecionar pergunta"}` : CONDITION_FIELDS.find(f => f.value === rule.condition_field)?.label}</span>{" "}
             <span className="font-medium text-foreground">{CONDITION_OPERATORS.find(o => o.value === rule.condition_operator)?.label}</span>{" "}
             <span className="font-medium text-foreground">"{rule.condition_value || "..."}"</span>{" "}
             &rarr;{" "}
             <span className="font-medium text-foreground">
               {rule.action === "assign_to"
-                ? agents.find(a => a.user_id === rule.agent_id)?.full_name || "selecionar agente"
+                ? agents.find(a => a.user_id === rule.agent_id)?.full_name || "selecionar colaborador"
                 : rule.action === "route_to_funnel"
                   ? funnels.find(f => f.id === rule.funnel_id)?.name || "selecionar funil"
-                  : "nao distribuir"}
+                  : "não distribuir"}
             </span>
           </p>
         </div>

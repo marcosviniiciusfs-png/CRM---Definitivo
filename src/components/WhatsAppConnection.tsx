@@ -75,15 +75,15 @@ const WhatsAppConnection = ({ newConnectionMode = false }: WhatsAppConnectionPro
 
       toast({
         title: "Conexão cancelada",
-        description: "A instância WhatsApp foi removida",
+        description: "O canal foi removido.",
       });
 
       await loadInstances();
     } catch (error: any) {
       console.error('Erro ao cancelar instância:', error);
       toast({
-        title: "Erro",
-        description: "Não foi possível cancelar a instância",
+        title: "Não foi possível cancelar a conexão",
+        description: "Tente novamente.",
         variant: "destructive",
       });
     }
@@ -116,8 +116,8 @@ const WhatsAppConnection = ({ newConnectionMode = false }: WhatsAppConnectionPro
       if (error) throw error;
 
       toast({
-        title: "Webhook Reconfigurado! ✅",
-        description: "Agora você receberá mensagens do WhatsApp no CRM.",
+        title: "Webhook reconfigurado",
+        description: "Você volta a receber as mensagens do WhatsApp no CRM.",
       });
 
       console.log('✅ Webhook reconfigurado:', data);
@@ -126,8 +126,8 @@ const WhatsAppConnection = ({ newConnectionMode = false }: WhatsAppConnectionPro
     } catch (error: any) {
       console.error('Erro ao reconfigurar webhook:', error);
       toast({
-        title: "Erro ao reconfigurar",
-        description: error.message || "Não foi possível reconfigurar o webhook",
+        title: "Não foi possível reconfigurar o Webhook",
+        description: "Tente novamente.",
         variant: "destructive",
       });
     } finally {
@@ -301,8 +301,8 @@ const WhatsAppConnection = ({ newConnectionMode = false }: WhatsAppConnectionPro
         stack: error?.stack
       });
       toast({
-        title: "Erro",
-        description: "Não foi possível carregar as instâncias WhatsApp",
+        title: "Não foi possível carregar os canais",
+        description: "Tente novamente.",
         variant: "destructive",
       });
       setInstances([]);
@@ -334,8 +334,8 @@ const WhatsAppConnection = ({ newConnectionMode = false }: WhatsAppConnectionPro
   const createInstance = async (name?: string) => {
     if (!user) {
       toast({
-        title: "Erro",
-        description: "Você precisa estar autenticado para criar uma instância",
+        title: "Não foi possível criar o canal",
+        description: "Entre na sua conta e tente novamente.",
         variant: "destructive",
       });
       return;
@@ -364,7 +364,7 @@ const WhatsAppConnection = ({ newConnectionMode = false }: WhatsAppConnectionPro
       // Mostrar toast informando sobre criação
       toast({
         title: "Criando conexão",
-        description: "Gerando QR Code...",
+        description: "Gerando o QR Code…",
       });
 
       // CRÍTICO: Garantir sessão válida antes de chamar a Edge Function
@@ -415,8 +415,8 @@ const WhatsAppConnection = ({ newConnectionMode = false }: WhatsAppConnectionPro
       setQrDialogOpen(true);
 
       toast({
-        title: initialQrCode ? "QR Code pronto!" : "Gerando QR Code...",
-        description: initialQrCode ? "Escaneie o QR Code com seu WhatsApp." : "O QR Code será exibido em alguns segundos. Aguarde.",
+        title: initialQrCode ? "QR Code pronto" : "Gerando o QR Code…",
+        description: initialQrCode ? "Escaneie o QR Code com o WhatsApp." : "O QR Code aparece em alguns segundos.",
       });
 
       // Recarregar instâncias (o realtime também fará isso)
@@ -424,8 +424,8 @@ const WhatsAppConnection = ({ newConnectionMode = false }: WhatsAppConnectionPro
     } catch (error: any) {
       console.error('Erro ao criar instância:', error);
       toast({
-        title: "Erro",
-        description: error.message || "Não foi possível criar a instância",
+        title: "Não foi possível criar o canal",
+        description: "Tente novamente.",
         variant: "destructive",
       });
     } finally {
@@ -436,8 +436,8 @@ const WhatsAppConnection = ({ newConnectionMode = false }: WhatsAppConnectionPro
   const updateLeadCaptureChannel = async (instanceId: string, enabled: boolean) => {
     if (!organizationId) {
       toast({
-        title: "Organizacao nao identificada",
-        description: "Recarregue a pagina e tente novamente.",
+        title: "Organização não identificada",
+        description: "Recarregue a página e tente novamente.",
         variant: "destructive",
       });
       return;
@@ -471,14 +471,14 @@ const WhatsAppConnection = ({ newConnectionMode = false }: WhatsAppConnectionPro
       toast({
         title: enabled ? "Canal recebendo leads" : "Canal pausado para novos leads",
         description: enabled
-          ? "Novos contatos do WhatsApp serao criados como leads por este numero."
-          : "Este numero continuara atendendo conversas existentes.",
+          ? "Novos contatos do WhatsApp viram leads por este número."
+          : "Este número continua atendendo as conversas existentes.",
       });
     } catch (error: any) {
       console.error('Erro ao atualizar captura de leads:', error);
       toast({
-        title: "Erro",
-        description: error.message || "Nao foi possivel atualizar o canal que recebe leads.",
+        title: "Não foi possível atualizar o canal que recebe leads",
+        description: "Tente novamente.",
         variant: "destructive",
       });
     } finally {
@@ -501,8 +501,8 @@ const WhatsAppConnection = ({ newConnectionMode = false }: WhatsAppConnectionPro
       }
 
       toast({
-        title: "WhatsApp deletado",
-        description: "A instância foi deletada com sucesso. Você pode criar uma nova conexão.",
+        title: "Canal excluído",
+        description: "Você pode criar uma nova conexão.",
       });
 
       // Recarregar instâncias
@@ -510,8 +510,8 @@ const WhatsAppConnection = ({ newConnectionMode = false }: WhatsAppConnectionPro
     } catch (error: any) {
       console.error('Erro ao deletar instância:', error);
       toast({
-        title: "Erro",
-        description: error.message || "Não foi possível deletar a instância",
+        title: "Não foi possível excluir o canal",
+        description: "Tente novamente.",
         variant: "destructive",
       });
     } finally {
@@ -534,8 +534,8 @@ const WhatsAppConnection = ({ newConnectionMode = false }: WhatsAppConnectionPro
       }
 
       toast({
-        title: "Instância removida",
-        description: "A instância foi deletada com sucesso.",
+        title: "Canal excluído",
+        description: "O canal foi removido.",
       });
 
       // Recarregar instâncias
@@ -543,8 +543,8 @@ const WhatsAppConnection = ({ newConnectionMode = false }: WhatsAppConnectionPro
     } catch (error: any) {
       console.error('Erro ao deletar instância:', error);
       toast({
-        title: "Erro",
-        description: error.message || "Não foi possível deletar a instância",
+        title: "Não foi possível excluir o canal",
+        description: "Tente novamente.",
         variant: "destructive",
       });
     } finally {
@@ -636,8 +636,8 @@ const WhatsAppConnection = ({ newConnectionMode = false }: WhatsAppConnectionPro
                 setQrDialogOpen(false);
                 setSelectedInstance(null);
                 toast({
-                  title: "WhatsApp conectado!",
-                  description: "Conectado com sucesso! Os leads aparecerão automaticamente quando receberem mensagens.",
+                  title: "WhatsApp conectado",
+                  description: "Os leads aparecem automaticamente quando receberem mensagens.",
                 });
 
                 // Recarregar após fechar
@@ -684,8 +684,8 @@ const WhatsAppConnection = ({ newConnectionMode = false }: WhatsAppConnectionPro
       setQrDialogOpen(false);
       setSelectedInstance(null);
       toast({
-        title: "WhatsApp conectado!",
-        description: "Conexão estabelecida com sucesso!",
+        title: "WhatsApp conectado",
+        description: "Conexão estabelecida.",
       });
     }
   }, [selectedInstance, qrDialogOpen]); // CRÍTICO: Removido toast das dependências
@@ -744,8 +744,8 @@ const WhatsAppConnection = ({ newConnectionMode = false }: WhatsAppConnectionPro
             setQrDialogOpen(false);
             setSelectedInstance(null);
             toast({
-              title: "WhatsApp conectado!",
-              description: "Conectado com sucesso!",
+              title: "WhatsApp conectado",
+              description: "Conexão estabelecida.",
             });
             loadInstances();
             return;
@@ -772,8 +772,8 @@ const WhatsAppConnection = ({ newConnectionMode = false }: WhatsAppConnectionPro
               setQrDialogOpen(false);
               setSelectedInstance(null);
               toast({
-                title: "WhatsApp conectado!",
-                description: "Conectado com sucesso! Os leads aparecerão automaticamente quando receberem mensagens.",
+                title: "WhatsApp conectado",
+                description: "Os leads aparecem automaticamente quando receberem mensagens.",
               });
               loadInstances();
             }
@@ -810,9 +810,9 @@ const WhatsAppConnection = ({ newConnectionMode = false }: WhatsAppConnectionPro
     const statusMap: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
       CONNECTED: { label: "Conectado", variant: "default" },
       DISCONNECTED: { label: "Desconectado", variant: "destructive" },
-      CREATING: { label: "Criando...", variant: "secondary" },
+      CREATING: { label: "Criando…", variant: "secondary" },
       WAITING_QR: { label: "Aguardando QR Code", variant: "outline" },
-      CONNECTING: { label: "Conectando...", variant: "secondary" },
+      CONNECTING: { label: "Conectando…", variant: "secondary" },
     };
 
     const config = statusMap[status] || { label: status, variant: "outline" };
@@ -856,7 +856,7 @@ const WhatsAppConnection = ({ newConnectionMode = false }: WhatsAppConnectionPro
         return (
           <div className="text-center py-8 text-muted-foreground">
             <Loader2 className="h-8 w-8 animate-spin mx-auto mb-2" />
-            <p>Aguardando QR Code...</p>
+            <p>Aguardando o QR Code…</p>
           </div>
         );
       }
@@ -905,7 +905,7 @@ const WhatsAppConnection = ({ newConnectionMode = false }: WhatsAppConnectionPro
         return (
           <div className="text-center py-8 text-muted-foreground">
             <Loader2 className="h-8 w-8 animate-spin mx-auto mb-2" />
-            <p>Aguardando QR Code...</p>
+            <p>Aguardando o QR Code…</p>
           </div>
         );
       }
@@ -926,7 +926,7 @@ const WhatsAppConnection = ({ newConnectionMode = false }: WhatsAppConnectionPro
         return (
           <div className="text-center py-8 text-destructive">
             <XCircle className="h-8 w-8 mx-auto mb-2" />
-            <p>QR Code inválido. Tente criar uma nova conexão.</p>
+            <p>QR Code inválido. Crie uma nova conexão.</p>
           </div>
         );
       }
@@ -946,15 +946,15 @@ const WhatsAppConnection = ({ newConnectionMode = false }: WhatsAppConnectionPro
           <div className="bg-card p-4 rounded-lg border">
             <img
               src={finalDataUrl}
-              alt="QR Code WhatsApp"
+              alt="QR Code do WhatsApp"
               className="w-64 h-64"
               onError={(e) => {
                 console.error('❌ ERRO ao renderizar imagem QR Code');
                 console.error('Data URL que falhou:', finalDataUrl.substring(0, 200));
                 setQrCodeErrors(prev => ({ ...prev, [instance.id]: true }));
                 toast({
-                  title: "Erro ao carregar QR Code",
-                  description: "Falha ao renderizar a imagem. Tente criar uma nova instância.",
+                  title: "Não foi possível exibir o QR Code",
+                  description: "Crie uma nova conexão.",
                   variant: "destructive",
                 });
               }}
@@ -964,7 +964,7 @@ const WhatsAppConnection = ({ newConnectionMode = false }: WhatsAppConnectionPro
             />
           </div>
           <p className="text-sm text-center text-muted-foreground">
-            Abra o WhatsApp no seu celular e escaneie este código
+            Abra o WhatsApp no celular e escaneie este código.
           </p>
         </div>
       );
@@ -974,7 +974,7 @@ const WhatsAppConnection = ({ newConnectionMode = false }: WhatsAppConnectionPro
       return (
         <div className="text-center py-8 text-destructive">
           <XCircle className="h-8 w-8 mx-auto mb-2" />
-          <p>Erro ao processar QR Code. Tente novamente.</p>
+          <p>Não foi possível exibir o QR Code. Tente novamente.</p>
         </div>
       );
     }
@@ -994,7 +994,7 @@ const WhatsAppConnection = ({ newConnectionMode = false }: WhatsAppConnectionPro
               Conectar WhatsApp
             </DialogTitle>
             <DialogDescription>
-              Escaneie o QR Code com seu WhatsApp para conectar. Fechar esta janela cancelará a conexão.
+              Escaneie o QR Code com o WhatsApp para conectar. Se fechar esta janela, a conexão é cancelada.
             </DialogDescription>
           </DialogHeader>
           {selectedInstance && renderQRCode(selectedInstance)}
@@ -1003,7 +1003,7 @@ const WhatsAppConnection = ({ newConnectionMode = false }: WhatsAppConnectionPro
               variant="outline"
               onClick={handleCloseDialog}
             >
-              Cancelar Conexão
+              Cancelar conexão
             </Button>
           </div>
         </DialogContent>
@@ -1019,7 +1019,7 @@ const WhatsAppConnection = ({ newConnectionMode = false }: WhatsAppConnectionPro
                 <p className="text-xs text-muted-foreground truncate">
                   {hasConnected
                     ? `Conectado: ${instances.find(i => i.status === 'CONNECTED')?.phone_number || 'Ativo'}`
-                    : 'Conecte seu número'}
+                    : 'Conecte seu número.'}
                 </p>
               </div>
             </div>
@@ -1086,7 +1086,7 @@ const WhatsAppConnection = ({ newConnectionMode = false }: WhatsAppConnectionPro
                 <Input
                   value={channelName}
                   onChange={(e) => setChannelName(e.target.value)}
-                  placeholder="Ex: Vendas Principal"
+                  placeholder="Ex.: Vendas principal"
                   className="h-8 text-sm"
                   autoFocus
                   onKeyDown={(e) => {
@@ -1124,9 +1124,9 @@ const WhatsAppConnection = ({ newConnectionMode = false }: WhatsAppConnectionPro
               <FunnelSelector sourceType="whatsapp" />
               <div className="space-y-2 rounded-lg border bg-muted/30 p-3">
                 <div>
-                  <p className="text-xs font-semibold text-foreground">Numero que recebe leads</p>
+                  <p className="text-xs font-semibold text-foreground">Número que recebe leads</p>
                   <p className="text-xs text-muted-foreground">
-                    Escolha qual canal cria novos leads. Os outros continuam atendendo conversas existentes.
+                    Escolha qual canal cria novos leads. Os outros continuam atendendo as conversas existentes.
                   </p>
                 </div>
                 <div className="space-y-2">

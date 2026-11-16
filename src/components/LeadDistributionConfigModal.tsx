@@ -89,13 +89,13 @@ interface DistributionFormData {
 // Descrições de cada método de distribuição
 const DISTRIBUTION_METHOD_TOOLTIPS: Record<string, string> = {
   round_robin:
-    "Rodízio circular: cada novo lead é atribuído ao próximo colaborador da lista, garantindo distribuição igual entre todos os elegíveis.",
+    "Rodízio: cada novo lead vai para o próximo colaborador da lista, e todos os elegíveis recebem a mesma quantidade.",
   weighted:
-    "Ponderado por prioridade: colaboradores com maior peso recebem proporcionalmente mais leads. Configure o peso de cada agente nas Configurações de Agente.",
+    "Por prioridade: colaboradores com maior peso recebem proporcionalmente mais leads. Configure o peso de cada colaborador nas configurações de colaborador.",
   load_based:
-    "Baseado em carga: o lead sempre vai para o colaborador com menos leads ativos no momento, equilibrando automaticamente a carga de trabalho.",
+    "Por carga: o lead vai para o colaborador com menos leads ativos no momento, equilibrando a carga de trabalho.",
   random:
-    "Aleatório: cada lead é atribuído a um colaborador sorteado aleatoriamente entre os elegíveis disponíveis.",
+    "Aleatório: cada lead vai para um colaborador sorteado entre os elegíveis disponíveis.",
 };
 
 export function LeadDistributionConfigModal({
@@ -325,17 +325,18 @@ export function LeadDistributionConfigModal({
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["lead-distribution-configs"] });
-      toast.success(config ? "Roleta atualizada com sucesso" : "Roleta criada com sucesso");
+      toast.success(config ? "Roleta atualizada." : "Roleta criada.");
       onOpenChange(false);
     },
     onError: (error: Error) => {
-      toast.error("Erro ao salvar roleta: " + error.message);
+      console.error("Erro ao salvar roleta:", error);
+      toast.error("Não foi possível salvar a roleta. Tente novamente.");
     },
   });
 
   const handleSave = () => {
     if (!formData.name.trim()) {
-      toast.error("Nome da roleta é obrigatório");
+      toast.error("Preencha o nome da roleta.");
       return;
     }
     saveMutation.mutate();
@@ -346,16 +347,16 @@ export function LeadDistributionConfigModal({
       <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>{config ? "Editar Roleta" : "Nova Roleta"}</DialogTitle>
+            <DialogTitle>{config ? "Editar roleta" : "Nova roleta"}</DialogTitle>
             <DialogDescription>
-              Configure as regras de distribuição para este canal específico
+              Configure as regras de distribuição para este canal.
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-6 py-4">
             {/* Nome */}
             <div className="space-y-2">
-              <Label htmlFor="name">Nome da Roleta *</Label>
+              <Label htmlFor="name">Nome da roleta *</Label>
               <Input
                 id="name"
                 value={formData.name}
@@ -371,7 +372,7 @@ export function LeadDistributionConfigModal({
                 id="description"
                 value={formData.description}
                 onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                placeholder="Descrição opcional da roleta"
+                placeholder="Descrição (opcional)"
                 rows={2}
               />
             </div>
@@ -380,7 +381,7 @@ export function LeadDistributionConfigModal({
 
             {/* Canal de Origem */}
             <div className="space-y-2">
-              <Label htmlFor="source_type">Canal de Origem</Label>
+              <Label htmlFor="source_type">Canal de origem</Label>
               <Select
                 value={formData.source_type}
                 onValueChange={handleSourceTypeChange}
@@ -392,17 +393,17 @@ export function LeadDistributionConfigModal({
                   <SelectItem value="all">Todos os canais</SelectItem>
                   <SelectItem value="whatsapp">WhatsApp</SelectItem>
                   <SelectItem value="facebook">Facebook Leads</SelectItem>
-                  <SelectItem value="webhook">Webhook (Formulários)</SelectItem>
+                  <SelectItem value="webhook">Webhook (formulários)</SelectItem>
                 </SelectContent>
               </Select>
               <p className="text-sm text-muted-foreground">
-                A roleta só será ativada para leads vindos do canal selecionado.
-                Combinado com o Funil abaixo, você pode ter roletas separadas por canal + funil.
+                A roleta só vale para leads do canal selecionado.
+                Combinando com o funil abaixo, você pode ter roletas separadas por canal e funil.
               </p>
               {formData.source_type !== "all" && (
                 <p className="text-xs text-amber-600 dark:text-amber-400">
-                  Dica: Use "Todos os canais" para garantir que leads de qualquer origem sejam distribuídos.
-                  Roletas específicas por canal têm prioridade sobre a roleta genérica.
+                  Dica: use "Todos os canais" para distribuir leads de qualquer origem.
+                  Roletas de um canal específico têm prioridade sobre a roleta genérica.
                 </p>
               )}
             </div>
@@ -413,15 +414,15 @@ export function LeadDistributionConfigModal({
                 <Separator />
                 <div className="space-y-3">
                   <div className="flex items-center gap-1.5">
-                    <Label className="text-sm font-semibold">Formulários desta Roleta</Label>
+                    <Label className="text-sm font-semibold">Formulários desta roleta</Label>
                     <Tooltip>
                       <TooltipTrigger asChild>
                         <HelpCircle className="h-4 w-4 text-muted-foreground cursor-help" />
                       </TooltipTrigger>
                       <TooltipContent side="right" className="max-w-sm">
-                        <p className="font-semibold mb-1">Como funciona:</p>
-                        <p>Selecione quais formulários/webhooks devem ativar <strong>esta</strong> roleta em específico.</p>
-                        <p className="mt-1">Se nenhum for selecionado, a roleta atua como fallback para qualquer webhook sem roleta específica configurada.</p>
+                        <p className="font-semibold mb-1">Como funciona</p>
+                        <p>Selecione quais formulários ativam <strong>esta</strong> roleta.</p>
+                        <p className="mt-1">Se você não selecionar nenhum, a roleta vale para qualquer webhook que não tenha uma roleta própria.</p>
                       </TooltipContent>
                     </Tooltip>
                   </div>
@@ -456,7 +457,7 @@ export function LeadDistributionConfigModal({
                       })
                     ) : (
                       <p className="text-sm text-muted-foreground">
-                        Nenhum formulário webhook configurado.
+                        Nenhum formulário de webhook ainda.
                         Crie um em Configurações → Integrações.
                       </p>
                     )}
@@ -464,11 +465,11 @@ export function LeadDistributionConfigModal({
 
                   {Array.isArray(formData.source_identifiers) && formData.source_identifiers.length > 0 ? (
                     <p className="text-sm text-green-600 dark:text-green-400">
-                      ✅ Esta roleta será ativada <strong>apenas</strong> para os {formData.source_identifiers.length} formulário(s) selecionado(s).
+                      Esta roleta vale <strong>apenas</strong> para {formData.source_identifiers.length === 1 ? "o formulário selecionado" : `os ${formData.source_identifiers.length} formulários selecionados`}.
                     </p>
                   ) : (
                     <p className="text-sm text-amber-500">
-                      ⚠️ Sem formulários selecionados, esta roleta atua como fallback para qualquer webhook sem roleta específica.
+                      Sem formulários selecionados, esta roleta vale para qualquer webhook que não tenha uma roleta própria.
                     </p>
                   )}
                 </div>
@@ -479,14 +480,13 @@ export function LeadDistributionConfigModal({
             {/* Método de Distribuição com Tooltip */}
             <div className="space-y-2">
               <div className="flex items-center gap-1.5">
-                <Label htmlFor="distribution_method">Método de Distribuição</Label>
+                <Label htmlFor="distribution_method">Método de distribuição</Label>
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <HelpCircle className="h-4 w-4 text-muted-foreground cursor-help" />
                   </TooltipTrigger>
                   <TooltipContent side="right" className="max-w-xs">
-                    Escolha como os leads serão distribuídos entre os colaboradores elegíveis.
-                    Passe o mouse sobre cada opção para mais detalhes.
+                    Escolha como os leads são distribuídos entre os colaboradores elegíveis.
                   </TooltipContent>
                 </Tooltip>
               </div>
@@ -500,9 +500,9 @@ export function LeadDistributionConfigModal({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="round_robin">Rodízio (Round Robin)</SelectItem>
+                  <SelectItem value="round_robin">Rodízio</SelectItem>
                   <SelectItem value="weighted">Por porcentagem</SelectItem>
-                  <SelectItem value="load_based">Baseado em Carga</SelectItem>
+                  <SelectItem value="load_based">Por carga</SelectItem>
                   <SelectItem value="random">Aleatório</SelectItem>
                 </SelectContent>
               </Select>
@@ -519,19 +519,19 @@ export function LeadDistributionConfigModal({
             {/* ── FUNIL (FILTRO + DESTINO) ── */}
             <div className="space-y-4">
               <div className="flex items-center gap-1.5">
-                <Label className="text-sm font-semibold">Funil da Roleta</Label>
+                <Label className="text-sm font-semibold">Funil da roleta</Label>
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <HelpCircle className="h-4 w-4 text-muted-foreground cursor-help" />
                   </TooltipTrigger>
                   <TooltipContent side="right" className="max-w-sm">
-                    <p className="font-semibold mb-1">Como funciona o filtro por funil:</p>
-                    <p>Quando um funil é selecionado, esta roleta será ativada <strong>somente</strong> para leads desse funil.</p>
-                    <p className="mt-1">Isso permite criar roletas separadas por produto/negócio:</p>
+                    <p className="font-semibold mb-1">Como funciona o filtro por funil</p>
+                    <p>Quando você seleciona um funil, esta roleta vale <strong>somente</strong> para leads desse funil.</p>
+                    <p className="mt-1">Assim você cria roletas separadas por produto:</p>
                     <ul className="list-disc pl-4 mt-1 space-y-0.5">
-                      <li>Roleta Consórcio → agentes A, B, C</li>
-                      <li>Roleta Veículos → agentes D, E</li>
-                      <li>Roleta Imóveis → agentes F, G</li>
+                      <li>Roleta Consórcio → colaboradores A, B, C</li>
+                      <li>Roleta Veículos → colaboradores D, E</li>
+                      <li>Roleta Imóveis → colaboradores F, G</li>
                     </ul>
                   </TooltipContent>
                 </Tooltip>
@@ -560,13 +560,13 @@ export function LeadDistributionConfigModal({
                 </Select>
                 {formData.funnel_id ? (
                   <p className="text-sm text-green-600 dark:text-green-400">
-                    ✅ Esta roleta será ativada <strong>apenas</strong> para leads do funil selecionado.
-                    Leads de outros funis usarão outra roleta (ou não serão distribuídos).
+                    Esta roleta vale <strong>apenas</strong> para leads do funil selecionado.
+                    Leads de outros funis usam outra roleta ou não são distribuídos.
                   </p>
                 ) : (
                   <p className="text-sm text-amber-500">
-                    ⚠️ Sem funil definido, esta roleta atua como genérica e pode ser usada por leads de qualquer funil
-                    (somente se nenhuma roleta específica for encontrada).
+                    Sem funil definido, esta roleta é genérica e atende leads de qualquer funil,
+                    mas só quando não existe uma roleta específica para o lead.
                   </p>
                 )}
               </div>
@@ -574,7 +574,7 @@ export function LeadDistributionConfigModal({
               {/* Seletor de Estágio — aparece somente quando um funil for escolhido */}
               {formData.funnel_id && (
                 <div className="space-y-2">
-                  <Label htmlFor="funnel_stage_id">Estágio de Entrada</Label>
+                  <Label htmlFor="funnel_stage_id">Etapa de entrada</Label>
                   <Select
                     value={formData.funnel_stage_id || "__first__"}
                     onValueChange={(value) =>
@@ -585,11 +585,11 @@ export function LeadDistributionConfigModal({
                     }
                   >
                     <SelectTrigger>
-                      <SelectValue placeholder="Primeiro estágio (padrão)" />
+                      <SelectValue placeholder="Primeira etapa (padrão)" />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="__first__">
-                        Primeiro estágio (padrão)
+                        Primeira etapa (padrão)
                       </SelectItem>
                       {funnelStages?.map((stage) => (
                         <SelectItem key={stage.id} value={stage.id}>
@@ -599,8 +599,8 @@ export function LeadDistributionConfigModal({
                     </SelectContent>
                   </Select>
                   <p className="text-sm text-muted-foreground">
-                    Estágio em que o lead entrará ao ser distribuído por esta roleta.
-                    Se não especificado, o primeiro estágio do funil será utilizado.
+                    Etapa em que o lead entra ao ser distribuído por esta roleta.
+                    Se você não escolher, vale a primeira etapa do funil.
                   </p>
                 </div>
               )}
@@ -611,9 +611,9 @@ export function LeadDistributionConfigModal({
             {/* Redistribuição Automática */}
             <div className="flex items-center justify-between">
               <div className="space-y-0.5">
-                <Label>Redistribuição Automática</Label>
+                <Label>Redistribuição automática</Label>
                 <p className="text-sm text-muted-foreground max-w-xs">
-                  Se o colaborador atribuído não interagir com o lead dentro do tempo definido, o lead é automaticamente repassado para outro disponível nesta roleta.
+                  Se o responsável não interagir com o lead dentro do prazo, o lead passa para outro colaborador disponível nesta roleta.
                 </p>
               </div>
               <Switch
@@ -628,7 +628,7 @@ export function LeadDistributionConfigModal({
               <div className="space-y-2">
                 <Label htmlFor="timeout">Tempo sem interação para redistribuir (minutos)</Label>
                 <p className="text-xs text-muted-foreground">
-                  O lead será redistribuído se o colaborador não movê-lo de etapa nem enviar mensagem dentro deste prazo.
+                  O lead é redistribuído se o colaborador não mover o lead de etapa nem enviar mensagem dentro deste prazo.
                 </p>
                 <Input
                   id="timeout"
@@ -657,7 +657,7 @@ export function LeadDistributionConfigModal({
 
             {/* Distribuir por Equipe */}
             <div className="space-y-2">
-              <Label>Distribuir por Equipe</Label>
+              <Label>Distribuir por equipe</Label>
               <Select
                 value={formData.team_id || "__all__"}
                 onValueChange={(value) =>
@@ -683,7 +683,7 @@ export function LeadDistributionConfigModal({
                 </SelectContent>
               </Select>
               <p className="text-sm text-muted-foreground">
-                Quando uma equipe é selecionada, apenas membros desta equipe receberão leads
+                Quando você seleciona uma equipe, só os colaboradores dela recebem leads.
               </p>
             </div>
 
@@ -692,10 +692,10 @@ export function LeadDistributionConfigModal({
             {/* Membros Elegíveis */}
             <div className="space-y-3">
               <div className="space-y-1">
-                <Label>Membros Elegíveis</Label>
+                <Label>Colaboradores elegíveis</Label>
                 <p className="text-sm text-muted-foreground">
                   Selecione quais colaboradores podem receber leads desta roleta.
-                  Se nenhum for selecionado, todos os membros ativos serão elegíveis.
+                  Se você não selecionar ninguém, todos os colaboradores ativos ficam elegíveis.
                 </p>
               </div>
 
@@ -731,7 +731,7 @@ export function LeadDistributionConfigModal({
                     </div>
                   ))
                 ) : (
-                  <p className="text-sm text-muted-foreground">Nenhum membro encontrado</p>
+                  <p className="text-sm text-muted-foreground">Nenhum colaborador encontrado.</p>
                 )}
               </div>
             </div>
@@ -741,9 +741,9 @@ export function LeadDistributionConfigModal({
             {/* Roleta Ativa */}
             <div className="flex items-center justify-between">
               <div className="space-y-0.5">
-                <Label>Roleta Ativa</Label>
+                <Label>Roleta ativa</Label>
                 <p className="text-sm text-muted-foreground">
-                  Ativar/desativar esta roleta
+                  Desative para pausar a distribuição desta roleta.
                 </p>
               </div>
               <Switch
@@ -760,7 +760,7 @@ export function LeadDistributionConfigModal({
               Cancelar
             </Button>
             <Button onClick={handleSave} disabled={saveMutation.isPending}>
-              {saveMutation.isPending ? "Salvando..." : config ? "Atualizar" : "Criar"}
+              {saveMutation.isPending ? "Salvando..." : config ? "Salvar roleta" : "Criar roleta"}
             </Button>
           </div>
         </DialogContent>

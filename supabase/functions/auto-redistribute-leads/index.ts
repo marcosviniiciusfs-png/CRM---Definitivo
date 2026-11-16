@@ -8,6 +8,11 @@ const corsHeaders = {
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 };
 
+// MA Financeira: organização piloto da redistribuição por tempo.
+const AUTO_REDISTRIBUTE_PILOT_ORG_IDS: string[] = ['f5e537c7-bc3c-4ab0-a27f-9281fd8a915a'];
+const AUTO_REDISTRIBUTE_MAX_AGE_HOURS = 24;
+const AUTO_REDISTRIBUTE_MAX_PER_RUN = 10;
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -27,7 +32,7 @@ serve(async (req) => {
     // 1. Buscar todas as configs com auto_redistribute ativo e timeout definido
     const { data: configs, error: configsError } = await supabase
       .from('lead_distribution_configs')
-      .select('id, organization_id, redistribution_timeout_minutes, is_active')
+      .select('id, organization_id, redistribution_timeout_minutes, is_active, triggers')
       .eq('auto_redistribute', true)
       .eq('is_active', true)
       .gt('redistribution_timeout_minutes', 0);
@@ -45,16 +50,25 @@ serve(async (req) => {
     let totalRedistributed = 0;
 
     for (const config of configs) {
+      // Piloto: a redistribuição por tempo só roda nas organizações listadas. Para expandir, inclua o id aqui.
+      if (!AUTO_REDISTRIBUTE_PILOT_ORG_IDS.includes(config.organization_id)) {
+        console.log(`⏭️ Config ${config.id}: organização fora do piloto de redistribuição por tempo, pulando`);
+        continue;
+      }
+
       const timeoutMs = config.redistribution_timeout_minutes * 60 * 1000;
       const cutoffTime = new Date(now.getTime() - timeoutMs).toISOString();
 
       // 2. Para esta config, buscar distribuições mais recentes por lead
       //    (apenas a última distribuição para cada lead nesta roleta)
+      // Só distribuições recentes: leads antigos não são redistribuídos automaticamente.
+      const historySince = new Date(now.getTime() - AUTO_REDISTRIBUTE_MAX_AGE_HOURS * 60 * 60 * 1000).toISOString();
       const { data: recentDistributions, error: distError } = await supabase
         .from('lead_distribution_history')
         .select('lead_id, to_user_id, created_at, is_redistribution')
         .eq('organization_id', config.organization_id)
         .eq('config_id', config.id)
+        .gte('created_at', historySince)
         .order('created_at', { ascending: false });
 
       if (distError) {
@@ -65,10 +79,12 @@ serve(async (req) => {
 
       // Pegar a distribuição mais recente por lead
       const latestByLead = new Map<string, typeof recentDistributions[0]>();
+      const alreadyRedistributed = new Set<string>();
       for (const row of recentDistributions) {
         if (!latestByLead.has(row.lead_id)) {
           latestByLead.set(row.lead_id, row);
         }
+        if (row.is_redistribution) alreadyRedistributed.add(row.lead_id);
       }
 
       // 3. Filtrar: distribuições mais antigas que o cutoff (sem interação no prazo)
@@ -94,7 +110,46 @@ serve(async (req) => {
       const leadsWithActivity = new Set((activities || []).map((a: any) => a.lead_id));
 
       // Filtrar leads sem atividade recente
-      const leadsToRedistribute = eligibleLeadIds.filter(id => !leadsWithActivity.has(id));
+      const withoutActivity = eligibleLeadIds
+        .filter(id => !leadsWithActivity.has(id) && !alreadyRedistributed.has(id))
+        .sort((x, y) => (latestByLead.get(x)!.created_at < latestByLead.get(y)!.created_at ? -1 : 1))
+        .slice(0, 150);
+      if (withoutActivity.length === 0) continue;
+
+      // lead_activities só guarda notas e agendamentos. Antes de tirar o lead do corretor, confere se ele
+      // respondeu no WhatsApp, mexeu no lead, ou se o lead já foi fechado ou reatribuído.
+      const { data: closedStages } = await supabase
+        .from('funnel_stages')
+        .select('id, sales_funnels!inner(organization_id)')
+        .eq('sales_funnels.organization_id', config.organization_id)
+        .in('stage_type', ['won', 'lost']);
+      const closedStageIds = new Set((closedStages || []).map((s: { id: string }) => s.id));
+
+      const { data: leadRows } = await supabase
+        .from('leads')
+        .select('id, responsavel_user_id, updated_at, funnel_stage_id')
+        .in('id', withoutActivity);
+      const leadById = new Map((leadRows || []).map((l: any) => [l.id, l]));
+
+      const { data: outbound } = await supabase
+        .from('mensagens_chat')
+        .select('id_lead, data_hora')
+        .in('id_lead', withoutActivity)
+        .eq('direcao', 'SAIDA')
+        .gte('data_hora', historySince);
+
+      const leadsToRedistribute = withoutActivity
+        .filter((id) => {
+          const row = latestByLead.get(id)!;
+          const lead: any = leadById.get(id);
+          if (!lead) return false;
+          if (lead.responsavel_user_id !== row.to_user_id) return false;
+          if (lead.funnel_stage_id && closedStageIds.has(lead.funnel_stage_id)) return false;
+          if (new Date(lead.updated_at).getTime() > new Date(row.created_at).getTime() + 5 * 60 * 1000) return false;
+          return !(outbound || []).some((m: any) => m.id_lead === id && m.data_hora > row.created_at);
+        })
+        .sort((x, y) => (latestByLead.get(x)!.created_at < latestByLead.get(y)!.created_at ? -1 : 1))
+        .slice(0, AUTO_REDISTRIBUTE_MAX_PER_RUN);
 
       if (leadsToRedistribute.length === 0) continue;
 
@@ -144,7 +199,10 @@ serve(async (req) => {
     // ═══════════════════════════════════════════════════════════════
     // PHASE 2: Distribuir leads que NUNCA foram atribuídos (sem dono)
     // ═══════════════════════════════════════════════════════════════
-    const UNASSIGNED_LIMIT = 50;
+    const UNASSIGNED_LIMIT = 20;
+    // Só leads recentes: o backlog antigo sem dono não deve ser redistribuído automaticamente.
+    const UNASSIGNED_MAX_AGE_HOURS = 48;
+    const unassignedSince = new Date(now.getTime() - UNASSIGNED_MAX_AGE_HOURS * 60 * 60 * 1000).toISOString();
 
     // Buscar orgs que têm pelo menos uma roleta ativa
     const { data: orgsWithConfigs } = await supabase
@@ -179,6 +237,8 @@ serve(async (req) => {
           .select('id')
           .eq('organization_id', orgId)
           .is('responsavel_user_id', null)
+          .gte('created_at', unassignedSince)
+          .order('created_at', { ascending: true })
           .limit(UNASSIGNED_LIMIT);
         if (closedStageIds.length > 0) {
           query = query.or(
@@ -204,7 +264,8 @@ serve(async (req) => {
               body: JSON.stringify({
                 lead_id: lead.id,
                 organization_id: orgId,
-                trigger_source: 'auto_redistribution',
+                // Lead que nunca foi distribuído: usa o gatilho de novo lead (as roletas não têm auto_redistribution).
+                trigger_source: 'new_lead',
               }),
             });
 

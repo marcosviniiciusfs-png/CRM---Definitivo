@@ -46,14 +46,14 @@ export function BulkAddNoteDialog({
         <DialogHeader>
           <DialogTitle>Adicionar nota</DialogTitle>
           <DialogDescription>
-            A nota será salva no histórico de cada um dos {selectedCount} leads selecionados.
+            {selectedCount === 1 ? "A nota será salva no histórico do lead selecionado." : `A nota será salva no histórico dos ${selectedCount} leads selecionados.`}
           </DialogDescription>
         </DialogHeader>
 
         <Textarea
           value={content}
           onChange={(e) => setContent(e.target.value)}
-          placeholder="Digite a nota..."
+          placeholder="Escreva a nota"
           rows={5}
           autoFocus
         />

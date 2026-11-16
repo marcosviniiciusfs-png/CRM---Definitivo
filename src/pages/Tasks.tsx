@@ -30,10 +30,10 @@ const Tasks = () => {
     return (
       <div className="flex flex-col items-center justify-center h-[50vh] text-center px-4">
         <Shield className="h-16 w-16 text-muted-foreground/50 mb-4" />
-        <h2 className="text-xl font-semibold">Acesso Restrito</h2>
+        <h2 className="text-xl font-semibold">Acesso restrito</h2>
         <p className="text-muted-foreground max-w-md">
-          Você não tem permissão para visualizar o quadro de tarefas.
-          Entre em contato com o administrador da organização para solicitar acesso.
+          Você não tem permissão para ver o quadro de tarefas.
+          Peça acesso ao administrador da organização.
         </p>
       </div>
     );

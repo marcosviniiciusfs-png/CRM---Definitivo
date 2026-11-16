@@ -43,6 +43,19 @@ function validateLeadData(nome: string, telefone: string): { valid: boolean; err
   return { valid: true };
 }
 
+// Variantes do mesmo telefone (com/sem "+", com/sem DDI 55) para não criar
+// duplicatas quando o mesmo número chega em formatos diferentes (site, WhatsApp, Facebook).
+export function phoneLookupVariants(raw: string): string[] {
+  const digits = (raw || '').replace(/\D/g, '');
+  if (!digits) return [];
+  const bases = new Set<string>([digits]);
+  if (digits.startsWith('55') && (digits.length === 12 || digits.length === 13)) bases.add(digits.slice(2));
+  if (!digits.startsWith('55') && (digits.length === 10 || digits.length === 11)) bases.add('55' + digits);
+  const variants = new Set<string>();
+  for (const b of bases) { variants.add(b); variants.add('+' + b); }
+  return [...variants];
+}
+
 // Função para verificar duplicidade de lead
 async function checkDuplicateLead(
   supabase: any,
@@ -56,12 +69,15 @@ async function checkDuplicateLead(
   matchType: 'phone' | 'email' | null;
 }> {
   // Buscar por telefone (prioridade)
-  const { data: leadByPhone } = await supabase
+  const phoneVariants = phoneLookupVariants(telefone);
+  const { data: leadsByPhone } = phoneVariants.length === 0 ? { data: null } : await supabase
     .from('leads')
     .select('id, nome_lead, funnel_id, funnel_stage_id, duplicate_attempts_count, duplicate_attempts_history, email, empresa, valor, additional_data')
     .eq('organization_id', organizationId)
-    .eq('telefone_lead', telefone)
-    .maybeSingle();
+    .in('telefone_lead', phoneVariants)
+    .order('created_at', { ascending: true })
+    .limit(1);
+  const leadByPhone = leadsByPhone && leadsByPhone.length > 0 ? leadsByPhone[0] : null;
 
   if (leadByPhone) {
     // Verificar se lead avançou no funil

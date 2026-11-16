@@ -45,6 +45,13 @@ import type { StatusReuniao } from "@/types/chat";
 import { isLeadDuplicateRecord } from "@/lib/leadDuplicate";
 import { isDemoRoute } from "@/lib/demoMode";
 import { parseMeetingSchedule, toMeetingScheduleLocalISOString } from "@/lib/meetingSchedule";
+import {
+  ATTENTION_FILTERS,
+  getLeadAttention,
+  type AttentionFilter,
+  type LeadAttentionResult,
+  type LeadOpenTask,
+} from "@/lib/leadCardState";
 
 const AddLeadModal = lazy(() => import("@/components/AddLeadModal").then((module) => ({ default: module.AddLeadModal })));
 const ImportLeadsModal = lazy(() => import("@/components/ImportLeadsModal").then((module) => ({ default: module.ImportLeadsModal })));
@@ -248,6 +255,14 @@ const Pipeline = () => {
   const [showScrollbar, setShowScrollbar] = useState(false);
   const [isDraggingScrollbar, setIsDraggingScrollbar] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
+  const [attentionFilter, setAttentionFilter] = useState<AttentionFilter | null>(null);
+  const [leadTasksMap, setLeadTasksMap] = useState<Record<string, LeadOpenTask[]>>({});
+  // Relógio de 1 minuto para o "Responder · X min" do card andar sozinho.
+  const [attentionNow, setAttentionNow] = useState(() => new Date());
+  useEffect(() => {
+    const timer = window.setInterval(() => setAttentionNow(new Date()), 60_000);
+    return () => window.clearInterval(timer);
+  }, []);
 
   // View mode: 'kanban' or 'list'
   const [viewMode, setViewMode] = useState<'kanban' | 'list'>('kanban');
@@ -714,10 +729,10 @@ const Pipeline = () => {
       XLSX.utils.book_append_sheet(workbook, worksheet, "Leads");
       XLSX.writeFile(workbook, `leads_${format(new Date(), "yyyy-MM-dd")}.xlsx`);
 
-      toastUI({ title: "Exportação concluída", description: `${filteredLeads.length} leads exportados` });
+      toastUI({ title: "Exportação concluída", description: `${filteredLeads.length} ${filteredLeads.length === 1 ? "lead exportado" : "leads exportados"}.` });
     }).catch((err) => {
       console.error("Erro ao exportar:", err);
-      toastUI({ title: "Erro na exportação", description: "Não foi possível gerar o arquivo Excel", variant: "destructive" });
+      toastUI({ title: "Não foi possível exportar", description: "Não foi possível gerar o arquivo Excel. Tente novamente.", variant: "destructive" });
     });
   };
 
@@ -843,7 +858,7 @@ const Pipeline = () => {
         if (stageCount === 0) {
           return { stageId, count: 0, leads: [] as Lead[] };
         }
-        let dataQ = supabase.from('leads').select('id,nome_lead,telefone_lead,email,stage,funnel_stage_id,funnel_id,position,avatar_url,responsavel,responsavel_user_id,valor,updated_at,created_at,source,descricao_negocio,duplicate_attempts_count,additional_data,status_reuniao,data_agendamento_reuniao').eq('organization_id', organizationId);
+        let dataQ = supabase.from('leads').select('id,nome_lead,telefone_lead,email,stage,funnel_stage_id,funnel_id,position,avatar_url,responsavel,responsavel_user_id,valor,updated_at,created_at,source,descricao_negocio,duplicate_attempts_count,additional_data,status_reuniao,data_agendamento_reuniao,aguardando_resposta_desde').eq('organization_id', organizationId);
         dataQ = applyBaseFilters(dataQ) as any;
         dataQ = applyStageFilter(dataQ, stageId) as any;
         // A primeira coluna é a caixa de entrada do pipeline: nela, priorizamos
@@ -907,6 +922,7 @@ const Pipeline = () => {
       const responsavelIds = [...new Set(allLeads.map((l: Lead) => l.responsavel_user_id).filter(Boolean))] as string[];
       loadProfiles(responsavelIds);
       void loadAgendamentos(allLeads.map((lead: Lead) => lead.id));
+      void loadLeadTasks(allLeads.map((lead: Lead) => lead.id));
     }
   }, [cachedLeadsResult]);
 
@@ -944,7 +960,7 @@ const Pipeline = () => {
 
       let query = supabase
         .from('leads')
-        .select('id, nome_lead, telefone_lead, email, stage, funnel_stage_id, funnel_id, position, avatar_url, responsavel, responsavel_user_id, valor, updated_at, created_at, source, descricao_negocio, duplicate_attempts_count, additional_data, status_reuniao, data_agendamento_reuniao')
+        .select('id, nome_lead, telefone_lead, email, stage, funnel_stage_id, funnel_id, position, avatar_url, responsavel, responsavel_user_id, valor, updated_at, created_at, source, descricao_negocio, duplicate_attempts_count, additional_data, status_reuniao, data_agendamento_reuniao, aguardando_resposta_desde')
         .eq('organization_id', organizationId);
 
       // Aplicar filtro de permissão
@@ -1018,6 +1034,7 @@ const Pipeline = () => {
           loadProfiles(newResponsavelIds);
         }
         void loadAgendamentos(data.map((lead) => lead.id));
+        void loadLeadTasks(data.map((lead) => lead.id));
       } else {
         // No more data
         setStagePagination(prev => ({
@@ -1027,7 +1044,7 @@ const Pipeline = () => {
       }
     } catch (error) {
       console.error(`Erro ao carregar mais leads da etapa ${stageId}:`, error);
-      toast.error("Erro ao carregar mais leads");
+      toast.error("Não foi possível carregar mais leads. Tente novamente.");
       setStagePagination(prev => ({
         ...prev,
         [stageId]: { ...prev[stageId], isLoading: false }
@@ -1164,6 +1181,25 @@ const Pipeline = () => {
     }
   };
 
+  // Tarefas abertas (quadro de tarefas) de cada lead, para o estado do card.
+  const loadLeadTasks = async (leadIds: string[]) => {
+    if (isDemo) return;
+    if (leadIds.length === 0) return;
+
+    const { data, error } = await supabase.rpc('lead_open_tasks', { p_lead_ids: leadIds });
+    if (error) {
+      console.error('Erro ao carregar tarefas dos leads:', error);
+      return;
+    }
+
+    const map: Record<string, LeadOpenTask[]> = {};
+    leadIds.forEach((leadId) => { map[leadId] = []; });
+    (data || []).forEach((task: { lead_id: string; due_date: string | null }) => {
+      (map[task.lead_id] ??= []).push({ due_date: task.due_date });
+    });
+    setLeadTasksMap((previous) => ({ ...previous, ...map }));
+  };
+
   const loadRedistributionData = async (leadIds: string[]) => {
     if (isDemo) return;
     if (leadIds.length === 0) return;
@@ -1279,11 +1315,34 @@ const Pipeline = () => {
     return result;
   }, [leadsWithFormattedDates, searchTerm, statusFilter, sourceFilter, responsibleFilter, dateRange, getResponsibleLabel, usingCustomFunnel]);
 
+  // Etapas finais (ganho, perdido, descartado) não cobram tarefa.
+  const finalStageIds = useMemo(() => new Set(
+    stages
+      .filter((stage: any) => stage.stageData?.is_final || ['won', 'lost', 'discarded'].includes(stage.stageData?.stage_type))
+      .map((stage) => stage.id)
+  ), [stages]);
+
+  // Estado de atenção de cada lead: responder > tarefa atrasada > tarefa hoje > sem tarefa.
+  const attentionMap = useMemo(() => {
+    const map: Record<string, LeadAttentionResult> = {};
+    for (const lead of filteredLeads) {
+      const stageId = usingCustomFunnel ? lead.funnel_stage_id : (lead.stage || "NOVO");
+      map[lead.id] = getLeadAttention({
+        waitingSince: lead.aguardando_resposta_desde,
+        openTasks: leadTasksMap[lead.id],
+        isFinalStage: stageId ? finalStageIds.has(stageId) : false,
+        now: attentionNow,
+      });
+    }
+    return map;
+  }, [filteredLeads, leadTasksMap, finalStageIds, usingCustomFunnel, attentionNow]);
+
   // Memoizar leads por stage para evitar recálculo constante
   const leadsByStage = useMemo(() => {
     const map = new Map<string, Lead[]>(stages.map((stage) => [stage.id, []]));
 
     for (const lead of filteredLeads) {
+      if (attentionFilter && attentionMap[lead.id]?.kind !== attentionFilter) continue;
       const stageId = usingCustomFunnel
         ? lead.funnel_stage_id
         : (lead.stage || "NOVO");
@@ -1304,7 +1363,16 @@ const Pipeline = () => {
       // independentemente de posições legadas ou de duplicidades de posição.
 
     return map;
-  }, [filteredLeads, stages, usingCustomFunnel]);
+  }, [filteredLeads, stages, usingCustomFunnel, attentionFilter, attentionMap]);
+
+  // Quantos leads carregados estão em cada estado, para os chips de filtro.
+  const attentionCounts = useMemo(() => {
+    const counts: Record<AttentionFilter, number> = { needs_reply: 0, overdue: 0, today: 0, no_task: 0 };
+    for (const result of Object.values(attentionMap)) {
+      if (result.kind !== 'normal') counts[result.kind] += 1;
+    }
+    return counts;
+  }, [attentionMap]);
 
   // Marcar somente o novo registro identificado explicitamente como duplicado.
   // Não inferir por telefone/e-mail: isso também marcaria o lead original.
@@ -1346,7 +1414,7 @@ const Pipeline = () => {
     const isLeadAssignedToUser = activeLead.responsavel_user_id === user?.id;
     const isLeadFromTeamMember = permissions.canViewTeamLeads && teamMemberIds.includes(activeLead.responsavel_user_id || '');
     if (permissions.role === 'member' && !permissions.canMoveLeadsPipeline && !isLeadAssignedToUser && !isLeadFromTeamMember) {
-      toast.error("Você só pode mover leads atribuídos a você ou da sua equipe. Solicite acesso ao administrador para mover outros leads.");
+      toast.error("Você só pode mover leads atribuídos a você ou à sua equipe. Peça acesso ao administrador para mover outros leads.");
       return;
     }
 
@@ -1376,7 +1444,7 @@ const Pipeline = () => {
     if (targetStageData?.stageData?.stage_type === 'won' && activeStage !== targetStage) {
       // Verificar se o lead tem valor definido
       if (!activeLead.valor || activeLead.valor <= 0) {
-        toast.error("Este lead não possui um valor definido. Por favor, adicione um valor antes de confirmar a venda.");
+        toast.error("Este lead não tem valor definido. Adicione um valor antes de confirmar a venda.");
         return;
       }
 
@@ -1440,12 +1508,8 @@ const Pipeline = () => {
 
         if (error) throw error;
 
-        // Executar ações automáticas da etapa
-        if (targetStageData?.stageData) {
-          await executeStageActions(leadId, activeLead, targetStageData.stageData);
-        }
-
-        toast.success("Lead movido!");
+        // Ações da etapa rodam no servidor (trigger + process-stage-actions).
+        toast.success("Lead movido.");
 
       } else if (overLead) {
         // Dropado sobre outro lead
@@ -1485,7 +1549,7 @@ const Pipeline = () => {
           );
 
           // Não executar ações automáticas ao reordenar na mesma coluna
-          toast.success("Lead reordenado!");
+          toast.success("Lead reordenado.");
 
         } else {
           // Movendo para outra coluna e posicionando sobre outro lead
@@ -1550,17 +1614,12 @@ const Pipeline = () => {
 
           await Promise.all(updates);
 
-          // Executar ações automáticas da etapa se houver
-          if (targetStageData?.stageData) {
-            await executeStageActions(leadId, activeLead, targetStageData.stageData);
-          }
-
-          toast.success("Lead movido!");
+          toast.success("Lead movido.");
         }
       }
     } catch (error) {
       console.error("Erro ao atualizar lead:", error);
-      toast.error("Erro ao mover lead");
+      toast.error("Não foi possível mover o lead. Tente novamente.");
       // Recarregar em caso de erro
       loadLeads(undefined, false);
     }
@@ -1579,14 +1638,14 @@ const Pipeline = () => {
         .eq('id', leadToDelete.id);
 
       if (error) {
-        toast.error('Erro ao excluir lead');
+        toast.error('Não foi possível excluir o lead. Tente novamente.');
         return;
       }
 
       setLeads(prev => prev.filter(l => l.id !== leadToDelete.id));
-      toast.success(`Lead "${leadToDelete.nome_lead}" excluído com sucesso`);
+      toast.success(`Lead "${leadToDelete.nome_lead}" excluído.`);
     } catch (err) {
-      toast.error('Erro inesperado ao excluir lead');
+      toast.error('Não foi possível excluir o lead. Tente novamente.');
     } finally {
       setLeadToDelete(null);
     }
@@ -1606,7 +1665,7 @@ const Pipeline = () => {
       )
       .map(l => l.id);
     if (ids.length === 0) {
-      toast.info('Nenhum lead nessa etapa');
+      toast.info('Nenhum lead nesta etapa.');
       return;
     }
     setSelectedLeadIds(prev => {
@@ -1614,7 +1673,7 @@ const Pipeline = () => {
       ids.forEach(id => next.add(id));
       return next;
     });
-    toast.success(`${ids.length} lead(s) adicionado(s) à seleção`);
+    toast.success(`${ids.length} ${ids.length === 1 ? 'lead adicionado' : 'leads adicionados'} à seleção.`);
   }, [filteredLeads, usingCustomFunnel]);
 
   const handleBulkMoveStage = useCallback(async (stageId: string) => {
@@ -1626,17 +1685,18 @@ const Pipeline = () => {
         .update({ funnel_stage_id: stageId, stage: stageId })
         .in('id', ids);
       if (error) {
-        toast.error('Erro ao mover leads: ' + error.message);
+        console.error('[handleBulkMoveStage]', error);
+        toast.error('Não foi possível mover os leads. Tente novamente.');
         return;
       }
       setLeads(prev => prev.map(l =>
         selectedLeadIds.has(l.id) ? { ...l, funnel_stage_id: stageId, stage: stageId } : l
       ));
-      toast.success(`${ids.length} lead(s) movido(s)`);
+      toast.success(`${ids.length} ${ids.length === 1 ? 'lead movido' : 'leads movidos'}.`);
       setSelectedLeadIds(new Set());
     } catch (err: any) {
       console.error('[handleBulkMoveStage]', err);
-      toast.error('Erro inesperado ao mover leads');
+      toast.error('Não foi possível mover os leads. Tente novamente.');
     }
   }, [selectedLeadIds]);
 
@@ -1650,16 +1710,17 @@ const Pipeline = () => {
         .update({ responsavel_user_id: userId, responsavel: null })
         .in('id', ids);
       if (error) {
-        toast.error('Erro ao atribuir leads: ' + error.message);
+        console.error('[handleBulkAssign]', error);
+        toast.error('Não foi possível atribuir os leads. Tente novamente.');
         return;
       }
-      toast.success(`${ids.length} lead(s) atribuído(s)`);
+      toast.success(`${ids.length} ${ids.length === 1 ? 'lead atribuído' : 'leads atribuídos'}.`);
       setSelectedLeadIds(new Set());
       // Forçar refetch para ver o nome novo do responsável (trigger atualizou no banco)
       queryClient.invalidateQueries({ queryKey: ['pipeline-leads'] });
     } catch (err: any) {
       console.error('[handleBulkAssign]', err);
-      toast.error('Erro inesperado ao atribuir leads');
+      toast.error('Não foi possível atribuir os leads. Tente novamente.');
     }
   }, [selectedLeadIds, queryClient]);
 
@@ -1675,14 +1736,15 @@ const Pipeline = () => {
       }));
       const { error } = await supabase.from('lead_activities').insert(rows);
       if (error) {
-        toast.error('Erro ao adicionar nota: ' + error.message);
+        console.error('[handleBulkAddNote]', error);
+        toast.error('Não foi possível adicionar a nota. Tente novamente.');
         return;
       }
-      toast.success(`Nota adicionada em ${ids.length} lead(s)`);
+      toast.success(ids.length === 1 ? 'Nota adicionada em 1 lead.' : `Nota adicionada em ${ids.length} leads.`);
       setSelectedLeadIds(new Set());
     } catch (err: any) {
       console.error('[handleBulkAddNote]', err);
-      toast.error('Erro inesperado ao adicionar nota');
+      toast.error('Não foi possível adicionar a nota. Tente novamente.');
     }
   }, [selectedLeadIds, user?.id]);
 
@@ -1692,15 +1754,16 @@ const Pipeline = () => {
     try {
       const { error } = await supabase.from('leads').delete().in('id', ids);
       if (error) {
-        toast.error('Erro ao excluir leads: ' + error.message);
+        console.error('[handleBulkDelete]', error);
+        toast.error('Não foi possível excluir os leads. Tente novamente.');
         return;
       }
       setLeads(prev => prev.filter(l => !selectedLeadIds.has(l.id)));
-      toast.success(`${ids.length} lead(s) excluído(s)`);
+      toast.success(`${ids.length} ${ids.length === 1 ? 'lead excluído' : 'leads excluídos'}.`);
       setSelectedLeadIds(new Set());
     } catch (err: any) {
       console.error('[handleBulkDelete]', err);
-      toast.error('Erro inesperado ao excluir leads');
+      toast.error('Não foi possível excluir os leads. Tente novamente.');
     }
   }, [selectedLeadIds]);
 
@@ -1764,7 +1827,7 @@ const Pipeline = () => {
     const targetStageData = stages.find(s => s.id === targetStageId);
     if (targetStageData?.stageData?.stage_type === 'won') {
       if (!activeLead.valor || activeLead.valor <= 0) {
-        toast.error('Este lead não possui valor definido. Adicione um valor antes de confirmar a venda.');
+        toast.error('Este lead não tem valor definido. Adicione um valor antes de confirmar a venda.');
         return;
       }
       const syntheticEvent = {
@@ -1791,164 +1854,13 @@ const Pipeline = () => {
       const { error } = await supabase.from('leads').update(updateData).eq('id', leadId);
       if (error) throw error;
 
-      if (targetStageData?.stageData) {
-        await executeStageActions(leadId, activeLead, targetStageData.stageData);
-      }
-
-      toast.success(`Lead movido para ${targetStageData?.title || 'próxima etapa'}!`);
+      toast.success(`Lead movido para ${targetStageData?.title || 'a próxima etapa'}.`);
     } catch (err) {
       console.error('Erro ao mover lead:', err);
-      toast.error('Erro ao mover lead');
+      toast.error('Não foi possível mover o lead. Tente novamente.');
       loadLeads(undefined, false);
     }
   }, [leads, stages, usingCustomFunnel, user?.id, permissions, teamMemberIds]);
-
-  // Executar ações automáticas baseadas no tipo da etapa
-  const executeStageActions = async (leadId: string, lead: Lead, stage: any) => {
-    if (!stage.stage_type || stage.stage_type === "custom") return;
-
-    try {
-      switch (stage.stage_type) {
-        case "send_message":
-          if (stage.stage_config?.message_template) {
-            await sendAutomaticMessage(leadId, lead, stage.stage_config.message_template);
-          }
-          break;
-        case "create_task":
-          if (stage.stage_config?.task_title) {
-            await createFollowUpTask(leadId, lead, stage.stage_config);
-          }
-          break;
-        case "assign_agent":
-          if (stage.stage_config?.agent_email) {
-            await assignLeadToAgent(leadId, stage.stage_config.agent_email);
-          }
-          break;
-        case "won":
-          // Enviar evento de conversão para Meta Conversions API
-          await sendMetaConversionEvent(leadId, lead);
-          break;
-        case "lost":
-        case "discarded":
-          // Ações futuras podem ser adicionadas aqui (ex: métricas, notificações)
-          break;
-      }
-    } catch (error) {
-      console.error("Erro ao executar ação automática:", error);
-    }
-  };
-
-  const sendAutomaticMessage = async (leadId: string, lead: Lead, template: string) => {
-    try {
-      // Substituir variáveis no template
-      const message = template.replace(/\{\{nome\}\}/g, lead.nome_lead);
-
-      const { data: instances } = await supabase
-        .from("whatsapp_instances")
-        .select("instance_name")
-        .eq("status", "connected")
-        .limit(1)
-        .maybeSingle();
-
-      if (!instances?.instance_name) {
-        console.log("Nenhuma instância WhatsApp conectada");
-        return;
-      }
-
-      await supabase.functions.invoke("send-whatsapp-message", {
-        body: {
-          instance_name: instances.instance_name,
-          remoteJid: lead.telefone_lead,
-          message_text: message,
-          leadId: leadId,
-        },
-      });
-
-      toast.success("Mensagem automática enviada!");
-    } catch (error) {
-      console.error("Erro ao enviar mensagem automática:", error);
-    }
-  };
-
-  const createFollowUpTask = async (leadId: string, lead: Lead, config: any) => {
-    try {
-      if (!organizationId || !user?.id) return;
-
-      const { data: board } = await supabase
-        .from("kanban_boards")
-        .select("id, kanban_columns(id)")
-        .eq("organization_id", organizationId)
-        .limit(1)
-        .maybeSingle();
-
-      if (!board?.kanban_columns?.[0]?.id) return;
-
-      await supabase.from("kanban_cards").insert({
-        column_id: board.kanban_columns[0].id,
-        content: config.task_title,
-        description: `Follow-up com lead: ${lead.nome_lead}`,
-        estimated_time: config.estimated_time || null,
-        created_by: user.id,
-      });
-
-      toast.success("Tarefa de follow-up criada!");
-    } catch (error) {
-      console.error("Erro ao criar tarefa:", error);
-    }
-  };
-
-  const assignLeadToAgent = async (leadId: string, agentEmail: string) => {
-    try {
-      const { data: profile } = await supabase
-        .from("organization_members")
-        .select("user_id, profiles(full_name)")
-        .eq("email", agentEmail)
-        .limit(1)
-        .maybeSingle();
-
-      if (!profile) {
-        toast.error("Agente não encontrado");
-        return;
-      }
-
-      const agentName = (profile as any).profiles?.full_name || agentEmail;
-      const agentUserId = profile.user_id;
-
-      // ATUALIZADO: usar UUID + TEXT para compatibilidade
-      await supabase
-        .from("leads")
-        .update({
-          responsavel_user_id: agentUserId,
-          responsavel: agentName // Mantém TEXT para compatibilidade
-        })
-        .eq("id", leadId);
-
-      toast.success(`Lead atribuído para ${agentName}!`);
-    } catch (error) {
-      console.error("Erro ao atribuir lead:", error);
-    }
-  };
-
-  // Enviar evento de conversão para Meta Conversions API (funciona para todos os funis)
-  const sendMetaConversionEvent = async (leadId: string, lead: Lead) => {
-    try {
-      const { error } = await supabase.functions.invoke("send-meta-conversion-event", {
-        body: {
-          lead_id: leadId,
-          event_name: "Purchase",
-          value: lead.valor || 0,
-        },
-      });
-
-      if (error) {
-        console.error("Erro ao enviar evento Meta:", error);
-      } else {
-        console.log("Evento de conversão enviado para Meta");
-      }
-    } catch (error) {
-      console.error("Erro ao enviar evento Meta:", error);
-    }
-  };
 
   // Handler otimizado para mudança de aba com transição suave
   const handleTabChange = useCallback((value: string) => {
@@ -1964,7 +1876,7 @@ const Pipeline = () => {
 
   // Guard: Aguardar inicialização completa (auth + org)
   if (!isReady || !organizationId) {
-    return <LoadingAnimation text="Carregando pipeline..." />;
+    return <LoadingAnimation text="Carregando funil..." />;
   }
 
   // Guard: membros com cargo personalizado que não têm permissão para ver o pipeline
@@ -1972,10 +1884,10 @@ const Pipeline = () => {
     return (
       <div className="flex flex-col items-center justify-center h-[50vh] text-center px-4">
         <Shield className="h-16 w-16 text-muted-foreground/50 mb-4" />
-        <h2 className="text-xl font-semibold">Acesso Restrito</h2>
+        <h2 className="text-xl font-semibold">Acesso restrito</h2>
         <p className="text-muted-foreground max-w-md">
-          Você não tem permissão para visualizar o funil de vendas.
-          Entre em contato com o administrador da organização para solicitar acesso.
+          Você não tem permissão para ver o funil de vendas.
+          Peça acesso ao administrador da organização.
         </p>
       </div>
     );
@@ -2010,7 +1922,7 @@ const Pipeline = () => {
             <div className="flex items-center justify-between gap-2">
               <div className="min-w-0">
               <h1 className="text-lg sm:text-xl md:text-2xl font-bold tracking-tight text-foreground truncate">
-                Funil de Vendas
+                Funil de vendas
               </h1>
               <p className="text-[11px] sm:text-xs text-muted-foreground hidden sm:block">
                 {viewMode === 'kanban'
@@ -2070,7 +1982,7 @@ const Pipeline = () => {
                       {(permissions.role === "owner" || permissions.role === "admin") && (
                         <DropdownMenuItem onClick={() => navigate("/funnel-builder")}>
                           <Settings2 className="h-4 w-4 mr-2" />
-                          Gerenciar Funis
+                          Gerenciar funis
                         </DropdownMenuItem>
                       )}
                     </DropdownMenuContent>
@@ -2086,7 +1998,7 @@ const Pipeline = () => {
                   {(permissions.role === "owner" || permissions.role === "admin") && (
                     <Button variant="outline" size="sm" className="h-8 px-3" onClick={() => navigate("/funnel-builder")}>
                       <Settings2 className="h-4 w-4 sm:mr-2" />
-                      <span className="hidden sm:inline">Gerenciar Funis</span>
+                      <span className="hidden sm:inline">Gerenciar funis</span>
                     </Button>
                   )}
                   <Button variant="outline" size="sm" className="h-8 px-3" onClick={handleExportCSV}>
@@ -2102,7 +2014,7 @@ const Pipeline = () => {
                   {permissions.canCreateLeads && (
                     <Button size="sm" className="h-8 px-3 bg-primary hover:bg-primary/90" onClick={() => setShowAddModal(true)}>
                       <Plus className="h-4 w-4 sm:mr-2" />
-                      <span className="hidden sm:inline">Adicionar Lead</span>
+                      <span className="hidden sm:inline">Adicionar lead</span>
                     </Button>
                   )}
                 </>
@@ -2117,7 +2029,7 @@ const Pipeline = () => {
               <div className="relative flex-1 min-w-0">
                 <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
                 <Input
-                  placeholder="Buscar leads..."
+                  placeholder="Buscar leads"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="pl-8 h-9 pr-8 text-sm"
@@ -2152,7 +2064,7 @@ const Pipeline = () => {
               <div className="relative flex-1 min-w-[140px] sm:min-w-[180px] max-w-full sm:max-w-xs">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
-                  placeholder="Buscar por nome, email..."
+                  placeholder="Buscar por nome ou e-mail"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="pl-8 h-8"
@@ -2163,7 +2075,7 @@ const Pipeline = () => {
                   <SelectValue placeholder="Status" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">Todos os Status</SelectItem>
+                  <SelectItem value="all">Todos os status</SelectItem>
                   {stages.map(stage => (
                     <SelectItem key={stage.id} value={stage.id}>{stage.title}</SelectItem>
                   ))}
@@ -2174,7 +2086,7 @@ const Pipeline = () => {
                   <SelectValue placeholder="Origem" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">Todas Origens</SelectItem>
+                  <SelectItem value="all">Todas as origens</SelectItem>
                   {uniqueSources.map(source => (
                     <SelectItem key={source} value={source}>{source}</SelectItem>
                   ))}
@@ -2185,7 +2097,7 @@ const Pipeline = () => {
                   <SelectValue placeholder="Responsável" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">Todos Responsáveis</SelectItem>
+                  <SelectItem value="all">Todos os responsáveis</SelectItem>
                   {colaboradores.map(c => (
                     <SelectItem key={c.user_id} value={c.user_id}>
                       {c.full_name}
@@ -2232,6 +2144,40 @@ const Pipeline = () => {
               </Popover>
             </div>
           )}
+
+          {/* Linha 3: estado de atenção dos leads carregados */}
+          <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-hide" role="group" aria-label="Filtrar por atenção">
+            {ATTENTION_FILTERS.map((filter) => {
+              const active = attentionFilter === filter.kind;
+              return (
+                <Button
+                  key={filter.kind}
+                  type="button"
+                  variant={active ? "default" : "outline"}
+                  size="sm"
+                  aria-pressed={active}
+                  className="h-7 shrink-0 gap-1.5 rounded-full px-3 text-xs"
+                  onClick={() => setAttentionFilter(active ? null : filter.kind)}
+                >
+                  {filter.label}
+                  <span className={cn("tabular-nums", active ? "opacity-90" : "text-muted-foreground")}>
+                    {attentionCounts[filter.kind]}
+                  </span>
+                </Button>
+              );
+            })}
+            {attentionFilter && (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="h-7 shrink-0 px-2 text-xs"
+                onClick={() => setAttentionFilter(null)}
+              >
+                Limpar
+              </Button>
+            )}
+          </div>
         </div>
 
         {/* View Mode Content */}
@@ -2243,7 +2189,7 @@ const Pipeline = () => {
               {selectedLeadIds.size > 0 && (
                 <div className="bg-primary/10 dark:bg-primary/20 border border-primary/20 dark:border-primary/30 rounded-lg p-2.5 flex items-center gap-2 flex-wrap">
                   <span className="text-xs font-medium text-primary">
-                    {selectedLeadIds.size} selecionado{selectedLeadIds.size > 1 ? 's' : ''}
+                    {selectedLeadIds.size} {selectedLeadIds.size === 1 ? 'selecionado' : 'selecionados'}
                   </span>
                   <div className="flex items-center gap-1 ml-auto flex-wrap">
                     {/* Selecionar por etapa */}
@@ -2298,8 +2244,8 @@ const Pipeline = () => {
               {filteredLeads.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
                   <Users className="h-12 w-12 mb-4 opacity-50" />
-                  <p className="text-lg font-medium">Nenhum lead encontrado</p>
-                  <p className="text-sm">Tente ajustar os filtros ou adicione um novo lead</p>
+                  <p className="text-lg font-medium">Nenhum lead neste filtro.</p>
+                  <p className="text-sm">Ajuste os filtros ou adicione um lead.</p>
                 </div>
               ) : (
                 filteredLeads.map((lead) => {
@@ -2337,7 +2283,7 @@ const Pipeline = () => {
                           {isLeadDuplicateRecord(lead.additional_data) && (
                             <span
                               className="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-1.5 py-px text-[9px] font-medium text-amber-700 flex-shrink-0"
-                              title="Novo registro criado para um contato que já existia no CRM"
+                              title="Novo registro criado para um lead que já existia no CRM"
                             >
                               <Copy className="h-2.5 w-2.5" />
                               Duplicado
@@ -2399,7 +2345,7 @@ const Pipeline = () => {
             {selectedLeadIds.size > 0 && (
               <div className="bg-primary/10 dark:bg-primary/20 border-b border-primary/20 dark:border-primary/30 p-3 flex items-center gap-3 flex-wrap">
                 <span className="text-sm font-medium text-primary">
-                  {selectedLeadIds.size} lead{selectedLeadIds.size > 1 ? 's' : ''} selecionado{selectedLeadIds.size > 1 ? 's' : ''}
+                  {selectedLeadIds.size} {selectedLeadIds.size === 1 ? 'lead selecionado' : 'leads selecionados'}
                 </span>
                 <div className="flex items-center gap-2 ml-auto flex-wrap">
                   {/* Selecionar por etapa */}
@@ -2478,8 +2424,8 @@ const Pipeline = () => {
               {filteredLeads.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
                   <Users className="h-12 w-12 mb-4 opacity-50" />
-                  <p className="text-lg font-medium">Nenhum lead encontrado</p>
-                  <p className="text-sm">Tente ajustar os filtros ou adicione um novo lead</p>
+                  <p className="text-lg font-medium">Nenhum lead neste filtro.</p>
+                  <p className="text-sm">Ajuste os filtros ou adicione um lead.</p>
                 </div>
               ) : (
                 filteredLeads.map((lead) => {
@@ -2516,7 +2462,7 @@ const Pipeline = () => {
                         {isLeadDuplicateRecord(lead.additional_data) && (
                           <span
                             className="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-1.5 py-px text-[9px] font-medium text-amber-700 flex-shrink-0"
-                            title="Novo registro criado para um contato que já existia no CRM"
+                            title="Novo registro criado para um lead que já existia no CRM"
                           >
                             <Copy className="h-2.5 w-2.5" />
                             Duplicado
@@ -2619,7 +2565,7 @@ const Pipeline = () => {
                               )}
                               <span>{funnel.name}</span>
                               {funnel.is_default && (
-                                <span className="text-xs text-muted-foreground">(Padrão)</span>
+                                <span className="text-xs text-muted-foreground">(padrão)</span>
                               )}
                             </div>
                           </TabsTrigger>
@@ -2637,7 +2583,7 @@ const Pipeline = () => {
                                   ? "text-amber-500 hover:text-amber-400"
                                   : "text-muted-foreground hover:text-foreground"
                               )}
-                              title={funnel.is_restricted === true ? "Funil bloqueado — clique para gerenciar" : "Funil aberto — clique para gerenciar"}
+                              title={funnel.is_restricted === true ? "Funil restrito. Clique para gerenciar o acesso." : "Funil aberto. Clique para gerenciar o acesso."}
                               aria-label={`Gerenciar acesso ao funil ${funnel.name}`}
                             >
                               {funnel.is_restricted === true ? (
@@ -2693,6 +2639,7 @@ const Pipeline = () => {
                             duplicateLeadIds={duplicateLeadIds}
                             agendamentosMap={agendamentosMap}
                             redistributedMap={redistributedMap}
+                            attentionMap={attentionMap}
                             pagination={stagePagination[stage.id]}
                             onLoadMore={() => loadMoreForStage(stage.id)}
                             onToggleNoShow={handleToggleNoShow}
@@ -2740,6 +2687,7 @@ const Pipeline = () => {
                         duplicateLeadIds={duplicateLeadIds}
                         agendamentosMap={agendamentosMap}
                         redistributedMap={redistributedMap}
+                        attentionMap={attentionMap}
                         pagination={stagePagination[stage.id]}
                         onLoadMore={() => loadMoreForStage(stage.id)}
                         onToggleNoShow={handleToggleNoShow}
@@ -2870,6 +2818,7 @@ const Pipeline = () => {
                 }
                 // Recarregar agendamentos para refletir ícones de calendário em tempo real
                 await loadAgendamentos([editingLead.id]);
+                await loadLeadTasks([editingLead.id]);
               }
             }}
           />
@@ -2886,7 +2835,7 @@ const Pipeline = () => {
                 Fechar
               </Button>
             </div>
-            <SheetDescription className="sr-only">Filtros para buscar leads</SheetDescription>
+            <SheetDescription className="sr-only">Filtros para buscar leads.</SheetDescription>
           </SheetHeader>
           <div className="p-4 space-y-3 overflow-y-auto" style={{ maxHeight: 'calc(80vh - 60px)', WebkitOverflowScrolling: 'touch' }}>
             <div className="space-y-1.5">
@@ -2896,7 +2845,7 @@ const Pipeline = () => {
                   <SelectValue placeholder="Status" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">Todos os Status</SelectItem>
+                  <SelectItem value="all">Todos os status</SelectItem>
                   {stages.map(stage => (
                     <SelectItem key={stage.id} value={stage.id}>{stage.title}</SelectItem>
                   ))}
@@ -2910,7 +2859,7 @@ const Pipeline = () => {
                   <SelectValue placeholder="Origem" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">Todas Origens</SelectItem>
+                  <SelectItem value="all">Todas as origens</SelectItem>
                   {uniqueSources.map(source => (
                     <SelectItem key={source} value={source}>{source}</SelectItem>
                   ))}
@@ -2924,7 +2873,7 @@ const Pipeline = () => {
                   <SelectValue placeholder="Responsável" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">Todos Responsáveis</SelectItem>
+                  <SelectItem value="all">Todos os responsáveis</SelectItem>
                   {colaboradores.map(c => (
                     <SelectItem key={c.user_id} value={c.user_id}>
                       {c.full_name}
@@ -3006,9 +2955,9 @@ const Pipeline = () => {
           <AlertDialogHeader>
             <AlertDialogTitle>Excluir lead</AlertDialogTitle>
             <AlertDialogDescription>
-              Tem certeza que deseja excluir o lead{" "}
+              Excluir o lead{" "}
               <strong>{leadToDelete?.nome_lead || "sem nome"}</strong>?
-              Esta ação não pode ser desfeita.
+              Não dá para desfazer.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -3019,7 +2968,7 @@ const Pipeline = () => {
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
               onClick={confirmDeleteLead}
             >
-              Sim, excluir
+              Excluir
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -3032,20 +2981,20 @@ const Pipeline = () => {
             <div className="flex items-center justify-center mb-4">
               <img
                 src={saleConfirmationIcon}
-                alt="Confirmar Venda"
+                alt="Confirmar venda"
                 className="w-24 h-24"
               />
             </div>
-            <AlertDialogTitle className="text-center text-2xl">Confirmar Venda</AlertDialogTitle>
+            <AlertDialogTitle className="text-center text-2xl">Confirmar venda</AlertDialogTitle>
             <AlertDialogDescription className="space-y-3 pt-2">
               <p className="text-center">
-                O lead <strong>{wonConfirmation.lead?.nome_lead}</strong> está sendo movido para uma etapa de ganho/venda.
+                O lead <strong>{wonConfirmation.lead?.nome_lead}</strong> está sendo movido para uma etapa de venda.
               </p>
               <p className="font-semibold text-primary text-center text-lg">
-                💰 Valor: {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(wonConfirmation.lead?.valor || 0)}
+                Valor: {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(wonConfirmation.lead?.valor || 0)}
               </p>
               <p className="text-sm text-center">
-                Este valor será contabilizado na produção do mês atual. Confirma que o lead realmente fechou uma negociação?
+                O valor entra na produção do mês atual. O lead fechou a negociação?
               </p>
             </AlertDialogDescription>
           </AlertDialogHeader>
@@ -3054,7 +3003,7 @@ const Pipeline = () => {
               Cancelar
             </AlertDialogCancel>
             <AlertDialogAction onClick={() => handleWonConfirmation(true)}>
-              Confirmar Venda
+              Confirmar venda
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

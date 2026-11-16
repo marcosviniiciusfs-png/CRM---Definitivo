@@ -92,12 +92,12 @@ export const CreateTaskModal = ({
 
   const colorOptions = [
     { value: "", label: "Sem cor" },
-    { value: "#EF4444", label: "Vermelho - Urgente" },
-    { value: "#F97316", label: "Laranja - Alta" },
-    { value: "#EAB308", label: "Amarelo - Média" },
-    { value: "#22C55E", label: "Verde - Baixa" },
-    { value: "#3B82F6", label: "Azul - Info" },
-    { value: "#8B5CF6", label: "Roxo - Especial" },
+    { value: "#EF4444", label: "Vermelho: urgente" },
+    { value: "#F97316", label: "Laranja: alta" },
+    { value: "#EAB308", label: "Amarelo: média" },
+    { value: "#22C55E", label: "Verde: baixa" },
+    { value: "#3B82F6", label: "Azul: informação" },
+    { value: "#8B5CF6", label: "Roxo: especial" },
   ];
 
   useEffect(() => {
@@ -221,7 +221,7 @@ export const CreateTaskModal = ({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Nova Tarefa</DialogTitle>
+          <DialogTitle>Nova tarefa</DialogTitle>
         </DialogHeader>
 
         <div className="space-y-4">
@@ -297,7 +297,7 @@ export const CreateTaskModal = ({
           {/* Seletor de Lead */}
           {taskType === "lead" && (
             <div className="space-y-2">
-              <Label>Selecionar Lead</Label>
+              <Label>Lead</Label>
               <Popover open={leadSearchOpen} onOpenChange={setLeadSearchOpen}>
                 <PopoverTrigger asChild>
                   <Button
@@ -313,7 +313,7 @@ export const CreateTaskModal = ({
                     ) : (
                       <span className="text-muted-foreground flex items-center gap-2">
                         <Search className="h-4 w-4" />
-                        Buscar lead...
+                        Buscar lead
                       </span>
                     )}
                   </Button>
@@ -352,7 +352,7 @@ export const CreateTaskModal = ({
 
           {/* Título */}
           <div className="space-y-2">
-            <Label>Título da Tarefa</Label>
+            <Label>Título da tarefa</Label>
             <Input
               value={content}
               onChange={(e) => setContent(e.target.value)}
@@ -370,7 +370,7 @@ export const CreateTaskModal = ({
             <MentionInput
               value={description}
               onChange={setDescription}
-              placeholder="Adicione detalhes... Use @ para mencionar usuários"
+              placeholder="Adicione detalhes. Use @ para mencionar colaboradores."
             />
           </div>
 
@@ -388,13 +388,13 @@ export const CreateTaskModal = ({
               users={orgMembers}
               placeholder={
                 taskType === "collaborative"
-                  ? "Selecione os colaboradores..."
-                  : "Atribuir responsáveis..."
+                  ? "Selecione os colaboradores"
+                  : "Atribuir responsáveis"
               }
             />
             {taskType === "collaborative" && assignees.length < 2 && (
               <p className="text-xs text-destructive">
-                Tarefas colaborativas precisam de pelo menos 2 colaboradores.
+                Selecione pelo menos 2 colaboradores.
               </p>
             )}
           </div>
@@ -404,10 +404,10 @@ export const CreateTaskModal = ({
             <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg border">
               <div className="space-y-0.5">
                 <Label htmlFor="requires-approval" className="text-sm font-medium">
-                  Requer aprovação de todos
+                  Exigir aprovação de todos
                 </Label>
                 <p className="text-xs text-muted-foreground">
-                  A tarefa só pode avançar quando todos confirmarem
+                  A tarefa só avança quando todos confirmarem.
                 </p>
               </div>
               <Switch
@@ -471,7 +471,7 @@ export const CreateTaskModal = ({
                     <SelectItem key={col.id} value={col.id}>
                       <div className="flex items-center gap-2">
                         <Timer className="h-4 w-4 text-muted-foreground" />
-                        <span>Quando entrar em "{col.title}"</span>
+                        <span>Ao entrar em "{col.title}"</span>
                       </div>
                     </SelectItem>
                   ))}
@@ -479,7 +479,7 @@ export const CreateTaskModal = ({
               </Select>
               {timerStartColumnId && (
                 <p className="text-xs text-muted-foreground">
-                  O cronômetro iniciará automaticamente quando o card entrar nesta coluna.
+                  O cronômetro começa quando a tarefa entrar nesta coluna.
                 </p>
               )}
             </div>
@@ -511,7 +511,7 @@ export const CreateTaskModal = ({
             </div>
             {selectedColor && (
               <p className="text-xs text-muted-foreground">
-                A cor será exibida como fundo do cartão com 10% de opacidade.
+                A cor aparece como fundo da tarefa, com 10% de opacidade.
               </p>
             )}
           </div>
@@ -530,7 +530,7 @@ export const CreateTaskModal = ({
                 (taskType === "collaborative" && assignees.length < 2)
               }
             >
-              Criar Tarefa
+              Criar tarefa
             </Button>
           </div>
         </div>

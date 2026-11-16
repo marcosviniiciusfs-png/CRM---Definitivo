@@ -77,7 +77,7 @@ export const FunnelSourceMapping = ({ funnelId }: FunnelSourceMappingProps) => {
       setFacebookForms(fbData || []);
     } catch (error) {
       console.error("Erro ao carregar dados:", error);
-      toast.error("Erro ao carregar dados");
+      toast.error("Não foi possível carregar os dados. Tente novamente.");
     } finally {
       setLoading(false);
     }
@@ -85,7 +85,7 @@ export const FunnelSourceMapping = ({ funnelId }: FunnelSourceMappingProps) => {
 
   const handleSave = async () => {
     if (!targetStageId) {
-      toast.error("Selecione uma etapa de destino");
+      toast.error("Selecione uma etapa de destino.");
       return;
     }
 
@@ -110,7 +110,7 @@ export const FunnelSourceMapping = ({ funnelId }: FunnelSourceMappingProps) => {
         });
       } else if (sourceType === "webhook") {
         if (selectedWebhooks.length === 0) {
-          toast.error("Selecione pelo menos um webhook");
+          toast.error("Selecione pelo menos um webhook.");
           return;
         }
         selectedWebhooks.forEach((webhookId) => {
@@ -124,7 +124,7 @@ export const FunnelSourceMapping = ({ funnelId }: FunnelSourceMappingProps) => {
         });
       } else if (sourceType === "facebook") {
         if (selectedForms.length === 0) {
-          toast.error("Selecione pelo menos um formulário");
+          toast.error("Selecione pelo menos um formulário.");
           return;
         }
         selectedForms.forEach((formId) => {
@@ -146,14 +146,14 @@ export const FunnelSourceMapping = ({ funnelId }: FunnelSourceMappingProps) => {
 
       toast.success(
         mappingsToCreate.length === 1
-          ? "Mapeamento criado!"
-          : `${mappingsToCreate.length} mapeamentos criados!`
+          ? "Mapeamento criado."
+          : `${mappingsToCreate.length} mapeamentos criados.`
       );
       resetForm();
       loadData();
     } catch (error) {
       console.error("Erro ao salvar mapeamento:", error);
-      toast.error("Erro ao salvar mapeamento");
+      toast.error("Não foi possível salvar o mapeamento. Tente novamente.");
     }
   };
 
@@ -165,11 +165,11 @@ export const FunnelSourceMapping = ({ funnelId }: FunnelSourceMappingProps) => {
         .eq("id", id);
 
       if (error) throw error;
-      toast.success("Mapeamento excluído!");
+      toast.success("Mapeamento excluído.");
       loadData();
     } catch (error) {
       console.error("Erro ao excluir:", error);
-      toast.error("Erro ao excluir mapeamento");
+      toast.error("Não foi possível excluir o mapeamento. Tente novamente.");
     }
   };
 
@@ -209,15 +209,15 @@ export const FunnelSourceMapping = ({ funnelId }: FunnelSourceMappingProps) => {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div>
-          <h3 className="font-semibold">Mapeamento de Origens</h3>
+          <h3 className="font-semibold">Mapeamento de origens</h3>
           <p className="text-sm text-muted-foreground">
-            Defina para qual etapa os leads de cada origem devem ir
+            Defina para qual etapa vão os leads de cada origem.
           </p>
         </div>
         {!showForm && (
           <Button onClick={() => setShowForm(true)} size="sm">
             <Plus className="h-4 w-4 mr-2" />
-            Novo Mapeamento
+            Novo mapeamento
           </Button>
         )}
       </div>
@@ -225,22 +225,22 @@ export const FunnelSourceMapping = ({ funnelId }: FunnelSourceMappingProps) => {
       {showForm && (
         <Card className="p-4 space-y-4">
           <div className="space-y-2">
-            <Label>Tipo de Origem</Label>
+            <Label>Tipo de origem</Label>
             <Select value={sourceType} onValueChange={setSourceType}>
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="whatsapp">WhatsApp (Todos)</SelectItem>
+                <SelectItem value="whatsapp">WhatsApp (todos)</SelectItem>
                 <SelectItem value="facebook">Facebook Lead Ads</SelectItem>
-                <SelectItem value="webhook">Webhook (Formulário)</SelectItem>
+                <SelectItem value="webhook">Webhook (formulário)</SelectItem>
               </SelectContent>
             </Select>
           </div>
 
           {sourceType === "webhook" && (
             <div className="space-y-2">
-              <Label>Webhooks (múltipla seleção)</Label>
+              <Label>Webhooks (selecione um ou mais)</Label>
               <div className="border rounded-md p-2 space-y-2 max-h-40 overflow-y-auto">
                 {webhookConfigs.map((webhook) => (
                   <label
@@ -268,7 +268,7 @@ export const FunnelSourceMapping = ({ funnelId }: FunnelSourceMappingProps) => {
                 ))}
                 {webhookConfigs.length === 0 && (
                   <p className="text-sm text-muted-foreground text-center py-2">
-                    Nenhum webhook configurado
+                    Nenhum webhook configurado ainda.
                   </p>
                 )}
               </div>
@@ -277,7 +277,7 @@ export const FunnelSourceMapping = ({ funnelId }: FunnelSourceMappingProps) => {
 
           {sourceType === "facebook" && (
             <div className="space-y-2">
-              <Label>Formulários Facebook (múltipla seleção)</Label>
+              <Label>Formulários do Facebook (selecione um ou mais)</Label>
               <div className="border rounded-md p-2 space-y-2 max-h-40 overflow-y-auto">
                 {facebookForms.map((form, idx) => (
                   <label
@@ -303,7 +303,7 @@ export const FunnelSourceMapping = ({ funnelId }: FunnelSourceMappingProps) => {
                 ))}
                 {facebookForms.length === 0 && (
                   <p className="text-sm text-muted-foreground text-center py-2">
-                    Nenhum formulário configurado
+                    Nenhum formulário configurado ainda.
                   </p>
                 )}
               </div>
@@ -311,7 +311,7 @@ export const FunnelSourceMapping = ({ funnelId }: FunnelSourceMappingProps) => {
           )}
 
           <div className="space-y-2">
-            <Label>Etapa de Destino</Label>
+            <Label>Etapa de destino</Label>
             <Select value={targetStageId} onValueChange={setTargetStageId}>
               <SelectTrigger>
                 <SelectValue placeholder="Selecione uma etapa" />
@@ -338,7 +338,7 @@ export const FunnelSourceMapping = ({ funnelId }: FunnelSourceMappingProps) => {
       <div className="space-y-2">
         {mappings.length === 0 ? (
           <Card className="p-8 text-center text-muted-foreground">
-            Nenhum mapeamento configurado. Leads irão para a primeira etapa por padrão.
+            Nenhum mapeamento configurado ainda. Os leads entram na primeira etapa por padrão.
           </Card>
         ) : (
           mappings.map((mapping) => (

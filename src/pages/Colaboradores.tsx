@@ -285,24 +285,24 @@ const Colaboradores = () => {
   const handleAddColaborador = async () => {
     try {
       if (userRole !== 'owner' && userRole !== 'admin') {
-        toast({ title: "Acesso negado", description: "Apenas proprietários e administradores podem adicionar colaboradores", variant: "destructive" });
+        toast({ title: "Acesso negado", description: "Só proprietários e administradores podem adicionar colaboradores.", variant: "destructive" });
         return;
       }
       const validationResult = emailSchema.safeParse(newColaborador.email);
       if (!validationResult.success) {
-        toast({ title: "Erro de validação", description: "Por favor, insira um email válido", variant: "destructive" });
+        toast({ title: "E-mail inválido", description: "Digite um e-mail válido.", variant: "destructive" });
         return;
       }
       if (!newColaborador.name.trim()) {
-        toast({ title: "Erro de validação", description: "Por favor, insira o nome do colaborador", variant: "destructive" });
+        toast({ title: "Nome obrigatório", description: "Preencha o nome do colaborador.", variant: "destructive" });
         return;
       }
       if (!newColaborador.password || newColaborador.password.length < 6) {
-        toast({ title: "Erro de validação", description: "A senha deve ter pelo menos 6 caracteres", variant: "destructive" });
+        toast({ title: "Senha curta", description: "A senha precisa ter pelo menos 6 caracteres.", variant: "destructive" });
         return;
       }
       if (!organizationId) {
-        toast({ title: "Erro", description: "Você precisa fazer login novamente. Sua sessão pode ter expirado.", variant: "destructive" });
+        toast({ title: "Sessão expirada", description: "Entre novamente para continuar.", variant: "destructive" });
         return;
       }
 
@@ -310,7 +310,7 @@ const Colaboradores = () => {
 
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
-        toast({ title: "Sessão expirada", description: "Faça login novamente para continuar", variant: "destructive" });
+        toast({ title: "Sessão expirada", description: "Entre novamente para continuar.", variant: "destructive" });
         setIsMutating(false);
         return;
       }
@@ -327,32 +327,34 @@ const Colaboradores = () => {
       });
 
       if (error) {
-        let description = error.message || "Não foi possível adicionar o colaborador. Tente novamente.";
+        console.error("Erro ao adicionar colaborador:", error);
+        let description = "Tente novamente.";
         const response = (error as { context?: Response }).context;
         if (response) {
           try {
             const payload = await response.clone().json();
-            description = payload?.error || payload?.details || description;
+            description = payload?.error || description;
           } catch {
             // Mantém a mensagem padrão se a Edge Function não retornar JSON.
           }
         }
-        toast({ title: "Erro ao adicionar colaborador", description, variant: "destructive" });
+        toast({ title: "Não foi possível adicionar o colaborador", description, variant: "destructive" });
         setIsMutating(false);
         return;
       }
       if (data?.error) {
-        toast({ title: "Erro", description: data.error, variant: "destructive" });
+        toast({ title: "Não foi possível adicionar o colaborador", description: data.error, variant: "destructive" });
         setIsMutating(false);
         return;
       }
 
-      toast({ title: "Sucesso!", description: data?.message || `${newColaborador.name} foi adicionado à organização com sucesso` });
+      toast({ title: "Colaborador adicionado", description: `${newColaborador.name} agora faz parte da organização.` });
       setIsDialogOpen(false);
       setNewColaborador({ name: "", email: "", password: "", role: "member", custom_role_id: null });
       invalidateData();
     } catch (error: any) {
-      toast({ title: "Erro inesperado", description: error?.message || "Ocorreu um erro ao adicionar o colaborador. Por favor, tente novamente.", variant: "destructive" });
+      console.error("Erro ao adicionar colaborador:", error);
+      toast({ title: "Não foi possível adicionar o colaborador", description: "Tente novamente.", variant: "destructive" });
     } finally {
       setIsMutating(false);
     }
@@ -360,11 +362,11 @@ const Colaboradores = () => {
 
   const handleEditColaborador = (colaborador: Colaborador) => {
     if (userRole !== 'owner' && userRole !== 'admin') {
-      toast({ title: "Acesso negado", description: "Apenas proprietários e administradores podem editar colaboradores", variant: "destructive" });
+      toast({ title: "Acesso negado", description: "Só proprietários e administradores podem editar colaboradores.", variant: "destructive" });
       return;
     }
     if (userRole === 'admin' && colaborador.role === 'owner') {
-      toast({ title: "Acesso negado", description: "Administradores não podem editar proprietários", variant: "destructive" });
+      toast({ title: "Acesso negado", description: "Administradores não podem editar proprietários.", variant: "destructive" });
       return;
     }
     setColaboradorToEdit(colaborador);
@@ -384,12 +386,12 @@ const Colaboradores = () => {
     if (editData.email && editData.email !== colaboradorToEdit.email) {
       const validationResult = emailSchema.safeParse(editData.email);
       if (!validationResult.success) {
-        toast({ title: "Erro de validação", description: "Por favor, insira um email válido", variant: "destructive" });
+        toast({ title: "E-mail inválido", description: "Digite um e-mail válido.", variant: "destructive" });
         return;
       }
     }
     if (editData.newPassword && editData.newPassword.length < 6) {
-      toast({ title: "Erro de validação", description: "A nova senha deve ter pelo menos 6 caracteres", variant: "destructive" });
+      toast({ title: "Senha curta", description: "A nova senha precisa ter pelo menos 6 caracteres.", variant: "destructive" });
       return;
     }
 
@@ -407,19 +409,22 @@ const Colaboradores = () => {
         }
       });
       if (error) {
-        toast({ title: "Erro ao atualizar", description: error.message || "Não foi possível atualizar o colaborador", variant: "destructive" });
+        console.error("Erro ao atualizar colaborador:", error);
+        toast({ title: "Não foi possível atualizar o colaborador", description: "Tente novamente.", variant: "destructive" });
         return;
       }
       if (data?.error) {
-        toast({ title: "Erro", description: data.error, variant: "destructive" });
+        console.error("Erro ao atualizar colaborador:", data.error);
+        toast({ title: "Não foi possível atualizar o colaborador", description: "Tente novamente.", variant: "destructive" });
         return;
       }
-      toast({ title: "Sucesso!", description: "Colaborador atualizado com sucesso" });
+      toast({ title: "Colaborador atualizado" });
       setIsEditDialogOpen(false);
       setColaboradorToEdit(null);
       invalidateData();
     } catch (error: any) {
-      toast({ title: "Erro inesperado", description: error?.message || "Ocorreu um erro ao atualizar o colaborador", variant: "destructive" });
+      console.error("Erro ao atualizar colaborador:", error);
+      toast({ title: "Não foi possível atualizar o colaborador", description: "Tente novamente.", variant: "destructive" });
     } finally {
       setIsMutating(false);
     }
@@ -427,11 +432,11 @@ const Colaboradores = () => {
 
   const handleDeleteColaborador = async (colaborador: Colaborador) => {
     if (userRole !== 'owner') {
-      toast({ title: "Acesso negado", description: "Apenas o proprietário da organização pode excluir colaboradores", variant: "destructive" });
+      toast({ title: "Acesso negado", description: "Só o proprietário da organização pode excluir colaboradores.", variant: "destructive" });
       return;
     }
     if (colaborador.user_id === currentUserId) {
-      toast({ title: "Ação não permitida", description: "Você não pode excluir sua própria conta", variant: "destructive" });
+      toast({ title: "Ação não permitida", description: "Você não pode excluir a si mesmo.", variant: "destructive" });
       return;
     }
     if (!organizationId) return;
@@ -449,9 +454,10 @@ const Colaboradores = () => {
 
     setPreviewLoading(false);
     if (error) {
+      console.error("Erro ao calcular impacto da exclusão:", error);
       toast({
-        title: "Erro ao calcular impacto",
-        description: error.message || "Não foi possível carregar o preview",
+        title: "Não foi possível calcular o impacto da exclusão",
+        description: "Tente novamente.",
         variant: "destructive",
       });
       setDeleteDialogOpen(false);
@@ -476,13 +482,14 @@ const Colaboradores = () => {
 
       const s = data?.summary;
       const desc = s
-        ? `${colaboradorToDelete.full_name || colaboradorToDelete.email} foi excluído. ${s.active_leads_unassigned} lead(s) voltaram para a roleta.`
+        ? `${colaboradorToDelete.full_name || colaboradorToDelete.email} foi excluído. ${s.active_leads_unassigned} ${s.active_leads_unassigned === 1 ? "lead voltou" : "leads voltaram"} para a roleta.`
         : `${colaboradorToDelete.full_name || colaboradorToDelete.email} foi excluído.`;
 
-      toast({ title: "Colaborador removido", description: desc });
+      toast({ title: "Colaborador excluído", description: desc });
 
       if (data?.warning) {
-        toast({ title: "Atenção", description: data.warning, variant: "destructive" });
+        console.error("Aviso ao excluir colaborador:", data.warning);
+        toast({ title: "Colaborador excluído, mas o acesso continua ativo", description: "Finalize a exclusão no painel de administração.", variant: "destructive" });
       }
 
       invalidateData();
@@ -490,9 +497,10 @@ const Colaboradores = () => {
       setColaboradorToDelete(null);
       setDeletePreview(null);
     } catch (err: any) {
+      console.error("Erro ao excluir colaborador:", err);
       toast({
-        title: "Erro ao excluir",
-        description: err?.message || "Não foi possível excluir o colaborador",
+        title: "Não foi possível excluir o colaborador",
+        description: "Tente novamente.",
         variant: "destructive",
       });
     } finally {
@@ -522,7 +530,7 @@ const Colaboradores = () => {
     switch (role) {
       case "owner": return "Proprietário";
       case "admin": return "Administrador";
-      case "member": return "Membro";
+      case "member": return "Colaborador";
       default: return role;
     }
   };
@@ -549,8 +557,8 @@ const Colaboradores = () => {
             <Users className="h-6 w-6 text-purple-600" />
           </div>
           <div>
-            <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-foreground">Gestão de Colaboradores</h1>
-            <p className="text-muted-foreground mt-1 hidden sm:block">Gerencie e acompanhe todos os colaboradores ativos</p>
+            <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-foreground">Gestão de colaboradores</h1>
+            <p className="text-muted-foreground mt-1 hidden sm:block">Gerencie e acompanhe os colaboradores ativos</p>
           </div>
         </div>
         <div className="flex flex-col gap-3">
@@ -581,7 +589,7 @@ const Colaboradores = () => {
           </TabsTrigger>
           <TabsTrigger value="dashboard" className="gap-2 rounded-none px-4 sm:px-6 py-3 data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:shadow-none hover:bg-muted/50 transition-all duration-200">
             <BarChart3 className="h-4 w-4" />
-            <span className="hidden sm:inline">Dashboard de Colaboradores</span>
+            <span className="hidden sm:inline">Dashboard de colaboradores</span>
           </TabsTrigger>
         </TabsList>
 
@@ -594,21 +602,21 @@ const Colaboradores = () => {
                 onClick={() => {
                   const activeCount = colaboradores.filter(c => c.is_active !== false).length;
                   if (activeCount >= subscriptionLimits.total) {
-                    toast({ title: "Limite atingido", description: `Limite de ${subscriptionLimits.total} colaboradores atingido`, variant: "destructive" });
+                    toast({ title: "Limite atingido", description: `Sua organização já tem ${subscriptionLimits.total} colaboradores ativos.`, variant: "destructive" });
                     return;
                   }
                   setIsDialogOpen(true);
                 }}
               >
                 <UserPlus className="h-4 w-4 sm:hidden" />
-                <span className="hidden sm:inline">Novo Colaborador</span>
+                <span className="hidden sm:inline">Novo colaborador</span>
               </Button>
             )}
             <Button
               variant={showInactive ? "default" : "secondary"}
               onClick={() => setShowInactive(!showInactive)}
             >
-              {showInactive ? <><Eye className="h-4 w-4 sm:hidden" /><span className="hidden sm:inline">Ver Ativos</span></> : <><EyeOff className="h-4 w-4 sm:hidden" /><span className="hidden sm:inline">Ver Inativos</span></>}
+              {showInactive ? <><Eye className="h-4 w-4 sm:hidden" /><span className="hidden sm:inline">Ver ativos</span></> : <><EyeOff className="h-4 w-4 sm:hidden" /><span className="hidden sm:inline">Ver inativos</span></>}
             </Button>
           </div>
 
@@ -618,7 +626,7 @@ const Colaboradores = () => {
               <CardContent className="pt-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm font-medium text-muted-foreground">Colaboradores Ativos</p>
+                    <p className="text-sm font-medium text-muted-foreground">Colaboradores ativos</p>
                     <p className="text-3xl font-bold text-foreground mt-2">{stats.ativos}</p>
                   </div>
                   <div className="bg-green-500/10 dark:bg-green-500/20 p-3 rounded-full">
@@ -632,7 +640,7 @@ const Colaboradores = () => {
               <CardContent className="pt-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm font-medium text-muted-foreground">Entraram este Mês</p>
+                    <p className="text-sm font-medium text-muted-foreground">Entraram este mês</p>
                     <p className="text-3xl font-bold text-foreground mt-2">{stats.novos}</p>
                     <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">Novos colaboradores</p>
                   </div>
@@ -647,7 +655,7 @@ const Colaboradores = () => {
               <CardContent className="pt-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm font-medium text-muted-foreground">Saíram este Mês</p>
+                    <p className="text-sm font-medium text-muted-foreground">Saíram este mês</p>
                     <p className="text-3xl font-bold text-foreground mt-2">{stats.saidas}</p>
                     <p className="text-xs text-yellow-600 dark:text-yellow-400 mt-1">Desligamentos</p>
                   </div>
@@ -679,13 +687,13 @@ const Colaboradores = () => {
               <div className="flex items-center gap-2 mb-3 sm:mb-4 md:mb-6">
                 <Users className="h-5 w-5 text-blue-600" />
                 <h2 className="text-xl font-semibold text-foreground">
-                  {showInactive ? "Colaboradores Inativos" : "Lista de Colaboradores"}
+                  {showInactive ? "Colaboradores inativos" : "Lista de colaboradores"}
                 </h2>
               </div>
               <p className="text-sm text-muted-foreground mb-3 sm:mb-4 md:mb-6 hidden sm:block">
                 {showInactive
-                  ? "Colaboradores com acesso desativado. Você pode reativá-los a qualquer momento."
-                  : "Gerencie colaboradores, cargos e status de convites."}
+                  ? "Colaboradores com acesso desativado. Você pode reativá-los quando quiser."
+                  : "Gerencie colaboradores, cargos e status."}
               </p>
 
               {/* Controls */}
@@ -704,12 +712,12 @@ const Colaboradores = () => {
                     </Select>
                     <span className="text-sm text-gray-600 hidden sm:inline">itens por página</span>
                   </div>
-                  <span className="text-sm text-gray-600 hidden sm:inline">{filteredColaboradores.length} registros disponíveis</span>
+                  <span className="text-sm text-gray-600 hidden sm:inline">{filteredColaboradores.length} {filteredColaboradores.length === 1 ? "registro" : "registros"}</span>
                 </div>
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
                   <Input
-                    placeholder="Buscar por nome ou email..."
+                    placeholder="Buscar por nome ou e-mail"
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                     className="pl-10 w-full sm:w-64"
@@ -740,7 +748,7 @@ const Colaboradores = () => {
                     ) : filteredColaboradores.length === 0 ? (
                       <TableRow>
                         <TableCell colSpan={(userRole === 'owner' || userRole === 'admin') ? 6 : 5} className="text-center py-8 text-muted-foreground">
-                          {showInactive ? "Nenhum colaborador inativo" : "Nenhum colaborador encontrado"}
+                          {showInactive ? "Nenhum colaborador inativo." : "Nenhum colaborador encontrado."}
                         </TableCell>
                       </TableRow>
                     ) : (
@@ -890,9 +898,9 @@ const Colaboradores = () => {
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent className="sm:max-w-[425px] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Adicionar Colaborador</DialogTitle>
+            <DialogTitle>Adicionar colaborador</DialogTitle>
             <DialogDescription>
-              Preencha os dados do novo colaborador
+              Preencha os dados do novo colaborador.
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
@@ -906,7 +914,7 @@ const Colaboradores = () => {
               />
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="email">Email</Label>
+              <Label htmlFor="email">E-mail</Label>
               <Input
                 id="email"
                 type="email"
@@ -923,7 +931,7 @@ const Colaboradores = () => {
                   type={showNewPassword ? "text" : "password"}
                   value={newColaborador.password}
                   onChange={(e) => setNewColaborador({ ...newColaborador, password: e.target.value })}
-                  placeholder="Mínimo 6 caracteres"
+                  placeholder="Mínimo de 6 caracteres"
                   className="pr-10"
                 />
                 <button
@@ -937,7 +945,7 @@ const Colaboradores = () => {
               </div>
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="role">Cargo do Sistema</Label>
+              <Label htmlFor="role">Cargo do sistema</Label>
               <Select
                 value={newColaborador.role}
                 onValueChange={(v) => setNewColaborador({ ...newColaborador, role: v as any })}
@@ -946,7 +954,7 @@ const Colaboradores = () => {
                   <SelectValue placeholder="Selecione o cargo" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="member">Membro</SelectItem>
+                  <SelectItem value="member">Colaborador</SelectItem>
                   <SelectItem value="admin">Administrador</SelectItem>
                   {userRole === 'owner' && (
                     <SelectItem value="owner">Proprietário</SelectItem>
@@ -956,7 +964,7 @@ const Colaboradores = () => {
             </div>
             {customRoles.length > 0 && (
               <div className="grid gap-2">
-                <Label>Cargo Personalizado</Label>
+                <Label>Cargo personalizado</Label>
                 <Select
                   value={newColaborador.custom_role_id || "none"}
                   onValueChange={(v) => setNewColaborador({ ...newColaborador, custom_role_id: v === "none" ? null : v })}
@@ -995,7 +1003,7 @@ const Colaboradores = () => {
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
         <DialogContent className="sm:max-w-[425px] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Editar Colaborador</DialogTitle>
+            <DialogTitle>Editar colaborador</DialogTitle>
             <DialogDescription>
               Altere os dados do colaborador
             </DialogDescription>
@@ -1011,7 +1019,7 @@ const Colaboradores = () => {
               />
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="edit-email">Email</Label>
+              <Label htmlFor="edit-email">E-mail</Label>
               <Input
                 id="edit-email"
                 type="email"
@@ -1021,7 +1029,7 @@ const Colaboradores = () => {
               />
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="edit-password">Nova Senha (opcional)</Label>
+              <Label htmlFor="edit-password">Nova senha (opcional)</Label>
               <div className="relative">
                 <Input
                   id="edit-password"
@@ -1042,7 +1050,7 @@ const Colaboradores = () => {
               </div>
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="edit-role">Cargo do Sistema</Label>
+              <Label htmlFor="edit-role">Cargo do sistema</Label>
               <Select
                 value={editData.role}
                 onValueChange={(v) => setEditData({ ...editData, role: v as any })}
@@ -1052,7 +1060,7 @@ const Colaboradores = () => {
                   <SelectValue placeholder="Selecione o cargo" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="member">Membro</SelectItem>
+                  <SelectItem value="member">Colaborador</SelectItem>
                   <SelectItem value="admin">Administrador</SelectItem>
                   {userRole === 'owner' && (
                     <SelectItem value="owner">Proprietário</SelectItem>
@@ -1060,12 +1068,12 @@ const Colaboradores = () => {
                 </SelectContent>
               </Select>
               {userRole !== 'owner' && (
-                <p className="text-xs text-muted-foreground">Apenas o proprietário pode alterar o cargo do sistema</p>
+                <p className="text-xs text-muted-foreground">Só o proprietário pode alterar o cargo do sistema.</p>
               )}
             </div>
             {customRoles.length > 0 && (
               <div className="grid gap-2">
-                <Label>Cargo Personalizado</Label>
+                <Label>Cargo personalizado</Label>
                 <Select
                   value={editData.custom_role_id || "none"}
                   onValueChange={(v) => setEditData({ ...editData, custom_role_id: v === "none" ? null : v })}
@@ -1088,7 +1096,7 @@ const Colaboradores = () => {
               </div>
             )}
             <div className="flex items-center justify-between">
-              <Label htmlFor="edit-active">Status Ativo</Label>
+              <Label htmlFor="edit-active">Colaborador ativo</Label>
               <Switch
                 id="edit-active"
                 checked={editData.is_active}
@@ -1119,41 +1127,41 @@ const Colaboradores = () => {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>
-              Excluir {deletePreview?.member_name || colaboradorToDelete?.full_name || colaboradorToDelete?.email || 'colaborador'} da organização
+              Excluir {deletePreview?.member_name || colaboradorToDelete?.full_name || colaboradorToDelete?.email || 'colaborador'}?
             </DialogTitle>
             <DialogDescription asChild>
               <div className="space-y-3 pt-2">
                 {previewLoading ? (
                   <div className="flex items-center gap-2 text-muted-foreground">
                     <Loader2 className="h-4 w-4 animate-spin" />
-                    <span>Calculando impacto...</span>
+                    <span>Calculando o impacto...</span>
                   </div>
                 ) : deletePreview ? (
                   <>
-                    <p className="text-foreground font-medium">Esta ação fará:</p>
+                    <p className="text-foreground font-medium">Ao excluir:</p>
                     <ul className="list-disc pl-5 space-y-1.5 text-sm">
                       <li>
-                        <strong>{deletePreview.active_leads}</strong> lead(s) ativo(s) voltarão para a roleta automaticamente
+                        <strong>{deletePreview.active_leads}</strong> {deletePreview.active_leads === 1 ? "lead ativo volta" : "leads ativos voltam"} para a roleta
                       </li>
                       <li>
-                        <strong>{deletePreview.closed_leads}</strong> lead(s) fechado(s) (vendidos/perdidos) ficarão sem responsável atribuído, mas o nome é preservado nos relatórios
+                        <strong>{deletePreview.closed_leads}</strong> {deletePreview.closed_leads === 1 ? "lead fechado (ganho ou perdido) fica" : "leads fechados (ganhos ou perdidos) ficam"} sem responsável, mas o nome continua nos relatórios
                       </li>
                       <li>
-                        Liderança removida em <strong>{deletePreview.teams_as_leader}</strong> equipe(s)
+                        Liderança removida em <strong>{deletePreview.teams_as_leader}</strong> {deletePreview.teams_as_leader === 1 ? "equipe" : "equipes"}
                       </li>
                       <li>
-                        Removido(a) de <strong>{deletePreview.roulettes_in}</strong> roleta(s)
+                        Saída de <strong>{deletePreview.roulettes_in}</strong> {deletePreview.roulettes_in === 1 ? "roleta" : "roletas"}
                       </li>
                       {deletePreview.has_auth_user && (
                         <li>
-                          Acesso (e-mail e senha) <strong>excluído permanentemente</strong>
+                          Acesso (e-mail e senha) <strong>excluído</strong>
                         </li>
                       )}
                     </ul>
-                    <p className="text-destructive font-medium pt-1">Esta ação não pode ser desfeita.</p>
+                    <p className="text-destructive font-medium pt-1">Não dá para desfazer.</p>
                   </>
                 ) : (
-                  <p>Tem certeza que deseja remover este colaborador? Esta ação não pode ser desfeita.</p>
+                  <p>Excluir este colaborador? Não dá para desfazer.</p>
                 )}
               </div>
             </DialogDescription>
@@ -1168,7 +1176,7 @@ const Colaboradores = () => {
               disabled={isMutating || previewLoading}
             >
               {isMutating ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-              Excluir definitivamente
+              Excluir colaborador
             </Button>
           </DialogFooter>
         </DialogContent>

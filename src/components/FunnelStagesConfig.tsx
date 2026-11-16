@@ -35,6 +35,13 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import { StageAutomationConfig } from "./StageAutomationConfig";
 import { useQueryClient } from "@tanstack/react-query";
+import {
+  MEETING_EVENTS,
+  MEETING_EVENT_INFO,
+  findMeetingEventOwner,
+  isMeetingEvent,
+  type MeetingEvent,
+} from "@/lib/stageEvents";
 
 interface Stage {
   id: string;
@@ -44,6 +51,7 @@ interface Stage {
   icon: string | null;
   position: number;
   stage_type: string;
+  linked_event: string | null;
   stage_config?: any;
   is_final: boolean;
   default_value: number | null;
@@ -107,6 +115,11 @@ const SortableStageItem = ({
                 {stage.stage_type === "assign_agent" && "👤 Atribuir"}
               </Badge>
             )}
+            {isMeetingEvent(stage.linked_event) && (
+              <Badge variant="outline" className="text-xs">
+                {MEETING_EVENT_INFO[stage.linked_event].label}
+              </Badge>
+            )}
           </div>
           {stage.description && (
             <p className="text-sm text-muted-foreground">{stage.description}</p>
@@ -141,6 +154,7 @@ export const FunnelStagesConfig = ({ funnelId }: FunnelStagesConfigProps) => {
   const [description, setDescription] = useState("");
   const [color, setColor] = useState("#3B82F6");
   const [stageType, setStageType] = useState("custom");
+  const [linkedEvent, setLinkedEvent] = useState<MeetingEvent | "none">("none");
   const [stageConfig, setStageConfig] = useState<any>({});
   const [defaultValue, setDefaultValue] = useState("");
   const [maxDays, setMaxDays] = useState("");
@@ -180,7 +194,7 @@ export const FunnelStagesConfig = ({ funnelId }: FunnelStagesConfigProps) => {
       await checkAndCreateDefaultStages(formattedStages);
     } catch (error) {
       console.error("Erro ao carregar etapas:", error);
-      toast.error("Erro ao carregar etapas");
+      toast.error("Não foi possível carregar as etapas. Tente novamente.");
     } finally {
       setLoading(false);
     }
@@ -202,11 +216,18 @@ export const FunnelStagesConfig = ({ funnelId }: FunnelStagesConfigProps) => {
       if (customStages.length > 0) return;
 
       // Criar etapas padrão do Pipeline
-      const defaultStages = [
+      const defaultStages: Array<{
+        name: string;
+        color: string;
+        icon: string;
+        position: number;
+        description: string;
+        linked_event?: MeetingEvent;
+      }> = [
         { name: "Novo Lead", color: "#3B82F6", icon: "📋", position: 0, description: "Leads recém-chegados" },
         { name: "Qualificação / Aquecido", color: "#06B6D4", icon: "🔥", position: 1, description: "Leads sendo qualificados" },
-        { name: "Agendamento Realizado", color: "#EAB308", icon: "📅", position: 2, description: "Reunião agendada" },
-        { name: "Reunião Feita", color: "#F97316", icon: "🤝", position: 3, description: "Reunião realizada com o lead" },
+        { name: "Agendamento Realizado", color: "#EAB308", icon: "📅", position: 2, description: "Reunião agendada", linked_event: "scheduled" },
+        { name: "Reunião Feita", color: "#F97316", icon: "🤝", position: 3, description: "Reunião realizada com o lead", linked_event: "attended" },
         { name: "Proposta / Negociação", color: "#8B5CF6", icon: "📝", position: 4, description: "Proposta enviada, em negociação" },
         { name: "Aprovação / Análise", color: "#6366F1", icon: "🔍", position: 5, description: "Aguardando aprovação do cliente" },
         { name: "Pós-venda / Ativação", color: "#34D399", icon: "✨", position: 6, description: "Cliente em processo de ativação" },
@@ -214,6 +235,7 @@ export const FunnelStagesConfig = ({ funnelId }: FunnelStagesConfigProps) => {
 
       const stagesToInsert: TablesInsert<"funnel_stages">[] = defaultStages.map(stage => ({
         funnel_id: funnelId,
+        linked_event: stage.linked_event ?? null,
         name: stage.name,
         color: stage.color,
         icon: stage.icon,
@@ -250,7 +272,7 @@ export const FunnelStagesConfig = ({ funnelId }: FunnelStagesConfigProps) => {
         setStages(formattedStages);
       }
       
-      toast.success("Etapas padrão criadas! Você pode configurá-las agora.");
+      toast.success("Etapas padrão criadas. Você já pode configurá-las.");
     } catch (error) {
       console.error("Erro ao criar etapas padrão:", error);
     }
@@ -297,23 +319,23 @@ export const FunnelStagesConfig = ({ funnelId }: FunnelStagesConfigProps) => {
       }
 
       await queryClient.invalidateQueries({ queryKey: ["pipeline-funnels"] });
-      toast.success("Ordem atualizada!");
+      toast.success("Ordem atualizada.");
     } catch (error) {
       console.error("Erro ao atualizar ordem:", error);
-      toast.error("Erro ao atualizar ordem");
+      toast.error("Não foi possível atualizar a ordem das etapas. Tente novamente.");
       loadStages();
     }
   };
 
   const handleSave = async () => {
     if (!name.trim()) {
-      toast.error("Nome da etapa é obrigatório");
+      toast.error("Preencha o nome da etapa.");
       return;
     }
 
     const customStagesCount = stages.filter((s) => !s.is_final).length;
     if (!editingStage && customStagesCount >= 12) {
-      toast.error("Máximo de 12 etapas customizáveis");
+      toast.error("Você pode ter no máximo 12 etapas personalizadas.");
       return;
     }
 
@@ -328,6 +350,8 @@ export const FunnelStagesConfig = ({ funnelId }: FunnelStagesConfigProps) => {
         icon: null,
         // Preserve the structural semantics of won/lost stages while editing.
         stage_type: isFinalStage ? editingStage!.stage_type : stageType,
+        // Etapas finais (ganho/perdido) não representam evento da reunião.
+        linked_event: isFinalStage || linkedEvent === "none" ? null : linkedEvent,
         stage_config: stageConfig,
         default_value: defaultValue ? parseFloat(defaultValue) : null,
         max_days_in_stage: maxDays ? parseInt(maxDays) : null,
@@ -349,7 +373,7 @@ export const FunnelStagesConfig = ({ funnelId }: FunnelStagesConfigProps) => {
 
         if (error) throw error;
         if (!data) throw new Error("Etapa nao atualizada: permissao insuficiente ou registro inexistente");
-        toast.success("Etapa atualizada!");
+        toast.success("Etapa atualizada.");
       } else {
         const { data, error } = await supabase
           .from("funnel_stages")
@@ -362,7 +386,7 @@ export const FunnelStagesConfig = ({ funnelId }: FunnelStagesConfigProps) => {
 
         if (error) throw error;
         if (!data) throw new Error("Etapa nao criada");
-        toast.success("Etapa criada! Configure mais ou vá para Origens.");
+        toast.success("Etapa criada. Adicione outra ou siga para as origens.");
       }
 
       resetForm();
@@ -377,8 +401,8 @@ export const FunnelStagesConfig = ({ funnelId }: FunnelStagesConfigProps) => {
         (("code" in error && error.code === "42501") ||
           ("message" in error && String(error.message).toLowerCase().includes("permiss")));
       toast.error(isPermissionError
-        ? "VocÃª nÃ£o tem permissÃ£o para alterar as etapas deste funil"
-        : "Erro ao salvar etapa");
+        ? "Você não tem permissão para alterar as etapas deste funil."
+        : "Não foi possível salvar a etapa. Tente novamente.");
     } finally {
       setSaving(false);
     }
@@ -392,14 +416,14 @@ export const FunnelStagesConfig = ({ funnelId }: FunnelStagesConfigProps) => {
         .eq("id", stageId);
 
       if (error) throw error;
-      toast.success("Etapa excluída!");
+      toast.success("Etapa excluída.");
       await Promise.all([
         loadStages(),
         queryClient.invalidateQueries({ queryKey: ["pipeline-funnels"] }),
       ]);
     } catch (error) {
       console.error("Erro ao excluir etapa:", error);
-      toast.error("Erro ao excluir etapa");
+      toast.error("Não foi possível excluir a etapa. Tente novamente.");
     }
   };
 
@@ -408,6 +432,7 @@ export const FunnelStagesConfig = ({ funnelId }: FunnelStagesConfigProps) => {
     setDescription("");
     setColor("#3B82F6");
     setStageType("custom");
+    setLinkedEvent("none");
     setStageConfig({});
     setDefaultValue("");
     setMaxDays("");
@@ -421,6 +446,7 @@ export const FunnelStagesConfig = ({ funnelId }: FunnelStagesConfigProps) => {
     setDescription(stage.description || "");
     setColor(stage.color);
     setStageType(stage.stage_type || "custom");
+    setLinkedEvent(isMeetingEvent(stage.linked_event) ? stage.linked_event : "none");
     setStageConfig(stage.stage_config || {});
     setDefaultValue(stage.default_value?.toString() || "");
     setMaxDays(stage.max_days_in_stage?.toString() || "");
@@ -430,6 +456,9 @@ export const FunnelStagesConfig = ({ funnelId }: FunnelStagesConfigProps) => {
     setEditingStage(stage);
     setShowForm(true);
   };
+
+  const linkedEventOwner =
+    linkedEvent === "none" ? null : findMeetingEventOwner(stages, linkedEvent, editingStage?.id);
 
   if (loading) {
     return <div className="text-center py-8">Carregando etapas...</div>;
@@ -448,15 +477,15 @@ export const FunnelStagesConfig = ({ funnelId }: FunnelStagesConfigProps) => {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div>
-          <h3 className="font-semibold">Etapas do Funil</h3>
+          <h3 className="font-semibold">Etapas do funil</h3>
           <p className="text-sm text-muted-foreground">
-            Configure o comportamento de cada etapa: enviar mensagens automáticas, criar tarefas, atribuir agentes e mais. Arraste para reordenar (máximo de 12 etapas customizáveis).
+            Configure o comportamento de cada etapa: enviar mensagens automáticas, criar tarefas, atribuir responsáveis e mais. Arraste para reordenar. O máximo é de 12 etapas personalizadas.
           </p>
         </div>
         {!showForm && stages.filter((s) => !s.is_final).length < 12 && (
           <Button onClick={() => setShowForm(true)} size="sm">
             <Plus className="h-4 w-4 mr-2" />
-            Nova Etapa
+            Nova etapa
           </Button>
         )}
       </div>
@@ -465,11 +494,11 @@ export const FunnelStagesConfig = ({ funnelId }: FunnelStagesConfigProps) => {
         <Card className="p-4 space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label>Nome da Etapa *</Label>
+              <Label>Nome da etapa *</Label>
               <Input
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                placeholder="Ex: Qualificação"
+                placeholder="Ex.: Qualificação"
               />
             </div>
 
@@ -492,13 +521,13 @@ export const FunnelStagesConfig = ({ funnelId }: FunnelStagesConfigProps) => {
             <Textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              placeholder="Descreva esta etapa..."
+              placeholder="Descreva esta etapa"
               rows={2}
             />
           </div>
 
           <div className="space-y-2">
-            <Label>Comportamento da Etapa</Label>
+            <Label>Comportamento da etapa</Label>
             <Select value={stageType} onValueChange={setStageType}>
               <SelectTrigger>
                 <SelectValue placeholder="Selecione o comportamento" />
@@ -507,20 +536,20 @@ export const FunnelStagesConfig = ({ funnelId }: FunnelStagesConfigProps) => {
                 <SelectItem value="custom">
                   <div className="flex flex-col items-start py-1">
                     <div className="flex items-center gap-2">
-                      <span>📋</span> Normal (Processo)
+                      <span>📋</span> Normal (processo)
                     </div>
                     <span className="text-xs text-muted-foreground">
-                      Etapa comum do processo de vendas, sem ação automática
+                      Etapa comum do processo de vendas, sem ação automática.
                     </span>
                   </div>
                 </SelectItem>
                 <SelectItem value="won">
                   <div className="flex flex-col items-start py-1">
                     <div className="flex items-center gap-2">
-                      <span>🎉</span> Ganho/Convertido
+                      <span>🎉</span> Ganho/convertido
                     </div>
                     <span className="text-xs text-muted-foreground">
-                      Marca o lead como venda realizada e registra na produção mensal
+                      Marca o lead como venda realizada e registra na produção mensal.
                     </span>
                   </div>
                 </SelectItem>
@@ -530,47 +559,47 @@ export const FunnelStagesConfig = ({ funnelId }: FunnelStagesConfigProps) => {
                       <span>❌</span> Perdido
                     </div>
                     <span className="text-xs text-muted-foreground">
-                      Marca o lead como oportunidade perdida (cliente recusou/desistiu)
+                      Marca o lead como oportunidade perdida (o lead recusou ou desistiu).
                     </span>
                   </div>
                 </SelectItem>
                 <SelectItem value="discarded">
                   <div className="flex flex-col items-start py-1">
                     <div className="flex items-center gap-2">
-                      <span>🗑️</span> Descartado/Arquivado
+                      <span>🗑️</span> Descartado/arquivado
                     </div>
                     <span className="text-xs text-muted-foreground">
-                      Remove leads inválidos (spam, número errado, teste)
+                      Remove leads inválidos (spam, número errado, teste).
                     </span>
                   </div>
                 </SelectItem>
                 <SelectItem value="send_message">
                   <div className="flex flex-col items-start py-1">
                     <div className="flex items-center gap-2">
-                      <span>💬</span> Enviar Mensagem Automática
+                      <span>💬</span> Enviar mensagem automática
                     </div>
                     <span className="text-xs text-muted-foreground">
-                      Envia uma mensagem WhatsApp quando o lead entra nesta etapa
+                      Envia uma mensagem de WhatsApp quando o lead entra nesta etapa.
                     </span>
                   </div>
                 </SelectItem>
                 <SelectItem value="create_task">
                   <div className="flex flex-col items-start py-1">
                     <div className="flex items-center gap-2">
-                      <span>✅</span> Criar Tarefa de Follow-up
+                      <span>✅</span> Criar tarefa de follow-up
                     </div>
                     <span className="text-xs text-muted-foreground">
-                      Cria automaticamente uma tarefa no Kanban para acompanhamento
+                      Cria uma tarefa no Kanban para acompanhamento.
                     </span>
                   </div>
                 </SelectItem>
                 <SelectItem value="assign_agent">
                   <div className="flex flex-col items-start py-1">
                     <div className="flex items-center gap-2">
-                      <span>👤</span> Atribuir para Agente
+                      <span>👤</span> Atribuir a um responsável
                     </div>
                     <span className="text-xs text-muted-foreground">
-                      Transfere o lead para um agente específico automaticamente
+                      Transfere o lead para um responsável específico.
                     </span>
                   </div>
                 </SelectItem>
@@ -578,13 +607,57 @@ export const FunnelStagesConfig = ({ funnelId }: FunnelStagesConfigProps) => {
             </Select>
           </div>
 
+          {!editingStage?.is_final && (
+            <div className="space-y-2">
+              <Label>Esta etapa representa</Label>
+              <Select
+                value={linkedEvent}
+                onValueChange={(value) => setLinkedEvent(value as MeetingEvent | "none")}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione um evento" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">
+                    <div className="flex flex-col items-start py-1">
+                      <span>Nenhum evento</span>
+                      <span className="text-xs text-muted-foreground">
+                        Etapa de processo, sem evento do atendimento.
+                      </span>
+                    </div>
+                  </SelectItem>
+                  {MEETING_EVENTS.map((event) => (
+                    <SelectItem key={event} value={event}>
+                      <div className="flex flex-col items-start py-1">
+                        <span>{MEETING_EVENT_INFO[event].label}</span>
+                        <span className="text-xs text-muted-foreground">
+                          {MEETING_EVENT_INFO[event].description}
+                        </span>
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                O painel e os lembretes usam este evento para contar agendamentos e comparecimentos.
+                Cada evento fica em uma etapa só por funil.
+              </p>
+              {linkedEventOwner && (
+                <p className="text-xs text-amber-600 dark:text-amber-400">
+                  Hoje a etapa “{linkedEventOwner.name}” representa este evento. Ao salvar, ele passa
+                  para esta etapa.
+                </p>
+              )}
+            </div>
+          )}
+
           {stageType === "send_message" && (
             <div className="space-y-2 p-3 bg-muted rounded-lg">
-              <Label>Mensagem a Enviar</Label>
+              <Label>Mensagem a enviar</Label>
               <Textarea
                 value={stageConfig.message_template || ""}
                 onChange={(e) => setStageConfig({...stageConfig, message_template: e.target.value})}
-                placeholder="Olá {{nome}}, obrigado pelo interesse..."
+                placeholder="Olá {{nome}}, obrigado pelo interesse."
                 rows={3}
               />
               <p className="text-xs text-muted-foreground">
@@ -596,15 +669,15 @@ export const FunnelStagesConfig = ({ funnelId }: FunnelStagesConfigProps) => {
           {stageType === "create_task" && (
             <div className="space-y-4 p-3 bg-muted rounded-lg">
               <div className="space-y-2">
-                <Label>Título da Tarefa</Label>
+                <Label>Título da tarefa</Label>
                 <Input
                   value={stageConfig.task_title || ""}
                   onChange={(e) => setStageConfig({...stageConfig, task_title: e.target.value})}
-                  placeholder="Ex: Follow-up com o lead"
+                  placeholder="Ex.: Follow-up com o lead"
                 />
               </div>
               <div className="space-y-2">
-                <Label>Tempo Estimado (minutos)</Label>
+                <Label>Tempo estimado (minutos)</Label>
                 <Input
                   type="number"
                   value={stageConfig.estimated_time || ""}
@@ -617,7 +690,7 @@ export const FunnelStagesConfig = ({ funnelId }: FunnelStagesConfigProps) => {
 
           {stageType === "assign_agent" && (
             <div className="space-y-2 p-3 bg-muted rounded-lg">
-              <Label>Email do Agente</Label>
+              <Label>E-mail do responsável</Label>
               <Input
                 value={stageConfig.agent_email || ""}
                 onChange={(e) => setStageConfig({...stageConfig, agent_email: e.target.value})}
@@ -630,7 +703,7 @@ export const FunnelStagesConfig = ({ funnelId }: FunnelStagesConfigProps) => {
           )}
 
           <div className="space-y-2">
-            <Label>Valor Padrão (R$)</Label>
+            <Label>Valor padrão (R$)</Label>
             <Input
               type="number"
               value={defaultValue}
@@ -641,21 +714,21 @@ export const FunnelStagesConfig = ({ funnelId }: FunnelStagesConfigProps) => {
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label>Máx. Dias na Etapa</Label>
+              <Label>Máximo de dias na etapa</Label>
               <Input
                 type="number"
                 value={maxDays}
                 onChange={(e) => setMaxDays(e.target.value)}
-                placeholder="Ex: 7"
+                placeholder="Ex.: 7"
               />
             </div>
 
             <div className="space-y-2">
-              <Label>Campos Obrigatórios</Label>
+              <Label>Campos obrigatórios</Label>
               <Input
                 value={requiredFields}
                 onChange={(e) => setRequiredFields(e.target.value)}
-                placeholder="Ex: email, telefone"
+                placeholder="Ex.: e-mail, telefone"
               />
             </div>
           </div>
@@ -696,7 +769,7 @@ export const FunnelStagesConfig = ({ funnelId }: FunnelStagesConfigProps) => {
 
         {/* Etapas Finais (não reordenáveis) */}
         <div className="mt-4 pt-4 border-t space-y-2">
-          <h4 className="text-sm font-medium text-muted-foreground">Etapas Finais</h4>
+          <h4 className="text-sm font-medium text-muted-foreground">Etapas finais</h4>
           {stages
             .filter((s) => s.is_final)
             .map((stage) => (

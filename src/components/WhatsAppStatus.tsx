@@ -104,7 +104,7 @@ export const WhatsAppStatus = () => {
       <CardHeader>
         <CardTitle className="flex items-center gap-3">
           <img src={whatsappLogo} alt="WhatsApp" className="h-6 w-6" />
-          Status da Conexão WhatsApp
+          Status da conexão do WhatsApp
         </CardTitle>
       </CardHeader>
       <CardContent>
@@ -112,15 +112,15 @@ export const WhatsAppStatus = () => {
           {status === 'loading' && (
             <>
               <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-              <span className="text-sm text-muted-foreground">Verificando conexão...</span>
+              <span className="text-sm text-muted-foreground">Verificando conexão…</span>
             </>
           )}
           {status === 'connected' && (
             <>
               <CheckCircle2 className="h-5 w-5 text-green-500" />
               <div>
-                <p className="text-sm font-medium text-foreground">WhatsApp Conectado</p>
-                <p className="text-xs text-muted-foreground">Você pode enviar e receber mensagens normalmente</p>
+                <p className="text-sm font-medium text-foreground">WhatsApp conectado</p>
+                <p className="text-xs text-muted-foreground">Você pode enviar e receber mensagens normalmente.</p>
               </div>
             </>
           )}
@@ -128,8 +128,8 @@ export const WhatsAppStatus = () => {
             <>
               <XCircle className="h-5 w-5 text-destructive" />
               <div>
-                <p className="text-sm font-medium text-foreground">WhatsApp Desconectado</p>
-                <p className="text-xs text-muted-foreground">Entre em contato com o administrador para conectar</p>
+                <p className="text-sm font-medium text-foreground">WhatsApp desconectado</p>
+                <p className="text-xs text-muted-foreground">Peça a um administrador para conectar.</p>
               </div>
             </>
           )}

@@ -71,9 +71,9 @@ export function BulkTagsDialog({
     <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Gerenciar Tags</DialogTitle>
+          <DialogTitle>Gerenciar tags</DialogTitle>
           <DialogDescription>
-            Adicione ou remova tags dos {selectedCount} leads selecionados.
+            {selectedCount === 1 ? "Adicione ou remova tags do lead selecionado." : `Adicione ou remova tags dos ${selectedCount} leads selecionados.`}
           </DialogDescription>
         </DialogHeader>
 
@@ -113,7 +113,7 @@ export function BulkTagsDialog({
 
         {availableTags.length === 0 && (
           <p className="text-sm text-muted-foreground text-center py-4">
-            Nenhuma tag disponível
+            Nenhuma tag disponível ainda.
           </p>
         )}
 

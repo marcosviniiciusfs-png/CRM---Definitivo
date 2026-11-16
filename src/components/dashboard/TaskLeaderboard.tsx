@@ -210,7 +210,7 @@ const Top3Section = ({ top3, type }: { top3: LeaderboardData[]; type: "sales" | 
             {type === "tasks" && (
               <div className="flex items-center gap-1 text-xs text-muted-foreground">
                 <CheckSquare className="h-3 w-3" />
-                <span>{rep.tasks_completed || 0} tarefas</span>
+                <span>{rep.tasks_completed || 0} {rep.tasks_completed === 1 ? 'tarefa' : 'tarefas'}</span>
               </div>
             )}
 
@@ -290,9 +290,9 @@ const RankingCard = ({
           </div>
         ) : (
           <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
-            <span>Mês {rep.won_leads || 0}</span>
+            <span>Vendas {rep.won_leads || 0}</span>
             <span className="text-muted-foreground/50">•</span>
-            <span>Vendas {rep.total_leads || 0}</span>
+            <span>Leads {rep.total_leads || 0}</span>
           </div>
         )}
       </div>
@@ -345,7 +345,7 @@ const RankingCard = ({
           {type === "tasks" && (
             <TooltipContent>
               <div className="text-xs space-y-1">
-                <p className="font-semibold">Sistema de Pontuação:</p>
+                <p className="font-semibold">Como os pontos são calculados:</p>
                 <p>• Tarefa concluída: 2 pts</p>
                 <p>• Dentro do prazo: +1 pt</p>
                 <p>• Dentro do timer: +3 pts</p>
@@ -416,14 +416,14 @@ export function TaskLeaderboard({
         {type === "tasks" ? (
           <>
             <CheckSquare className="h-16 w-16 text-muted-foreground/40 mb-4" />
-            <p className="text-muted-foreground text-lg">Nenhuma tarefa concluída neste período</p>
-            <p className="text-muted-foreground/60 text-sm mt-1">Conclua tarefas para aparecer no ranking</p>
+            <p className="text-muted-foreground text-lg">Nenhuma tarefa concluída neste período.</p>
+            <p className="text-muted-foreground/60 text-sm mt-1">Conclua tarefas para aparecer no ranking.</p>
           </>
         ) : (
           <>
             <Trophy className="h-16 w-16 text-muted-foreground/40 mb-4" />
-            <p className="text-muted-foreground text-lg">Nenhum dado de vendas disponível</p>
-            <p className="text-muted-foreground/60 text-sm mt-1">Realize vendas para aparecer no ranking</p>
+            <p className="text-muted-foreground text-lg">Nenhuma venda neste período.</p>
+            <p className="text-muted-foreground/60 text-sm mt-1">Feche vendas para aparecer no ranking.</p>
           </>
         )}
       </div>
@@ -453,12 +453,12 @@ export function TaskLeaderboard({
           {type === "tasks" ? (
             <>
               <CheckSquare className="h-4 w-4" />
-              Ranking de Tarefas
+              Ranking de tarefas
             </>
           ) : (
             <>
               <Trophy className="h-4 w-4" />
-              Lista de Colaboradores
+              Lista de colaboradores
             </>
           )}
         </h3>
@@ -471,7 +471,7 @@ export function TaskLeaderboard({
 
         {/* Bottom Info */}
         <div className="flex items-center justify-end gap-2 text-xs text-muted-foreground/60 pt-2">
-          <span>© Ranking Kairoz em tempo real</span>
+          <span>© Ranking KairoZ em tempo real</span>
         </div>
       </div>
 

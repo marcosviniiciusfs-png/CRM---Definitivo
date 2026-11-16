@@ -53,7 +53,7 @@ export const FunnelConfigDialog = ({
 
   const handleSave = async () => {
     if (!name.trim()) {
-      toast.error("Nome do funil é obrigatório");
+      toast.error("Preencha o nome do funil.");
       return;
     }
 
@@ -67,7 +67,7 @@ export const FunnelConfigDialog = ({
         .maybeSingle();
 
       if (!orgData) {
-        toast.error("Organização não encontrada");
+        toast.error("Organização não encontrada.");
         return;
       }
 
@@ -85,7 +85,7 @@ export const FunnelConfigDialog = ({
           .eq("id", funnel.id);
 
         if (error) throw error;
-        toast.success("Funil atualizado!");
+        toast.success("Funil atualizado.");
       } else {
         // Criar novo funil
         const { data: newFunnel, error } = await supabase
@@ -103,11 +103,11 @@ export const FunnelConfigDialog = ({
 
         if (error) throw error;
         setFunnelId(newFunnel.id);
-        toast.success("Funil salvo! Configure as etapas e origens.");
+        toast.success("Funil salvo. Configure as etapas e as origens.");
       }
     } catch (error) {
       console.error("Erro ao salvar funil:", error);
-      toast.error("Erro ao salvar funil");
+      toast.error("Não foi possível salvar o funil. Tente novamente.");
     } finally {
       setLoading(false);
     }
@@ -123,7 +123,7 @@ export const FunnelConfigDialog = ({
         await handleSave();
       }
       
-      toast.success(funnel ? "Funil atualizado!" : "Funil criado com sucesso!");
+      toast.success(funnel ? "Funil atualizado." : "Funil criado.");
       onSuccess();
       onOpenChange(false);
     } finally {
@@ -136,11 +136,11 @@ export const FunnelConfigDialog = ({
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>
-            {funnel ? (funnel.is_default ? "Configurar Funil Padrão" : "Editar Funil") : "Novo Funil"}
+            {funnel ? (funnel.is_default ? "Configurar funil padrão" : "Editar funil") : "Novo funil"}
           </DialogTitle>
           {funnel?.is_default && (
             <p className="text-sm text-muted-foreground mt-2">
-              Você pode personalizar completamente o funil padrão: editar informações, configurar comportamentos das etapas e definir origens de leads.
+              Você pode personalizar o funil padrão: editar as informações, configurar o comportamento das etapas e definir as origens dos leads.
             </p>
           )}
         </DialogHeader>
@@ -154,12 +154,12 @@ export const FunnelConfigDialog = ({
 
           <TabsContent value="info" className="space-y-4 mt-4">
             <div className="space-y-2">
-              <Label htmlFor="name">Nome do Funil *</Label>
+              <Label htmlFor="name">Nome do funil *</Label>
               <Input
                 id="name"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                placeholder="Ex: Vendas Odontologia"
+                placeholder="Ex.: Vendas Odontologia"
               />
             </div>
 
@@ -169,7 +169,7 @@ export const FunnelConfigDialog = ({
                 id="description"
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
-                placeholder="Descreva o propósito deste funil..."
+                placeholder="Para que serve este funil"
                 rows={3}
               />
             </div>
@@ -181,9 +181,9 @@ export const FunnelConfigDialog = ({
 
             <div className="flex items-center justify-between py-2">
               <div className="space-y-0.5">
-                <Label>Funil Ativo</Label>
+                <Label>Funil ativo</Label>
                 <p className="text-sm text-muted-foreground">
-                  Funis inativos não aparecem no pipeline
+                  Funis inativos não aparecem no funil de vendas.
                 </p>
               </div>
               <Switch checked={isActive} onCheckedChange={setIsActive} />
@@ -204,7 +204,7 @@ export const FunnelConfigDialog = ({
               <FunnelStagesConfig funnelId={funnelId} />
             ) : (
               <div className="text-center py-8 text-muted-foreground">
-                <p>Salve as informações básicas primeiro para configurar as etapas</p>
+                <p>Salve as informações básicas primeiro para configurar as etapas.</p>
               </div>
             )}
           </TabsContent>
@@ -215,13 +215,13 @@ export const FunnelConfigDialog = ({
                 <FunnelSourceMapping funnelId={funnelId} />
                 <div className="flex justify-end pt-4 border-t">
                   <Button onClick={handleFinish} size="lg" disabled={isFinishing || loading}>
-                    {isFinishing ? "Finalizando..." : (funnel ? "Salvar e Fechar" : "Criar e Configurar")}
+                    {isFinishing ? "Finalizando..." : (funnel ? "Salvar e fechar" : "Criar e configurar")}
                   </Button>
                 </div>
               </div>
             ) : (
               <div className="text-center py-8 text-muted-foreground">
-                <p>Salve as informações básicas primeiro para configurar as origens</p>
+                <p>Salve as informações básicas primeiro para configurar as origens.</p>
               </div>
             )}
           </TabsContent>

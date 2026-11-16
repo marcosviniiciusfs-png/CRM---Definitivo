@@ -1,6 +1,12 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { corsHeaders } from "../_shared/cors.ts";
 import { getEvolutionApiUrl, getEvolutionApiKey, createSupabaseAdmin } from "../_shared/evolution-config.ts";
+import { canManageWhatsAppInstance } from "../_shared/can-manage-whatsapp-instance.ts";
+
+const failure = (status: number, error: string) => new Response(
+  JSON.stringify({ success: false, error }),
+  { status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+);
 
 interface DisconnectInstanceRequest {
   instanceId: string;
@@ -16,7 +22,7 @@ serve(async (req) => {
     // Get user from JWT
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) {
-      throw new Error('Missing authorization header');
+      return failure(401, 'Sessão ausente. Entre novamente para desconectar o canal.');
     }
 
     const supabase = createSupabaseAdmin();
@@ -26,14 +32,15 @@ serve(async (req) => {
     const { data: { user }, error: authError } = await supabase.auth.getUser(token);
 
     if (authError || !user) {
-      throw new Error('Invalid authorization token');
+      return failure(401, 'Sessão inválida ou expirada. Entre novamente.');
     }
 
     // Parse request body
-    const { instanceId } = await req.json() as DisconnectInstanceRequest;
+    const body = await req.json().catch(() => null) as DisconnectInstanceRequest | null;
+    const instanceId = body?.instanceId;
 
-    if (!instanceId) {
-      throw new Error('Instance ID is required');
+    if (typeof instanceId !== 'string' || !/^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i.test(instanceId)) {
+      return failure(400, 'Informe um identificador válido para o canal.');
     }
 
     console.log('Disconnecting instance for user:', user.id, 'Instance ID:', instanceId);
@@ -43,11 +50,14 @@ serve(async (req) => {
       .from('whatsapp_instances')
       .select('*')
       .eq('id', instanceId)
-      .eq('user_id', user.id)
-      .single();
+      .maybeSingle();
 
-    if (fetchError || !instance) {
-      throw new Error('Instance not found or unauthorized');
+    if (fetchError) throw fetchError;
+    if (!instance) {
+      return failure(404, 'Canal não encontrado. Atualize a lista de canais.');
+    }
+    if (!await canManageWhatsAppInstance(supabase, user.id, instance)) {
+      return failure(403, 'Você não tem permissão para gerenciar as integrações deste canal.');
     }
 
     // Get Evolution API credentials
@@ -60,8 +70,9 @@ serve(async (req) => {
     // STEP 1: Logout from Evolution API
     try {
       console.log('🔓 Logging out instance:', instance.instance_name);
-      const logoutResponse = await fetch(`${baseUrl}/instance/logout/${instance.instance_name}`, {
+      const logoutResponse = await fetch(`${baseUrl}/instance/logout/${encodeURIComponent(instance.instance_name)}`, {
         method: 'DELETE',
+        signal: AbortSignal.timeout(15000),
         headers: {
           'Content-Type': 'application/json',
           'apikey': evolutionApiKey,
@@ -83,14 +94,15 @@ serve(async (req) => {
     // ja nao existe na Evolution API por algum cleanup background) — fazia
     // o canal ficar "fantasma" no banco e o usuario via "Erro ao desconectar"
     // sem conseguir remover a linha. Agora logamos e seguimos para o DELETE
-    // do banco assim mesmo. Autorizacao (.eq('user_id', user.id)) ja foi
-    // checada acima — o user e dono da instancia.
+    // do banco assim mesmo. A permissao de gerenciar o canal ja foi
+    // validada acima antes de qualquer chamada externa.
     console.log('🗑️ Deleting instance from Evolution API:', instance.instance_name);
     let evolutionData: any = null;
     let evolutionDeleteWarning: string | null = null;
     try {
-      const deleteResponse = await fetch(`${baseUrl}/instance/delete/${instance.instance_name}`, {
+      const deleteResponse = await fetch(`${baseUrl}/instance/delete/${encodeURIComponent(instance.instance_name)}`, {
         method: 'DELETE',
+        signal: AbortSignal.timeout(15000),
         headers: {
           'Content-Type': 'application/json',
           'apikey': evolutionApiKey,

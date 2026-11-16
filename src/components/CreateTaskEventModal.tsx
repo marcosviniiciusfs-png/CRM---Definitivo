@@ -56,7 +56,7 @@ export const CreateTaskEventModal = ({
     if (!formData.date || !formData.time) {
       toast({
         title: "Campos obrigatórios",
-        description: "Data e horário são obrigatórios",
+        description: "Preencha a data e o horário do evento.",
         variant: "destructive",
       });
       return;
@@ -93,8 +93,8 @@ export const CreateTaskEventModal = ({
         if (updateError) throw updateError;
 
         toast({
-          title: "Evento criado!",
-          description: "Tarefa sincronizada com Google Calendar",
+          title: "Evento criado",
+          description: "A tarefa foi sincronizada com o Google Calendar.",
         });
 
         onEventCreated(card.id, data.eventId, data.eventLink);
@@ -103,8 +103,8 @@ export const CreateTaskEventModal = ({
     } catch (error: any) {
       console.error("Erro ao criar evento:", error);
       toast({
-        title: "Erro",
-        description: error.message || "Não foi possível criar o evento",
+        title: "Não foi possível criar o evento",
+        description: "Tente novamente.",
         variant: "destructive",
       });
     } finally {
@@ -118,7 +118,7 @@ export const CreateTaskEventModal = ({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Calendar className="h-5 w-5 text-primary" />
-            Sincronizar com Google Calendar
+            Sincronizar com o Google Calendar
           </DialogTitle>
           <DialogDescription>
             Criar evento no calendário para a tarefa "{card?.content}"
@@ -127,7 +127,7 @@ export const CreateTaskEventModal = ({
 
         <div className="space-y-4 py-4">
           <div className="space-y-2">
-            <Label htmlFor="title">Título do Evento</Label>
+            <Label htmlFor="title">Título do evento</Label>
             <Input
               id="title"
               value={formData.title}
@@ -142,7 +142,7 @@ export const CreateTaskEventModal = ({
               id="description"
               value={formData.description}
               onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-              placeholder="Detalhes da tarefa..."
+              placeholder="Detalhes da tarefa"
               rows={3}
             />
           </div>
@@ -190,12 +190,12 @@ export const CreateTaskEventModal = ({
             {creating ? (
               <>
                 <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                Criando...
+                Criando
               </>
             ) : (
               <>
                 <Calendar className="h-4 w-4 mr-2" />
-                Criar Evento
+                Criar evento
               </>
             )}
           </Button>

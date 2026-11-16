@@ -47,9 +47,9 @@ export function ExportDialog({
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Exportar Leads</DialogTitle>
+          <DialogTitle>Exportar leads</DialogTitle>
           <DialogDescription>
-            Escolha quais leads deseja exportar para Excel.
+            Escolha quais leads exportar para Excel.
           </DialogDescription>
         </DialogHeader>
 
@@ -62,7 +62,7 @@ export function ExportDialog({
             <div className="flex items-center space-x-2">
               <RadioGroupItem value="selected" id="selected" />
               <Label htmlFor="selected" className="cursor-pointer">
-                <span className="font-medium">{selectedCount} selecionados</span>
+                <span className="font-medium">{selectedCount} {selectedCount === 1 ? "selecionado" : "selecionados"}</span>
                 <span className="text-muted-foreground ml-2">leads marcados na lista</span>
               </Label>
             </div>
@@ -71,7 +71,7 @@ export function ExportDialog({
           <div className="flex items-center space-x-2">
             <RadioGroupItem value="filtered" id="filtered" />
             <Label htmlFor="filtered" className="cursor-pointer">
-              <span className="font-medium">{filteredCount} da filtragem atual</span>
+              <span className="font-medium">{filteredCount} no filtro atual</span>
               <span className="text-muted-foreground ml-2">leads visíveis</span>
             </Label>
           </div>
@@ -90,7 +90,7 @@ export function ExportDialog({
             Cancelar
           </Button>
           <Button onClick={handleExport} disabled={isLoading}>
-            {isLoading ? "Exportando..." : "Exportar Excel"}
+            {isLoading ? "Exportando..." : "Exportar para Excel"}
           </Button>
         </DialogFooter>
       </DialogContent>

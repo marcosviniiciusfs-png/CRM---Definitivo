@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { getEdgeFunctionErrorMessage } from "@/lib/edge-function-error";
 import { useToast } from "@/hooks/use-toast";
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -100,7 +99,8 @@ export function WhatsAppChannelModal({ open, onOpenChange, organizationId, canMa
       .order("created_at", { ascending: true });
 
     if (error) {
-      toast({ title: "Erro ao carregar canais", description: error.message, variant: "destructive" });
+      console.error("Erro ao carregar canais:", error);
+      toast({ title: "Não foi possível carregar os canais", description: "Tente novamente.", variant: "destructive" });
     } else {
       setChannels((data || []) as WhatsAppChannel[]);
     }
@@ -135,9 +135,10 @@ export function WhatsAppChannelModal({ open, onOpenChange, organizationId, canMa
 
     setGroupsLoading((current) => ({ ...current, [channel.id]: false }));
     if (error || data?.success === false) {
+      console.error("Erro ao carregar grupos:", data?.error || error);
       toast({
-        title: "Erro ao carregar grupos",
-        description: data?.error || error?.message || "Não foi possível listar os grupos deste canal.",
+        title: "Não foi possível carregar os grupos",
+        description: "Tente novamente.",
         variant: "destructive",
       });
       return;
@@ -253,7 +254,8 @@ export function WhatsAppChannelModal({ open, onOpenChange, organizationId, canMa
       .eq("id", channelId);
 
     if (error) {
-      toast({ title: "Erro ao renomear", description: error.message, variant: "destructive" });
+      console.error("Erro ao renomear canal:", error);
+      toast({ title: "Não foi possível renomear o canal", description: "Tente novamente.", variant: "destructive" });
     } else {
       setChannels((prev) =>
         prev.map((c) => (c.id === channelId ? { ...c, channel_name: editName.trim() } : c))
@@ -295,14 +297,14 @@ export function WhatsAppChannelModal({ open, onOpenChange, organizationId, canMa
       toast({
         title: enabled ? "Canal recebendo novos leads" : "Canal pausado para novos leads",
         description: enabled
-          ? "Este número será usado para criar leads novos."
-          : "Este número continuará nas conversas, mas não criará novos leads.",
+          ? "Este número passa a criar leads novos."
+          : "Este número continua nas conversas, mas não cria novos leads.",
       });
     } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : "Não foi possível alterar o número criador de leads.";
+      console.error("Erro ao atualizar canal:", error);
       toast({
-        title: "Erro ao atualizar canal",
-        description: message,
+        title: "Não foi possível atualizar o canal",
+        description: "Tente novamente.",
         variant: "destructive",
       });
     } finally {
@@ -315,7 +317,7 @@ export function WhatsAppChannelModal({ open, onOpenChange, organizationId, canMa
     if (current.includes(source) && current.length === 1) {
       toast({
         title: "Selecione pelo menos uma origem",
-        description: "O aviso precisa permanecer vinculado a uma origem de lead.",
+        description: "O aviso precisa de uma origem de lead.",
         variant: "destructive",
       });
       return;
@@ -354,13 +356,14 @@ export function WhatsAppChannelModal({ open, onOpenChange, organizationId, canMa
       toast({
         title: "Regras de interesse salvas",
         description: rules.length
-          ? "Os próximos avisos usarão essas regras na primeira mensagem do lead."
-          : "Nenhuma regra ativa: o aviso mostrará \"Não informado\" para leads do WhatsApp.",
+          ? "Os próximos avisos usam essas regras na primeira mensagem do lead."
+          : "Nenhuma regra ativa. O aviso mostra \"Não informado\" para leads do WhatsApp.",
       });
     } catch (error: unknown) {
+      console.error("Erro ao salvar regras de interesse:", error);
       toast({
-        title: "Erro ao salvar regras",
-        description: error instanceof Error ? error.message : "Não foi possível salvar as regras de interesse.",
+        title: "Não foi possível salvar as regras",
+        description: "Tente novamente.",
         variant: "destructive",
       });
     } finally {
@@ -419,13 +422,14 @@ export function WhatsAppChannelModal({ open, onOpenChange, organizationId, canMa
       toast({
         title: enabled ? "Avisos de novos leads ativados" : "Avisos de novos leads desativados",
         description: enabled
-          ? "Novos leads das origens selecionadas serão enviados ao grupo."
-          : "Este canal não enviará avisos ao grupo.",
+          ? "Novos leads das origens selecionadas são enviados ao grupo."
+          : "Este canal não envia mais avisos ao grupo.",
       });
     } catch (error: unknown) {
+      console.error("Erro ao atualizar avisos:", error);
       toast({
-        title: "Erro ao atualizar avisos",
-        description: error instanceof Error ? error.message : "Não foi possível salvar a configuração.",
+        title: "Não foi possível atualizar os avisos",
+        description: "Tente novamente.",
         variant: "destructive",
       });
     } finally {
@@ -449,9 +453,10 @@ export function WhatsAppChannelModal({ open, onOpenChange, organizationId, canMa
       .eq("id", channel.id)
       .eq("organization_id", organizationId);
     if (error) {
+      console.error("Erro ao salvar grupo:", error);
       toast({
-        title: "Erro ao salvar grupo",
-        description: error.message,
+        title: "Não foi possível salvar o grupo",
+        description: "Tente novamente.",
         variant: "destructive",
       });
       return;
@@ -487,12 +492,13 @@ export function WhatsAppChannelModal({ open, onOpenChange, organizationId, canMa
       }
       toast({
         title: "Alertas reenviados",
-        description: `${data?.attempted ?? 0} enviado(s) agora. ${data?.remaining ?? 0} restante(s) para o próximo envio.`,
+        description: `${data?.attempted ?? 0} ${(data?.attempted ?? 0) === 1 ? "alerta enviado" : "alertas enviados"} agora. ${data?.remaining ?? 0} ${(data?.remaining ?? 0) === 1 ? "fica" : "ficam"} para o próximo envio.`,
       });
     } catch (error: unknown) {
+      console.error("Erro ao reenviar alertas:", error);
       toast({
-        title: "Erro ao reenviar alertas",
-        description: error instanceof Error ? error.message : "Não foi possível reenviar os alertas.",
+        title: "Não foi possível reenviar os alertas",
+        description: "Tente novamente.",
         variant: "destructive",
       });
     } finally {
@@ -514,9 +520,10 @@ export function WhatsAppChannelModal({ open, onOpenChange, organizationId, canMa
       toast({ title: "Canal desconectado" });
       await loadChannels();
     } catch (error: unknown) {
+      console.error("Erro ao desconectar canal:", error);
       toast({
-        title: "Erro ao desconectar",
-        description: await getEdgeFunctionErrorMessage(error, "Não foi possível desconectar o canal."),
+        title: "Não foi possível desconectar o canal",
+        description: "Tente novamente.",
         variant: "destructive",
       });
     }
@@ -538,15 +545,16 @@ export function WhatsAppChannelModal({ open, onOpenChange, organizationId, canMa
         },
       });
       if (error || data?.success === false) {
+        console.error("Erro ao reconfigurar webhooks:", data?.error || data?.message || error);
         toast({
-          title: "Erro ao reconfigurar webhooks",
-          description: data?.error || data?.message || error?.message,
+          title: "Não foi possível reconfigurar os Webhooks",
+          description: "Tente novamente.",
           variant: "destructive",
         });
       } else {
         toast({
           title: "Webhooks reconfigurados",
-          description: data?.message || "Mensagens devem voltar a chegar em alguns segundos.",
+          description: "As mensagens voltam a chegar em alguns segundos.",
         });
       }
     } finally {
@@ -560,9 +568,9 @@ export function WhatsAppChannelModal({ open, onOpenChange, organizationId, canMa
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[640px] p-0 gap-0 overflow-hidden">
-        <DialogTitle className="sr-only">Canais WhatsApp</DialogTitle>
+        <DialogTitle className="sr-only">Canais de WhatsApp</DialogTitle>
         <DialogDescription className="sr-only">
-          Gerencie os canais WhatsApp conectados a esta organização. Conecte até 5 números diferentes.
+          Gerencie os canais de WhatsApp desta organização. Você pode conectar até 5 números.
         </DialogDescription>
         {/* Header */}
         <div className="px-5 py-4 border-b flex items-center justify-between">
@@ -571,7 +579,7 @@ export function WhatsAppChannelModal({ open, onOpenChange, organizationId, canMa
               💬
             </div>
             <div>
-              <h3 className="font-semibold text-[15px]">Canais WhatsApp</h3>
+              <h3 className="font-semibold text-[15px]">Canais de WhatsApp</h3>
               <p className="text-[11px] text-muted-foreground">
                 {connectedCount} de {MAX_CHANNELS} canais conectados
               </p>
@@ -584,9 +592,9 @@ export function WhatsAppChannelModal({ open, onOpenChange, organizationId, canMa
               className="h-7 text-[10px] px-2.5"
               disabled={reconfiguring}
               onClick={handleReconfigureWebhooks}
-              title="Reaplica a configuracao de webhook em todos os canais conectados desta organizacao. Use se as mensagens pararam de chegar apos conectar um novo canal."
+              title="Reaplica a configuração do Webhook em todos os canais conectados. Use se as mensagens pararam de chegar depois de conectar um novo canal."
             >
-              {reconfiguring ? "Reconfigurando..." : "Reconfigurar webhooks"}
+              {reconfiguring ? "Reconfigurando…" : "Reconfigurar Webhooks"}
             </Button>
           )}
         </div>
@@ -595,8 +603,8 @@ export function WhatsAppChannelModal({ open, onOpenChange, organizationId, canMa
           <div className="flex items-center justify-between gap-2 px-4 pt-3">
             <p className="text-[11px] text-muted-foreground">
               {missedAlerts > 0
-                ? `${missedAlerts} alerta(s) de lead perdido(s) nas últimas 24h`
-                : "Nenhum alerta de lead perdido nas últimas 24h"}
+                ? `${missedAlerts} ${missedAlerts === 1 ? "alerta de lead perdido" : "alertas de lead perdido"} nas últimas 24 horas.`
+                : "Nenhum alerta de lead perdido nas últimas 24 horas."}
             </p>
             <Button
               type="button"
@@ -606,7 +614,7 @@ export function WhatsAppChannelModal({ open, onOpenChange, organizationId, canMa
               disabled={missedSending || missedAlerts === 0}
               onClick={() => void handleSendMissedAlerts()}
             >
-              {missedSending ? "Enviando..." : "Reenviar alertas perdidos"}
+              {missedSending ? "Enviando…" : "Reenviar alertas"}
             </Button>
           </div>
         )}
@@ -614,10 +622,10 @@ export function WhatsAppChannelModal({ open, onOpenChange, organizationId, canMa
         {/* Channel List */}
         <div className="px-4 py-2 max-h-[62vh] overflow-y-auto">
           {loading ? (
-            <div className="py-8 text-center text-muted-foreground text-sm">Carregando...</div>
+            <div className="py-8 text-center text-muted-foreground text-sm">Carregando…</div>
           ) : channels.length === 0 ? (
             <div className="py-8 text-center text-muted-foreground text-sm">
-              Nenhum canal conectado
+              Nenhum canal de WhatsApp conectado ainda.
             </div>
           ) : (
             channels.map((channel) => (
@@ -655,8 +663,8 @@ export function WhatsAppChannelModal({ open, onOpenChange, organizationId, canMa
                         )}
                       </div>
                       <div className="text-[11px] text-muted-foreground">
-                        {channel.phone_number || "Aguardando..."}
-                        {leadCounts[channel.id] != null && ` · ${leadCounts[channel.id]} leads`}
+                        {channel.phone_number || "Aguardando…"}
+                        {leadCounts[channel.id] != null && ` · ${leadCounts[channel.id]} ${leadCounts[channel.id] === 1 ? "lead" : "leads"}`}
                       </div>
                       {isConnected(channel.status) && (
                         <div className="mt-2 flex items-center justify-between gap-3 rounded-md border border-emerald-200/70 bg-emerald-50 px-2.5 py-2">
@@ -701,7 +709,7 @@ export function WhatsAppChannelModal({ open, onOpenChange, organizationId, canMa
                             onValueChange={(value) => void handleAlertGroupSelect(channel, value)}
                           >
                             <SelectTrigger className="h-8 text-xs">
-                              <SelectValue placeholder={groupsLoading[channel.id] ? "Carregando grupos..." : "Selecionar grupo"} />
+                              <SelectValue placeholder={groupsLoading[channel.id] ? "Carregando grupos…" : "Selecione um grupo"} />
                             </SelectTrigger>
                             <SelectContent>
                               {(() => {
@@ -758,7 +766,7 @@ export function WhatsAppChannelModal({ open, onOpenChange, organizationId, canMa
                                   value={draft.keywords}
                                   disabled={!canManage || interestRulesSaving === channel.id}
                                   onChange={(event) => updateInterestRuleDraft(channel.id, index, { keywords: event.target.value })}
-                                  placeholder="Palavras (separe por vírgula)"
+                                  placeholder="Palavras, separadas por vírgula"
                                   className="h-7 flex-1 text-[11px]"
                                   aria-label="Palavras da primeira mensagem"
                                 />
@@ -811,7 +819,7 @@ export function WhatsAppChannelModal({ open, onOpenChange, organizationId, canMa
                                   disabled={interestRulesSaving === channel.id}
                                   onClick={() => void handleInterestRulesSave(channel)}
                                 >
-                                  {interestRulesSaving === channel.id ? "Salvando..." : "Salvar regras"}
+                                  {interestRulesSaving === channel.id ? "Salvando…" : "Salvar regras"}
                                 </Button>
                               </div>
                             )}
@@ -836,7 +844,7 @@ export function WhatsAppChannelModal({ open, onOpenChange, organizationId, canMa
                       variant="outline"
                       className="h-7 text-[10px] px-2.5"
                       onClick={() => setAssigningChannel(channel)}
-                      title="Atribuir colaboradores que veem leads deste canal"
+                      title="Escolha os colaboradores que veem os leads deste canal"
                     >
                       Atribuir
                     </Button>
@@ -870,7 +878,7 @@ export function WhatsAppChannelModal({ open, onOpenChange, organizationId, canMa
               disabled={remaining <= 0 || !canManage}
               onClick={() => setShowConnect(true)}
             >
-              + Conectar novo canal {remaining > 0 ? `(${remaining} restante${remaining !== 1 ? "s" : ""})` : "(limite atingido)"}
+              Conectar novo canal {remaining > 0 ? `(${remaining} ${remaining === 1 ? "restante" : "restantes"})` : "(limite atingido)"}
             </Button>
           )}
         </div>

@@ -51,8 +51,8 @@ export const DiagnoseWebhook = () => {
         if (data.success && data.cleaned > 0) {
           console.log(`✅ ${data.cleaned} instância(s) inválida(s) removidas`);
           toast({
-            title: "Instâncias limpas",
-            description: `${data.cleaned} instância(s) inválida(s) foram removidas.`,
+            title: "Instâncias removidas",
+            description: data.cleaned === 1 ? "1 instância inválida foi removida." : `${data.cleaned} instâncias inválidas foram removidas.`,
           });
           
           // NÃO RECARREGAR - deixar o Realtime atualizar naturalmente
@@ -88,20 +88,20 @@ export const DiagnoseWebhook = () => {
       
       if (data.success) {
         toast({
-          title: "Teste concluído ✅",
-          description: "O webhook está funcionando corretamente!",
+          title: "Teste concluído",
+          description: "O Webhook está funcionando.",
         });
       } else {
         toast({
-          title: "Problema detectado ❌",
-          description: "O webhook não está processando mensagens corretamente.",
+          title: "Problema detectado",
+          description: "O Webhook não está processando as mensagens. Reconfigure o Webhook e teste de novo.",
           variant: "destructive",
         });
       }
     } catch (error: any) {
       console.error('Erro ao diagnosticar:', error);
       toast({
-        title: "Erro no diagnóstico",
+        title: "Não foi possível fazer o diagnóstico",
         description: error.message,
         variant: "destructive",
       });
@@ -128,7 +128,7 @@ export const DiagnoseWebhook = () => {
       if (error) throw error;
 
       toast({
-        title: "Limpeza concluída! ✅",
+        title: "Limpeza concluída",
         description: data.message,
       });
 
@@ -139,7 +139,7 @@ export const DiagnoseWebhook = () => {
     } catch (error: any) {
       console.error('Erro ao limpar instâncias:', error);
       toast({
-        title: "Erro na limpeza",
+        title: "Não foi possível limpar as instâncias",
         description: error.message,
         variant: "destructive",
       });
@@ -166,15 +166,15 @@ export const DiagnoseWebhook = () => {
       if (error) throw error;
 
       toast({
-        title: "Webhook Reconfigurado! ✅",
-        description: "Agora envie uma mensagem de teste no WhatsApp.",
+        title: "Webhook reconfigurado",
+        description: "Envie uma mensagem de teste no WhatsApp.",
       });
 
       setResult(data);
     } catch (error: any) {
       console.error('Erro ao corrigir webhook:', error);
       toast({
-        title: "Erro ao reconfigurar",
+        title: "Não foi possível reconfigurar o Webhook",
         description: error.message,
         variant: "destructive",
       });
@@ -191,7 +191,7 @@ export const DiagnoseWebhook = () => {
           Diagnóstico do Webhook
         </CardTitle>
         <CardDescription>
-          Teste se o webhook está recebendo mensagens da Evolution API
+          Teste se o Webhook está recebendo mensagens da Evolution API.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -215,12 +215,12 @@ export const DiagnoseWebhook = () => {
               {cleaning ? (
                 <>
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Limpando...
+                  Limpando…
                 </>
               ) : (
                 <>
                   <Trash2 className="h-4 w-4 mr-2" />
-                  Limpar Instâncias Inválidas
+                  Limpar instâncias inválidas
                 </>
               )}
             </Button>
@@ -236,7 +236,7 @@ export const DiagnoseWebhook = () => {
               {diagnosing ? (
                 <>
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Testando...
+                  Testando…
                 </>
               ) : (
                 <>
@@ -254,7 +254,7 @@ export const DiagnoseWebhook = () => {
               {fixing ? (
                 <>
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Reconfigurando V1...
+                  Reconfigurando V1…
                 </>
               ) : (
                 <>
@@ -282,15 +282,15 @@ export const DiagnoseWebhook = () => {
                   if (error) throw error;
 
                   toast({
-                    title: "Webhook Reconfigurado! ✅",
-                    description: `Versão: ${data.version}. Envie uma mensagem de teste.`,
+                    title: "Webhook reconfigurado",
+                    description: `Versão ${data.version}. Envie uma mensagem de teste.`,
                   });
 
                   setResult(data);
                 } catch (error: any) {
                   console.error('Erro ao corrigir webhook:', error);
                   toast({
-                    title: "Erro ao reconfigurar",
+                    title: "Não foi possível reconfigurar o Webhook",
                     description: error.message,
                     variant: "destructive",
                   });
@@ -304,7 +304,7 @@ export const DiagnoseWebhook = () => {
               {fixing ? (
                 <>
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Reconfigurando V2...
+                  Reconfigurando V2…
                 </>
               ) : (
                 <>
@@ -341,10 +341,10 @@ export const DiagnoseWebhook = () => {
           <AlertDescription className="text-xs">
             <strong>Instruções:</strong>
             <ol className="list-decimal list-inside mt-2 space-y-1">
-              <li>Clique em "Reconfigurar Webhook" primeiro</li>
-              <li>Aguarde a confirmação de sucesso</li>
-              <li>Envie uma mensagem de TESTE no WhatsApp conectado</li>
-              <li>Verifique se o lead aparece na sessão Leads/Chat</li>
+              <li>Clique em "Reconfigurar Webhook" primeiro.</li>
+              <li>Aguarde a confirmação.</li>
+              <li>Envie uma mensagem de teste no WhatsApp conectado.</li>
+              <li>Veja se o lead aparece em Leads e no Chat.</li>
             </ol>
           </AlertDescription>
         </Alert>

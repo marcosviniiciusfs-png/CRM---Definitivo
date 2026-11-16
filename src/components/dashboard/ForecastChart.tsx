@@ -25,7 +25,7 @@ export function ForecastChart({ data, isLoading }: ForecastChartProps) {
     return (
       <Card className="h-full">
         <CardHeader className="pb-2">
-          <CardTitle className="text-sm font-medium text-muted-foreground">Tendência de Vendas</CardTitle>
+          <CardTitle className="text-sm font-medium text-muted-foreground">Tendência de vendas</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="h-[200px] animate-pulse bg-muted rounded" />
@@ -37,12 +37,12 @@ export function ForecastChart({ data, isLoading }: ForecastChartProps) {
   return (
     <Card className="h-full">
       <CardHeader className="pb-2">
-        <CardTitle className="text-sm font-medium text-muted-foreground">Tendência de Vendas</CardTitle>
+        <CardTitle className="text-sm font-medium text-muted-foreground">Tendência de vendas</CardTitle>
       </CardHeader>
       <CardContent>
         {data.length === 0 ? (
           <div className="h-[200px] flex items-center justify-center text-sm text-muted-foreground">
-            Nenhum dado disponível
+            Nenhuma venda neste período.
           </div>
         ) : (
           <div className="h-[200px]">

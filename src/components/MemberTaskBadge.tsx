@@ -65,7 +65,7 @@ const TaskStatsTooltip = ({ stats }: TaskStatsTooltipProps) => {
   if (stats.total === 0) {
     return (
       <div className="p-3 text-center text-sm text-muted-foreground">
-        Nenhuma tarefa atribuída
+        Nenhuma tarefa atribuída.
       </div>
     );
   }
@@ -73,7 +73,7 @@ const TaskStatsTooltip = ({ stats }: TaskStatsTooltipProps) => {
   return (
     <div className="p-3 space-y-3">
       <div className="flex items-center justify-between border-b border-border pb-2">
-        <span className="text-sm font-semibold">Tarefas Atribuídas</span>
+        <span className="text-sm font-semibold">Tarefas atribuídas</span>
         <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full font-medium">
           {stats.total} total
         </span>
@@ -103,7 +103,7 @@ const TaskStatsTooltip = ({ stats }: TaskStatsTooltipProps) => {
       {stats.overdueCount > 0 && (
         <div className="flex items-center gap-2 pt-2 border-t border-border text-red-500 text-xs">
           <AlertCircle className="h-3.5 w-3.5" />
-          <span>{stats.overdueCount} tarefa(s) atrasada(s)</span>
+          <span>{stats.overdueCount === 1 ? "1 tarefa atrasada" : `${stats.overdueCount} tarefas atrasadas`}</span>
         </div>
       )}
     </div>

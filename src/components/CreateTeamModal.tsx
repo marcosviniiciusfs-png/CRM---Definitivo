@@ -82,7 +82,7 @@ export function CreateTeamModal({ open, onOpenChange, organizationId, members, o
 
   const handleSave = async () => {
     if (!formData.name.trim()) {
-      toast.error("Nome da equipe é obrigatório");
+      toast.error("Preencha o nome da equipe.");
       return;
     }
 
@@ -156,13 +156,13 @@ export function CreateTeamModal({ open, onOpenChange, organizationId, members, o
         }
       }
 
-      toast.success("Equipe criada com sucesso!");
+      toast.success("Equipe criada.");
       queryClient.invalidateQueries({ queryKey: ["teams"] });
       onOpenChange(false);
       onSuccess?.();
     } catch (error: any) {
       console.error('Error creating team:', error);
-      toast.error("Erro ao criar equipe: " + error.message);
+      toast.error("Não foi possível criar a equipe. Tente novamente.");
     } finally {
       setLoading(false);
     }
@@ -172,9 +172,9 @@ export function CreateTeamModal({ open, onOpenChange, organizationId, members, o
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Nova Equipe</DialogTitle>
+          <DialogTitle>Nova equipe</DialogTitle>
           <DialogDescription>
-            Crie uma nova equipe e defina seu líder
+            Crie uma equipe e escolha o líder.
           </DialogDescription>
         </DialogHeader>
 
@@ -209,12 +209,12 @@ export function CreateTeamModal({ open, onOpenChange, organizationId, members, o
 
           {/* Name */}
           <div className="space-y-2">
-            <Label htmlFor="name">Nome da Equipe *</Label>
+            <Label htmlFor="name">Nome da equipe *</Label>
             <Input
               id="name"
               value={formData.name}
               onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              placeholder="Ex: Vendas Premium"
+              placeholder="Ex.: Vendas Premium"
             />
           </div>
 
@@ -225,14 +225,14 @@ export function CreateTeamModal({ open, onOpenChange, organizationId, members, o
               id="description"
               value={formData.description}
               onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-              placeholder="Descrição da equipe (opcional)"
+              placeholder="Descreva a equipe (opcional)"
               rows={2}
             />
           </div>
 
           {/* Color */}
           <div className="space-y-2">
-            <Label>Cor da Equipe</Label>
+            <Label>Cor da equipe</Label>
             <div className="flex flex-wrap gap-2">
               {TEAM_COLORS.map((color) => (
                 <button
@@ -251,7 +251,7 @@ export function CreateTeamModal({ open, onOpenChange, organizationId, members, o
 
           {/* Leader */}
           <div className="space-y-2">
-            <Label>Líder da Equipe</Label>
+            <Label>Líder da equipe</Label>
             <Select
               value={formData.leader_id}
               onValueChange={(value) => setFormData({ ...formData, leader_id: value })}
@@ -272,7 +272,7 @@ export function CreateTeamModal({ open, onOpenChange, organizationId, members, o
 
           {/* Members Selection */}
           <div className="space-y-2">
-            <Label>Membros da Equipe</Label>
+            <Label>Colaboradores da equipe</Label>
             <div className="border rounded-lg p-3 max-h-48 overflow-y-auto space-y-2">
               {members && members.length > 0 ? members.map((member) => (
                 <div 
@@ -298,7 +298,7 @@ export function CreateTeamModal({ open, onOpenChange, organizationId, members, o
                 </div>
               )) : (
                 <p className="text-sm text-muted-foreground text-center py-4">
-                  Nenhum membro disponível
+                  Nenhum colaborador disponível.
                 </p>
               )}
             </div>
@@ -310,7 +310,7 @@ export function CreateTeamModal({ open, onOpenChange, organizationId, members, o
             Cancelar
           </Button>
           <Button onClick={handleSave} disabled={loading}>
-            {loading ? "Criando..." : "Criar Equipe"}
+            {loading ? "Criando..." : "Criar equipe"}
           </Button>
         </div>
       </DialogContent>

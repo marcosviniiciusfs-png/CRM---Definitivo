@@ -317,13 +317,14 @@ export function LeadDistributionList({ onNavigateToAgentSettings }: LeadDistribu
       setProgress((prev) => ({ ...prev, isRunning: false }));
       queryClient.invalidateQueries({ queryKey: ["unassigned-leads-count"] });
       if (data.redistributed_count > 0) {
-        toast.success(`${data.redistributed_count} leads redistribuidos com sucesso!`);
+        toast.success(`${data.redistributed_count} ${data.redistributed_count === 1 ? "lead redistribuído" : "leads redistribuídos"}.`);
       } else {
-        toast.info("Nenhum lead para redistribuir");
+        toast.info("Nenhum lead para redistribuir.");
       }
     },
     onError: (error: any) => {
-      toast.error(error?.message || "Erro ao redistribuir leads");
+      console.error("Erro ao redistribuir leads:", error);
+      toast.error("Não foi possível redistribuir os leads. Tente novamente.");
       setProgress((prev) => ({ ...prev, isRunning: false }));
     },
   });
@@ -335,9 +336,9 @@ export function LeadDistributionList({ onNavigateToAgentSettings }: LeadDistribu
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["lead-distribution-configs"] });
-      toast.success("Roleta excluida com sucesso");
+      toast.success("Roleta excluída.");
     },
-    onError: () => { toast.error("Erro ao excluir roleta"); },
+    onError: () => { toast.error("Não foi possível excluir a roleta. Tente novamente."); },
   });
 
   const toggleActiveMutation = useMutation({
@@ -350,9 +351,9 @@ export function LeadDistributionList({ onNavigateToAgentSettings }: LeadDistribu
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["lead-distribution-configs"] });
-      toast.success("Status atualizado com sucesso");
+      toast.success("Status atualizado.");
     },
-    onError: () => { toast.error("Erro ao atualizar status"); },
+    onError: () => { toast.error("Não foi possível atualizar o status. Tente novamente."); },
   });
 
   const getSourceTypeLabel = (sourceType: string) => {
@@ -361,7 +362,7 @@ export function LeadDistributionList({ onNavigateToAgentSettings }: LeadDistribu
   };
 
   const getMethodLabel = (method: string) => {
-    const labels: Record<string, string> = { round_robin: "Rodizio", weighted: "Por porcentagem", load_based: "Por Carga", random: "Aleatorio", conversion_priority: "Smart AI" };
+    const labels: Record<string, string> = { round_robin: "Rodízio", weighted: "Por porcentagem", load_based: "Por carga", random: "Aleatório", conversion_priority: "Smart AI" };
     return labels[method] || method;
   };
 
@@ -390,10 +391,10 @@ export function LeadDistributionList({ onNavigateToAgentSettings }: LeadDistribu
     const seconds = Math.floor(diff / 1000);
     if (seconds < 60) return "agora";
     const minutes = Math.floor(seconds / 60);
-    if (minutes < 60) return `ha ${minutes}min`;
+    if (minutes < 60) return `há ${minutes}min`;
     const hours = Math.floor(minutes / 60);
-    if (hours < 24) return `ha ${hours}h`;
-    return `ha ${Math.floor(hours / 24)}d`;
+    if (hours < 24) return `há ${hours}h`;
+    return `há ${Math.floor(hours / 24)}d`;
   }
 
   if (isLoading) return <LoadingAnimation text="Carregando roletas" />;
@@ -403,9 +404,9 @@ export function LeadDistributionList({ onNavigateToAgentSettings }: LeadDistribu
       {/* Section Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-lg font-semibold">Roletas de Distribuicao</h2>
+          <h2 className="text-lg font-semibold">Roletas de distribuição</h2>
           <p className="text-sm text-muted-foreground mt-0.5">
-            Configure roletas para distribuir leads automaticamente entre sua equipe
+            Crie roletas para distribuir leads automaticamente entre os colaboradores.
           </p>
         </div>
         <Button onClick={handleCreate} className="gap-2">
@@ -426,12 +427,12 @@ export function LeadDistributionList({ onNavigateToAgentSettings }: LeadDistribu
                 <p className="text-sm font-semibold text-orange-800 dark:text-orange-300">
                   {progress.isRunning
                     ? `Redistribuindo... ${progress.processed}/${progress.total}`
-                    : `${unassignedCount} lead${unassignedCount !== 1 ? "s" : ""} sem responsavel`}
+                    : `${unassignedCount} ${unassignedCount === 1 ? "lead sem responsável" : "leads sem responsável"}`}
                 </p>
                 <p className="text-xs text-orange-600/70 dark:text-orange-400/60">
                   {progress.isRunning
-                    ? "Aguarde enquanto os leads sao distribuidos..."
-                    : "Leads recebidos via WhatsApp e Facebook que nao foram distribuidos"}
+                    ? "Aguarde enquanto os leads são distribuídos."
+                    : "Leads do WhatsApp e do Facebook que não foram distribuídos."}
                 </p>
               </div>
             </div>
@@ -471,7 +472,7 @@ export function LeadDistributionList({ onNavigateToAgentSettings }: LeadDistribu
           {!progress.isRunning && progress.processed > 0 && (
             <div className="mt-3 flex items-center gap-2 text-sm text-emerald-700 dark:text-emerald-400">
               <CheckCircle2 className="h-4 w-4" />
-              <span className="font-medium">{progress.processed} leads redistribuidos com sucesso</span>
+              <span className="font-medium">{progress.processed} {progress.processed === 1 ? "lead redistribuído" : "leads redistribuídos"}</span>
             </div>
           )}
         </div>
@@ -484,13 +485,13 @@ export function LeadDistributionList({ onNavigateToAgentSettings }: LeadDistribu
             <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-muted mb-4">
               <RefreshCw className="h-6 w-6 text-muted-foreground" />
             </div>
-            <p className="text-sm font-medium text-muted-foreground mb-1">Nenhuma roleta configurada</p>
+            <p className="text-sm font-medium text-muted-foreground mb-1">Nenhuma roleta ainda.</p>
             <p className="text-xs text-muted-foreground mb-4">
-              Crie sua primeira roleta para comecar a distribuir leads automaticamente
+              Crie uma roleta para começar a distribuir leads automaticamente.
             </p>
             <Button onClick={handleCreate} variant="outline" className="gap-2">
               <Plus className="h-4 w-4" />
-              Criar primeira roleta
+              Criar roleta
             </Button>
           </div>
         ) : (
@@ -587,7 +588,7 @@ export function LeadDistributionList({ onNavigateToAgentSettings }: LeadDistribu
                             <button
                               onClick={() => {
                                 setOpenMenuId(null);
-                                if (confirm("Tem certeza que deseja excluir esta roleta?")) deleteMutation.mutate(config.id);
+                                if (confirm("Excluir esta roleta? Não dá para desfazer.")) deleteMutation.mutate(config.id);
                               }}
                               className="flex items-center gap-2 w-full px-3 py-2 text-sm text-destructive hover:bg-destructive/10 transition-colors"
                             >
@@ -620,7 +621,7 @@ export function LeadDistributionList({ onNavigateToAgentSettings }: LeadDistribu
                         </div>
                       )}
                       <span className="text-xs text-muted-foreground ml-2">
-                        {agentCount} {agentCount === 1 ? "agente" : "agentes"}
+                        {agentCount} {agentCount === 1 ? "colaborador" : "colaboradores"}
                       </span>
                     </div>
                   </div>
@@ -649,7 +650,7 @@ export function LeadDistributionList({ onNavigateToAgentSettings }: LeadDistribu
                       </div>
                       <div className="flex items-center gap-1.5 text-xs">
                         <Clock className="h-3.5 w-3.5 text-muted-foreground" />
-                        <span className="text-muted-foreground">Ultima</span>
+                        <span className="text-muted-foreground">Última</span>
                         <span className="font-medium">{getRelativeTime(stats?.lastAt)}</span>
                       </div>
                     </div>
@@ -670,8 +671,8 @@ export function LeadDistributionList({ onNavigateToAgentSettings }: LeadDistribu
         onConfirm={handleRedistributeConfirm}
         isPending={redistributeMutation.isPending}
         showAutoOption={true}
-        title="Redistribuir Leads sem Responsavel"
-        description="Escolha qual roleta usar para redistribuir os leads."
+        title="Redistribuir leads sem responsável"
+        description="Escolha qual roleta vai redistribuir os leads."
       />
 
       <LeadDistributionConfigModal
@@ -686,10 +687,10 @@ export function LeadDistributionList({ onNavigateToAgentSettings }: LeadDistribu
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-destructive">
-              <AlertTriangle className="h-5 w-5" /> Alerta de Capacidade
+              <AlertTriangle className="h-5 w-5" /> Alerta de capacidade
             </DialogTitle>
             <DialogDescription>
-              Alguns agentes com limite ativo estao na capacidade maxima.
+              Alguns colaboradores com limite ativo atingiram a capacidade máxima.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-3 py-2">
@@ -698,21 +699,21 @@ export function LeadDistributionList({ onNavigateToAgentSettings }: LeadDistribu
                 <p className="font-medium">{alert.configName}</p>
                 <p className="text-xs text-muted-foreground">Canal: {getSourceTypeLabel(alert.sourceType)}</p>
                 <p className="text-xs text-destructive font-medium mt-1">
-                  {alert.agentsAtCapacity}/{alert.totalAgents} agentes no limite
+                  {alert.agentsAtCapacity}/{alert.totalAgents} colaboradores no limite
                 </p>
               </div>
             ))}
             {unassignedCount !== undefined && unassignedCount > 0 && (
               <div className="rounded-lg border border-orange-300 dark:border-orange-500/20 bg-orange-50 dark:bg-orange-500/5 p-3">
-                <p className="font-medium text-orange-700 dark:text-orange-400">{unassignedCount} leads sem responsavel acumulados</p>
-                <p className="text-xs text-muted-foreground">Estes leads nao estao sendo distribuidos porque agentes com limite estao lotados.</p>
+                <p className="font-medium text-orange-700 dark:text-orange-400">{unassignedCount} {unassignedCount === 1 ? "lead sem responsável acumulado" : "leads sem responsável acumulados"}</p>
+                <p className="text-xs text-muted-foreground">Esses leads não estão sendo distribuídos porque os colaboradores com limite estão lotados.</p>
               </div>
             )}
           </div>
           <div className="space-y-2 pt-2">
-            <p className="text-xs font-medium">Acoes sugeridas:</p>
+            <p className="text-xs font-medium">Ações sugeridas</p>
             <ul className="text-xs text-muted-foreground list-disc pl-4 space-y-1">
-              <li>Aumentar capacidade ou desativar limite nas Configuracoes de Agente</li>
+              <li>Aumentar a capacidade ou desativar o limite nas configurações de colaborador</li>
               <li>Adicionar mais colaboradores</li>
               <li>Mover leads atendidos para "Ganho" ou "Perdido"</li>
             </ul>
@@ -721,7 +722,7 @@ export function LeadDistributionList({ onNavigateToAgentSettings }: LeadDistribu
             <Button variant="outline" onClick={() => setCapacityAlertOpen(false)}>Fechar</Button>
             {onNavigateToAgentSettings && (
               <Button onClick={() => { setCapacityAlertOpen(false); onNavigateToAgentSettings(); }}>
-                Configuracoes de Agente
+                Configurações de colaborador
               </Button>
             )}
           </DialogFooter>

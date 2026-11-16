@@ -72,7 +72,7 @@ export function AddEditItemModal({ isOpen, onClose, item }: AddEditItemModalProp
     if (!name.trim()) {
       toast({
         title: "Nome obrigatório",
-        description: "Por favor, preencha o nome do item",
+        description: "Preencha o nome do item.",
         variant: "destructive",
       });
       return;
@@ -113,7 +113,7 @@ export function AddEditItemModal({ isOpen, onClose, item }: AddEditItemModalProp
         if (error) throw error;
 
         toast({
-          title: "Item atualizado com sucesso",
+          title: "Item atualizado.",
         });
       } else {
         const { error } = await supabase
@@ -123,15 +123,16 @@ export function AddEditItemModal({ isOpen, onClose, item }: AddEditItemModalProp
         if (error) throw error;
 
         toast({
-          title: "Item criado com sucesso",
+          title: "Item criado.",
         });
       }
 
       onClose();
     } catch (error: any) {
+      console.error("Erro ao salvar item:", error);
       toast({
-        title: item ? "Erro ao atualizar item" : "Erro ao criar item",
-        description: error.message,
+        title: item ? "Não foi possível atualizar o item" : "Não foi possível criar o item",
+        description: "Tente novamente.",
         variant: "destructive",
       });
     } finally {
@@ -153,7 +154,7 @@ export function AddEditItemModal({ isOpen, onClose, item }: AddEditItemModalProp
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>
-            {item ? "Editar Item" : "Novo Item"}
+            {item ? "Editar item" : "Novo item"}
           </DialogTitle>
         </DialogHeader>
 
@@ -171,7 +172,7 @@ export function AddEditItemModal({ isOpen, onClose, item }: AddEditItemModalProp
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="itemType">Tipo de Item *</Label>
+              <Label htmlFor="itemType">Tipo de item *</Label>
               <Select
                 value={itemType}
                 onValueChange={(value: any) => setItemType(value)}
@@ -202,7 +203,7 @@ export function AddEditItemModal({ isOpen, onClose, item }: AddEditItemModalProp
           <IconPicker
             value={icon}
             onChange={setIcon}
-            label="Ícone Personalizado"
+            label="Ícone personalizado"
           />
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -220,7 +221,7 @@ export function AddEditItemModal({ isOpen, onClose, item }: AddEditItemModalProp
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="salePrice">Preço de Venda (R$) *</Label>
+              <Label htmlFor="salePrice">Preço de venda (R$) *</Label>
               <Input
                 id="salePrice"
                 type="number"
@@ -234,7 +235,7 @@ export function AddEditItemModal({ isOpen, onClose, item }: AddEditItemModalProp
             </div>
 
             <div className="space-y-2">
-              <Label>Margem de Lucro</Label>
+              <Label>Margem de lucro</Label>
               <div className="h-10 px-3 py-2 rounded-md border border-input bg-muted flex items-center">
                 <span className="text-sm font-medium">
                   {calculateProfitMargin()}%
@@ -245,7 +246,7 @@ export function AddEditItemModal({ isOpen, onClose, item }: AddEditItemModalProp
 
           {itemType === 'physical' && (
             <div className="space-y-2">
-              <Label htmlFor="stockQuantity">Quantidade em Estoque</Label>
+              <Label htmlFor="stockQuantity">Quantidade em estoque</Label>
               <Input
                 id="stockQuantity"
                 type="number"
@@ -265,17 +266,17 @@ export function AddEditItemModal({ isOpen, onClose, item }: AddEditItemModalProp
                   id="duration"
                   value={duration}
                   onChange={(e) => setDuration(e.target.value)}
-                  placeholder="Ex: 2 horas, 1 dia"
+                  placeholder="Ex.: 2 horas, 1 dia"
                 />
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="resource">Recurso Necessário</Label>
+                <Label htmlFor="resource">Recurso necessário</Label>
                 <Input
                   id="resource"
                   value={resource}
                   onChange={(e) => setResource(e.target.value)}
-                  placeholder="Ex: Profissional, Equipamento"
+                  placeholder="Ex.: Profissional, Equipamento"
                 />
               </div>
             </div>

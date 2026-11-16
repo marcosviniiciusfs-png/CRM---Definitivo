@@ -138,8 +138,8 @@ const MetaPixelLogs = () => {
             <ArrowLeft className="h-5 w-5" />
           </Button>
           <div>
-            <h1 className="text-3xl font-bold tracking-tight">Logs Meta Pixel</h1>
-            <p className="text-muted-foreground">Eventos de conversão enviados para a API Meta</p>
+            <h1 className="text-3xl font-bold tracking-tight">Logs do Meta Pixel</h1>
+            <p className="text-muted-foreground">Eventos de conversão enviados para a API da Meta.</p>
           </div>
         </div>
         <LoadingAnimation />
@@ -155,8 +155,8 @@ const MetaPixelLogs = () => {
             <ArrowLeft className="h-5 w-5" />
           </Button>
           <div>
-            <h1 className="text-3xl font-bold tracking-tight">Logs Meta Pixel</h1>
-            <p className="text-muted-foreground">Eventos de conversão enviados para a API Meta</p>
+            <h1 className="text-3xl font-bold tracking-tight">Logs do Meta Pixel</h1>
+            <p className="text-muted-foreground">Eventos de conversão enviados para a API da Meta.</p>
           </div>
         </div>
         <Button variant="outline" onClick={loadLogs}>
@@ -167,7 +167,7 @@ const MetaPixelLogs = () => {
 
       <Card>
         <CardHeader>
-          <CardTitle>Histórico de Eventos</CardTitle>
+          <CardTitle>Histórico de eventos</CardTitle>
         </CardHeader>
         <CardContent>
           {logs.length === 0 ? (
@@ -207,7 +207,7 @@ const MetaPixelLogs = () => {
                           )}
                           {log.status === 'success' && log.events_received && (
                             <p className="text-green-600">
-                              {log.events_received} evento(s) recebido(s) pela Meta
+                              {log.events_received === 1 ? "1 evento recebido" : `${log.events_received} eventos recebidos`} pela Meta
                             </p>
                           )}
                           {log.status === 'error' && log.error_message && (

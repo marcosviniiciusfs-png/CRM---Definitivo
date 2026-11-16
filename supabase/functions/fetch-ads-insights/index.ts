@@ -664,8 +664,44 @@ Deno.serve(async (req) => {
       );
     }
 
+    // Pré-validação do token: fetchAllPages engole erros da Graph API, então um token
+    // inválido apareceria como "nenhuma campanha/conta". Detectar aqui e pedir reconexão.
+    try {
+      const tokenCheckResp = await fetch(
+        `https://graph.facebook.com/v21.0/me?fields=id&access_token=${access_token}`,
+      );
+      const tokenCheck = await tokenCheckResp.json();
+      const tokenErrorCode = tokenCheck?.error?.code;
+      if ([190, 102, 104].includes(tokenErrorCode)) {
+        console.error(
+          `[ADS] Token Meta inválido (code ${tokenErrorCode}): ${tokenCheck.error.message}`,
+        );
+        await supabase
+          .from("facebook_integrations")
+          .update({ expires_at: new Date().toISOString() })
+          .eq("id", integrationId);
+        return new Response(
+          JSON.stringify({
+            error:
+              `O Facebook recusou o token desta conexão (${tokenCheck.error.message}). Reconecte sua conta do Facebook nas integrações.`,
+            errorCode: "META_TOKEN_INVALID",
+            data: null,
+            needsReconnect: true,
+          }),
+          {
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+            status: 200,
+          },
+        );
+      }
+    } catch (tokenCheckError) {
+      // Falha de rede não prova token inválido; seguir o fluxo normal.
+      console.warn("[ADS] Não foi possível pré-validar o token:", tokenCheckError);
+    }
+
     let resolvedBusinessId = integration.business_id;
     const hasConnectedPage = Boolean(integration.page_id);
+    let noAccountReason: { code: string; message: string } | null = null;
 
     if (hasConnectedPage && access_token) {
       console.log(
@@ -716,6 +752,11 @@ Deno.serve(async (req) => {
           } else {
             selectedAccountId = null;
             availableAccounts = [];
+            noAccountReason = {
+              code: "PAGE_BM_WITHOUT_AD_ACCOUNTS",
+              message:
+                "O Business Manager da página conectada não retornou contas de anúncios. Verifique se o usuário que conectou tem acesso às contas de anúncios no BM e se a permissão ads_read foi concedida; reconectar pode resolver.",
+            };
             console.log("[ADS] BM da página não retornou contas de anúncios");
           }
         } else {
@@ -724,6 +765,11 @@ Deno.serve(async (req) => {
           );
           selectedAccountId = null;
           availableAccounts = [];
+          noAccountReason = {
+            code: "PAGE_WITHOUT_VISIBLE_BM",
+            message:
+              "A página conectada não está vinculada a um Business Manager visível para este token. Vincule a página a um BM, ou reconecte autorizando a permissão business_management.",
+          };
         }
       } catch (pageBusinessError) {
         console.warn(
@@ -732,6 +778,11 @@ Deno.serve(async (req) => {
         );
         selectedAccountId = null;
         availableAccounts = [];
+        noAccountReason = {
+          code: "PAGE_BM_LOOKUP_FAILED",
+          message:
+            "Falha ao consultar o Business Manager da página na Meta. Tente novamente; se persistir, reconecte o Facebook.",
+        };
       }
 
       if (!selectedAccountId && integration.page_id) {
@@ -1145,8 +1196,9 @@ Deno.serve(async (req) => {
     if (hasConnectedPage && !selectedAccountId) {
       return new Response(
         JSON.stringify({
-          error:
+          error: noAccountReason?.message ||
             "Nenhuma conta de anúncios vinculada à página conectada foi encontrada. As métricas não usarão contas pessoais do perfil do Facebook.",
+          errorCode: noAccountReason?.code || "PAGE_WITHOUT_AD_ACCOUNT",
           data: null,
           selectedAccount: null,
           availableAccounts: [],

@@ -49,15 +49,15 @@ export function BulkAssignDialog({
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Atribuir Responsável</DialogTitle>
+          <DialogTitle>Atribuir responsável</DialogTitle>
           <DialogDescription>
-            Selecione um responsável para os {selectedCount} leads selecionados.
+            {selectedCount === 1 ? "Selecione o responsável pelo lead selecionado." : `Selecione o responsável pelos ${selectedCount} leads selecionados.`}
           </DialogDescription>
         </DialogHeader>
 
         <Select value={selectedUserId} onValueChange={setSelectedUserId}>
           <SelectTrigger>
-            <SelectValue placeholder="Selecione um colaborador" />
+            <SelectValue placeholder="Selecione um responsável" />
           </SelectTrigger>
           <SelectContent>
             {colaboradores.map((c) => (

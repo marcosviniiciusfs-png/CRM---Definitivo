@@ -28,7 +28,7 @@ const FILTER_OPTIONS: { value: FilterType; label: string }[] = [
   { value: "whatsapp", label: "WhatsApp" },
   { value: "facebook", label: "Facebook" },
   { value: "webhook", label: "Webhook" },
-  { value: "redistribution", label: "Redistribuicoes" },
+  { value: "redistribution", label: "Redistribuições" },
 ];
 
 const PAGE_SIZE = 50;
@@ -73,7 +73,7 @@ export function DistributionTimeline() {
       return data.map(row => ({
         id: row.id,
         leadName: leadMap.get(row.lead_id)?.nome_lead || "Lead desconhecido",
-        agentName: profileMap.get(row.to_user_id) || "Sem agente",
+        agentName: profileMap.get(row.to_user_id) || "Sem responsável",
         fromAgentName: row.from_user_id ? (profileMap.get(row.from_user_id) || null) : null,
         source: row.source_type || leadMap.get(row.lead_id)?.source || "",
         method: "",
@@ -97,9 +97,9 @@ export function DistributionTimeline() {
   });
 
   const exportCSV = () => {
-    const headers = "Lead,Agente,Origem,Data,Redistribuicao\n";
+    const headers = "Lead,Responsável,Origem,Data,Redistribuição\n";
     const rows = filtered.map(i =>
-      `"${i.leadName}","${i.agentName}","${i.source}","${new Date(i.createdAt).toLocaleString("pt-BR")}",${i.isRedistribution ? "Sim" : "Nao"}`
+      `"${i.leadName}","${i.agentName}","${i.source}","${new Date(i.createdAt).toLocaleString("pt-BR")}",${i.isRedistribution ? "Sim" : "Não"}`
     ).join("\n");
     const blob = new Blob([headers + rows], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
@@ -110,7 +110,7 @@ export function DistributionTimeline() {
     URL.revokeObjectURL(url);
   };
 
-  if (isLoading && page === 0) return <LoadingAnimation text="Carregando historico" />;
+  if (isLoading && page === 0) return <LoadingAnimation text="Carregando histórico" />;
 
   return (
     <div className="space-y-4">
@@ -141,7 +141,7 @@ export function DistributionTimeline() {
       {/* Timeline */}
       {filtered.length === 0 ? (
         <div className="rounded-xl border bg-card p-8 text-center">
-          <p className="text-sm text-muted-foreground">Nenhuma distribuicao encontrada</p>
+          <p className="text-sm text-muted-foreground">Nenhuma distribuição neste filtro.</p>
         </div>
       ) : (
         <div className="relative pl-6">
@@ -170,7 +170,7 @@ export function DistributionTimeline() {
                       )}
                       {item.isRedistribution && (
                         <span className="text-[10px] font-medium rounded-full bg-amber-100 text-amber-700 dark:bg-amber-500/10 dark:text-amber-400 px-2 py-0.5">
-                          Redistribuicao
+                          Redistribuição
                         </span>
                       )}
                       {item.source && (

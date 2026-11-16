@@ -62,7 +62,7 @@ export function WebhookLogs() {
     } catch (error: any) {
       console.error('Erro ao carregar logs:', error);
       toast({
-        title: "Erro ao carregar logs",
+        title: "Não foi possível carregar os logs",
         description: error.message,
         variant: "destructive",
       });
@@ -83,15 +83,15 @@ export function WebhookLogs() {
       if (error) throw error;
       
       toast({
-        title: "Logs limpos",
-        description: "Todos os logs foram removidos com sucesso.",
+        title: "Logs excluídos",
+        description: "Todos os logs foram removidos.",
       });
       
       setLogs([]);
     } catch (error: any) {
       console.error('Erro ao limpar logs:', error);
       toast({
-        title: "Erro ao limpar logs",
+        title: "Não foi possível excluir os logs",
         description: error.message,
         variant: "destructive",
       });
@@ -150,7 +150,7 @@ export function WebhookLogs() {
           <div>
             <CardTitle>Logs de Webhook</CardTitle>
             <CardDescription>
-              Histórico de mensagens recebidas e seu status de processamento
+              Histórico das mensagens recebidas e do status de cada uma.
             </CardDescription>
           </div>
           <div className="flex gap-2">
@@ -170,7 +170,7 @@ export function WebhookLogs() {
               disabled={loading || logs.length === 0}
             >
               <Trash2 className="w-4 h-4 mr-2" />
-              Limpar
+              Limpar logs
             </Button>
           </div>
         </div>
@@ -178,7 +178,7 @@ export function WebhookLogs() {
       <CardContent>
         {logs.length === 0 && !loading ? (
           <div className="text-center py-8 text-muted-foreground">
-            Nenhum log de webhook encontrado
+            Nenhum log de Webhook registrado ainda.
           </div>
         ) : (
           <>
@@ -214,7 +214,7 @@ export function WebhookLogs() {
               <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Data/Hora</TableHead>
+                  <TableHead>Data e hora</TableHead>
                   <TableHead>Instância</TableHead>
                   <TableHead>Evento</TableHead>
                   <TableHead>Contato</TableHead>

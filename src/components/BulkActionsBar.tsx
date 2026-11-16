@@ -27,7 +27,7 @@ export function BulkActionsBar({
     <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 flex items-center gap-3 mb-3">
       <Checkbox checked />
       <span className="text-blue-700 font-medium text-sm">
-        {selectedCount} lead{selectedCount > 1 ? 's' : ''} selecionado{selectedCount > 1 ? 's' : ''}
+        {selectedCount} {selectedCount === 1 ? 'lead selecionado' : 'leads selecionados'}
       </span>
 
       <div className="ml-auto flex gap-2">
@@ -47,7 +47,7 @@ export function BulkActionsBar({
           onClick={onMoveStage}
         >
           <FolderInput className="h-3.5 w-3.5 mr-1" />
-          Mover Etapa
+          Mover etapa
         </Button>
         <Button
           size="sm"

@@ -140,14 +140,14 @@ export const KanbanBoard = ({ organizationId }: KanbanBoardProps) => {
         <div className="p-4 bg-muted rounded-full mb-4">
           <CalendarCheck className="h-12 w-12 text-muted-foreground" />
         </div>
-        <h2 className="text-xl font-semibold mb-2">Quadro nao encontrado</h2>
+        <h2 className="text-xl font-semibold mb-2">Quadro não encontrado</h2>
         <p className="text-muted-foreground max-w-md mb-4">
-          O quadro de tarefas ainda nao foi criado para esta organizacao.
-          Peca ao administrador para acessar a secao de Tarefas e criar o quadro.
+          O quadro de tarefas ainda não foi criado para esta organização.
+          Peça ao administrador para abrir Tarefas e criar o quadro.
         </p>
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
           <User className="h-4 w-4" />
-          <span>Aguardando criacao pelo administrador</span>
+          <span>Aguardando o administrador criar o quadro</span>
         </div>
       </div>
     );
@@ -199,7 +199,7 @@ export const KanbanBoard = ({ organizationId }: KanbanBoardProps) => {
               onClick={addColumn}
             >
               <Plus className="mr-2 h-4 w-4" />
-              Adicionar Coluna
+              Adicionar coluna
             </Button>
           )}
         </div>
@@ -213,7 +213,7 @@ export const KanbanBoard = ({ organizationId }: KanbanBoardProps) => {
                 {activeCard.is_collaborative && (
                   <div className="flex items-center gap-1 px-2 py-1 bg-primary/10 text-primary rounded text-xs">
                     <Users className="h-3 w-3" />
-                    <span>Tarefa Colaborativa - Requer aprovacao de todos</span>
+                    <span>Tarefa colaborativa: precisa da aprovação de todos</span>
                   </div>
                 )}
 

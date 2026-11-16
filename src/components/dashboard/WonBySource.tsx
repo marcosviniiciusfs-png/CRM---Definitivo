@@ -36,7 +36,7 @@ export function WonBySource({ data, totalValue, isLoading }: WonBySourceProps) {
     return (
       <Card className="h-full">
         <CardHeader className="pb-2">
-          <CardTitle className="text-sm font-medium text-muted-foreground">Vendas por Fonte</CardTitle>
+          <CardTitle className="text-sm font-medium text-muted-foreground">Vendas por origem</CardTitle>
         </CardHeader>
         <CardContent className="flex items-center justify-center">
           <div className="animate-pulse h-32 w-32 rounded-full bg-muted" />
@@ -53,12 +53,12 @@ export function WonBySource({ data, totalValue, isLoading }: WonBySourceProps) {
   return (
     <Card className="h-full">
       <CardHeader className="pb-0">
-        <CardTitle className="text-sm font-medium text-muted-foreground">Vendas por Fonte</CardTitle>
+        <CardTitle className="text-sm font-medium text-muted-foreground">Vendas por origem</CardTitle>
       </CardHeader>
       <CardContent className="pt-0">
         {data.length === 0 ? (
           <div className="h-[350px] flex items-center justify-center text-sm text-muted-foreground">
-            Nenhum dado disponível
+            Nenhuma venda neste período.
           </div>
         ) : (
           <div className="h-[350px] flex flex-col items-center">

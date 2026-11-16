@@ -148,11 +148,12 @@ export function RedistributionBatches() {
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["redistribution-batches"] });
       queryClient.invalidateQueries({ queryKey: ["unassigned-leads-count"] });
-      toast.success(`${data.redistributed_count || 0} leads redistribuídos com sucesso!`);
+      const n = data.redistributed_count || 0;
+      toast.success(`${n} ${n === 1 ? "lead redistribuído" : "leads redistribuídos"}.`);
     },
     onError: (error: any) => {
       console.error("Erro ao re-distribuir lote:", error);
-      toast.error(error?.message || "Erro ao re-distribuir lote");
+      toast.error("Não foi possível redistribuir o lote. Tente novamente.");
     },
   });
 
@@ -182,11 +183,12 @@ export function RedistributionBatches() {
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["redistribution-batches"] });
       setSelectedCollaborator("");
-      toast.success(`${data.redistributed_count || 0} leads redistribuídos com sucesso!`);
+      const n = data.redistributed_count || 0;
+      toast.success(`${n} ${n === 1 ? "lead redistribuído" : "leads redistribuídos"}.`);
     },
     onError: (error: any) => {
       console.error("Erro ao redistribuir leads do colaborador:", error);
-      toast.error(error?.message || "Erro ao redistribuir leads");
+      toast.error("Não foi possível redistribuir os leads. Tente novamente.");
     },
   });
 
@@ -202,9 +204,9 @@ export function RedistributionBatches() {
   return (
     <div className="space-y-4">
       <div>
-        <h2 className="text-2xl font-bold">Histórico de Redistribuições</h2>
+        <h2 className="text-2xl font-bold">Histórico de redistribuições</h2>
         <p className="text-muted-foreground">
-          Lotes de redistribuição anteriores. Re-distribua usando uma roleta diferente.
+          Lotes de redistribuição anteriores. Redistribua com outra roleta.
         </p>
       </div>
 
@@ -221,7 +223,7 @@ export function RedistributionBatches() {
                   Redistribuir leads de um colaborador
                 </p>
                 <p className="text-sm text-blue-600 dark:text-blue-400">
-                  Escolha um colaborador e uma roleta para redistribuir seus leads ativos
+                  Escolha um colaborador e uma roleta para redistribuir os leads ativos dele.
                 </p>
               </div>
             </div>
@@ -255,7 +257,7 @@ export function RedistributionBatches() {
         <Card>
           <CardContent className="py-8 text-center">
             <p className="text-muted-foreground">
-              Nenhuma redistribuição registrada ainda
+              Nenhuma redistribuição ainda.
             </p>
           </CardContent>
         </Card>
@@ -292,7 +294,7 @@ export function RedistributionBatches() {
 
                       <div className="flex items-center gap-1 text-sm">
                         <Users className="h-3.5 w-3.5" />
-                        <span className="font-medium">{batch.total_leads} leads</span>
+                        <span className="font-medium">{batch.total_leads} {batch.total_leads === 1 ? "lead" : "leads"}</span>
                       </div>
 
                       <Badge
@@ -315,7 +317,7 @@ export function RedistributionBatches() {
                         disabled={redistributeBatchMutation.isPending}
                       >
                         <RefreshCw className="h-3.5 w-3.5 mr-1.5" />
-                        Re-distribuir
+                        Redistribuir
                       </Button>
                     )}
                   </div>
@@ -333,7 +335,7 @@ export function RedistributionBatches() {
         onConfirm={handleDialogConfirm}
         isPending={redistributeBatchMutation.isPending}
         showAutoOption={false}
-        title="Re-distribuir Lote"
+        title="Redistribuir lote"
         description="Escolha a roleta para redistribuir os leads deste lote."
       />
 
@@ -344,7 +346,7 @@ export function RedistributionBatches() {
         onConfirm={handleCollabDialogConfirm}
         isPending={redistributeCollabMutation.isPending}
         showAutoOption={false}
-        title="Redistribuir Leads do Colaborador"
+        title="Redistribuir leads do colaborador"
         description="Escolha a roleta para redistribuir os leads do colaborador selecionado."
       />
     </div>

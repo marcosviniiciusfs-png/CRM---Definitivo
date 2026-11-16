@@ -47,7 +47,7 @@ function FeedItem({ item }: { item: DistributionFeedItem }) {
         </div>
         <div className="flex items-center gap-1.5 mt-0.5">
           <span className="text-[10px] text-muted-foreground">
-            {item.noAgent ? 'Sem agente' : `\u2192 ${item.agentName}`}
+            {item.noAgent ? 'Sem responsável' : `\u2192 ${item.agentName}`}
           </span>
           {getSourceBadge(item.source)}
           <LeadScoreBadge score={item.leadScore} size="sm" />
@@ -68,13 +68,13 @@ export function LiveDistributionFeed({ organizationId }: LiveDistributionFeedPro
       <div className="flex items-center gap-2 mb-3">
         <div className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
         <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-          Feed ao Vivo
+          Feed ao vivo
         </h3>
       </div>
       <div className="max-h-[300px] overflow-y-auto scrollbar-subtle">
         {items.length === 0 ? (
           <p className="text-xs text-muted-foreground text-center py-4">
-            Nenhuma distribuicao recente
+            Nenhuma distribuição recente.
           </p>
         ) : (
           items.map(item => <FeedItem key={item.id} item={item} />)

@@ -19,9 +19,9 @@ export const IntegrationsHub = () => {
                 <Grid3x3 className="h-5 w-5 text-primary" />
               </div>
               <div>
-                <h3 className="font-semibold text-sm">Mais Integrações</h3>
+                <h3 className="font-semibold text-sm">Mais integrações</h3>
                 <p className="text-xs text-muted-foreground">
-                  Google Calendar, Gmail, Zoom e mais
+                  Google Calendar, Gmail, Zoom e mais.
                 </p>
               </div>
             </div>

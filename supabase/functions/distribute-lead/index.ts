@@ -296,6 +296,29 @@ serve(async (req) => {
               .maybeSingle()
           : Promise.resolve({ data: null }),
 
+        // Consider destination funnels before generic roulettes. New leads
+        // commonly start in the default funnel, so this route must not depend
+        // on the lead's current funnel_id.
+        supabase
+          .from('lead_distribution_configs')
+          .select('*')
+          .eq('organization_id', organization_id)
+          .eq('source_type', sourceType)
+          .not('funnel_id', 'is', null)
+          .eq('is_active', true)
+          .order('created_at', { ascending: true })
+          .limit(2),
+
+        supabase
+          .from('lead_distribution_configs')
+          .select('*')
+          .eq('organization_id', organization_id)
+          .eq('source_type', 'all')
+          .not('funnel_id', 'is', null)
+          .eq('is_active', true)
+          .order('created_at', { ascending: true })
+          .limit(2),
+
         // P4: source específico sem funil
         supabase
           .from('lead_distribution_configs')
@@ -331,13 +354,21 @@ serve(async (req) => {
 
       const genericLabels = [
         `source="${sourceType}" + funnel_id="${leadFunnelId}"`,
+        `source="${sourceType}" + configured destination funnel`,
+        `source="all" + configured destination funnel`,
         `source="${sourceType}" + sem funil`,
         `source="all" + funnel_id="${leadFunnelId}"`,
         `source="all" + sem funil (genérica)`,
       ];
 
       for (let i = 0; i < genericCandidates.length; i++) {
-        const candidate = genericCandidates[i].data;
+        const result = genericCandidates[i].data;
+        const candidate = Array.isArray(result)
+          ? (result.length === 1 ? result[0] : null)
+          : result;
+        if (Array.isArray(result) && result.length > 1) {
+          console.warn(`Skipping ambiguous destination roulette route (${result.length} candidates)`);
+        }
         if (candidate) {
           config = candidate;
           console.log(`Roleta encontrada na prioridade ${i + 3}: ${genericLabels[i]} → "${config.name}"`);
@@ -498,7 +529,10 @@ serve(async (req) => {
     
     // Verificar se o trigger está habilitado
     const triggers = parseTriggers(config.triggers);
-    if (!triggers.includes(mappedTrigger)) {
+    // Redistribuição automática é ligada pelo campo auto_redistribute da roleta: a tela só grava
+    // triggers=['new_lead'], então exigir 'auto_redistribution' em triggers nunca é atendido.
+    const autoRedistributionAllowed = mappedTrigger === 'auto_redistribution' && config.auto_redistribute === true;
+    if (!triggers.includes(mappedTrigger) && !autoRedistributionAllowed) {
       console.log('Trigger not enabled:', mappedTrigger, 'for trigger_source:', trigger_source);
       return new Response(
         JSON.stringify({ success: false, message: `Trigger ${mappedTrigger} not enabled` }),
@@ -552,8 +586,13 @@ serve(async (req) => {
 
     // 5. Buscar agentes disponíveis
     console.log('Eligible agent IDs:', eligibleAgentIds);
-    const availableAgents = await getAvailableAgents(supabase, organization_id, eligibleAgentIds);
+    let availableAgents = await getAvailableAgents(supabase, organization_id, eligibleAgentIds);
     
+    // Redistribuir para quem já tinha o lead não resolve nada: tira o corretor anterior quando há outro.
+    if (is_redistribution && from_user_id && availableAgents.length > 1) {
+      availableAgents = availableAgents.filter((a: any) => a.user_id !== from_user_id);
+    }
+
     console.log(`Found ${availableAgents.length} available agents:`, availableAgents.map(a => a.full_name || a.email));
     
     if (availableAgents.length === 0) {
@@ -702,7 +741,7 @@ async function getAvailableAgents(supabase: any, organization_id: string, eligib
     .select('*')
     .eq('organization_id', organization_id)
     .eq('is_active', true)
-    .eq('is_paused', false)
+    // is_paused não é filtrado aqui: pausa com pause_until vencido deve voltar sozinha (ver filtro abaixo).
     .order('user_id', { ascending: true });
 
   // Se há lista de agentes elegíveis, filtrar por ela
@@ -784,6 +823,11 @@ async function getAvailableAgents(supabase: any, organization_id: string, eligib
     const member = membersMap.get(agent.user_id);
     // Verificar pause_until
     if (agent.pause_until && new Date(agent.pause_until) > now) {
+      continue;
+    }
+    // Pausado sem prazo, ou com prazo que ainda não venceu, continua fora do rodízio.
+    // Pausa com pause_until já vencido não trava mais o corretor.
+    if (agent.is_paused && !(agent.pause_until && new Date(agent.pause_until) <= now)) {
       continue;
     }
 

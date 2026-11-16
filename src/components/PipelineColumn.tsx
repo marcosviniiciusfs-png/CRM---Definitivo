@@ -8,6 +8,7 @@ import type { StatusReuniao } from "@/types/chat";
 import { memo, useEffect, useRef, useState } from "react";
 import { mapTriggerSourceToReason } from "@/lib/redistribution";
 import { isLeadDuplicateRecord } from "@/lib/leadDuplicate";
+import type { LeadAttentionResult } from "@/lib/leadCardState";
 
 interface StagePaginationState {
   loadedCount: number;
@@ -33,6 +34,7 @@ interface PipelineColumnProps {
   duplicateLeadIds?: Set<string>;
   agendamentosMap?: Record<string, { reuniao?: string | null; venda?: string | null }>;
   redistributedMap?: Record<string, { fromName: string; minutes: number; triggerSource: string }>;
+  attentionMap?: Record<string, LeadAttentionResult>;
   // Props de paginação
   pagination?: StagePaginationState;
   onLoadMore?: () => void;
@@ -59,6 +61,7 @@ export const PipelineColumn = memo(({
   duplicateLeadIds,
   agendamentosMap = {},
   redistributedMap = {},
+  attentionMap = {},
   pagination,
   onLoadMore,
   onToggleNoShow,
@@ -102,6 +105,9 @@ export const PipelineColumn = memo(({
   // Detecta se a cor é hex ou classe Tailwind
   const isHexColor = (color: string) => color?.startsWith('#');
 
+  const needsReplyCount = leads.filter((lead) => attentionMap[lead.id]?.kind === 'needs_reply').length;
+  const overdueCount = leads.filter((lead) => attentionMap[lead.id]?.kind === 'overdue').length;
+
   return (
     <div ref={columnRef} className="flex flex-col w-[184px] md:w-[210px] lg:w-[224px] flex-shrink-0 h-full">
       <div className="flex items-center justify-between gap-2 mb-1.5">
@@ -118,6 +124,21 @@ export const PipelineColumn = memo(({
         </Badge>
       </div>
 
+      {(needsReplyCount > 0 || overdueCount > 0) && (
+        <p className="mb-1 flex gap-2 text-[10px] text-muted-foreground" title="Entre os leads carregados nesta etapa">
+          {needsReplyCount > 0 && (
+            <span className="text-amber-600 dark:text-amber-400">
+              {needsReplyCount} aguardando resposta
+            </span>
+          )}
+          {overdueCount > 0 && (
+            <span className="text-red-600 dark:text-red-400">
+              {overdueCount} {overdueCount === 1 ? 'atrasada' : 'atrasadas'}
+            </span>
+          )}
+        </p>
+      )}
+
       <div
         className={cn("h-0.5 mb-2 rounded-full", !isHexColor(color) && color)}
         style={isHexColor(color) ? { backgroundColor: color } : undefined}
@@ -133,7 +154,7 @@ export const PipelineColumn = memo(({
         >
           {isEmpty ? (
             <p className="text-xs text-muted-foreground text-center py-4">
-              Nenhum lead nesta etapa
+              Nenhum lead nesta etapa ainda.
             </p>
           ) : shouldRenderCards ? (
             leads.map((lead) => {
@@ -177,6 +198,8 @@ export const PipelineColumn = memo(({
                   redistributedFromName={redistributedMap[lead.id]?.fromName}
                   redistributionMinutes={redistributedMap[lead.id]?.minutes}
                   redistributionReason={mapTriggerSourceToReason(redistributedMap[lead.id]?.triggerSource)}
+                  attentionKind={attentionMap[lead.id]?.kind}
+                  attentionLabel={attentionMap[lead.id]?.label}
                 />
               );
             })
@@ -238,6 +261,7 @@ export const PipelineColumn = memo(({
     prevProps.duplicateLeadIds === nextProps.duplicateLeadIds &&
     prevProps.agendamentosMap === nextProps.agendamentosMap &&
     prevProps.redistributedMap === nextProps.redistributedMap &&
+    prevProps.attentionMap === nextProps.attentionMap &&
     prevProps.pagination?.loadedCount === nextProps.pagination?.loadedCount &&
     prevProps.pagination?.totalCount === nextProps.pagination?.totalCount &&
     prevProps.pagination?.isLoading === nextProps.pagination?.isLoading &&

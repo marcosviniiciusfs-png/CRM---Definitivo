@@ -87,9 +87,9 @@ export function DistributionHistory() {
 
   const getMethodLabel = (method: string) => {
     const labels: Record<string, string> = {
-      round_robin: 'Round-robin',
+      round_robin: 'Rodízio',
       weighted: 'Por porcentagem',
-      load_based: 'Baseado em Carga',
+      load_based: 'Por carga',
       random: 'Aleatório',
     };
     return labels[method] || method;
@@ -97,12 +97,12 @@ export function DistributionHistory() {
 
   const getTriggerLabel = (trigger: string) => {
     const labels: Record<string, string> = {
-      new_lead: 'Lead Novo',
+      new_lead: 'Lead novo',
       whatsapp: 'WhatsApp',
       facebook: 'Facebook',
       webhook: 'Webhook',
       manual: 'Manual',
-      auto_redistribution: 'Redistribuição Automática',
+      auto_redistribution: 'Redistribuição automática',
     };
     return labels[trigger] || trigger;
   };
@@ -116,23 +116,23 @@ export function DistributionHistory() {
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <History className="h-5 w-5" />
-          Histórico de Distribuições
+          Histórico de distribuições
         </CardTitle>
         <CardDescription>
-          Visualize todas as distribuições de leads realizadas pela roleta
+          Todas as distribuições de leads feitas pela roleta.
         </CardDescription>
       </CardHeader>
       <CardContent>
         {history.length === 0 ? (
           <div className="text-center py-8 text-muted-foreground">
-            Nenhuma distribuição realizada ainda
+            Nenhuma distribuição ainda.
           </div>
         ) : (
           <div className="rounded-md border">
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Data/Hora</TableHead>
+                  <TableHead>Data e hora</TableHead>
                   <TableHead>Lead</TableHead>
                   <TableHead>De</TableHead>
                   <TableHead></TableHead>

@@ -76,7 +76,7 @@ export const MetaPixelConnection = ({ onBack }: MetaPixelConnectionProps) => {
 
   const handleSave = async () => {
     if (!organizationId || !pixelId || !accessToken) {
-      toast.error("Preencha todos os campos");
+      toast.error("Preencha o Pixel ID e o Access Token.");
       return;
     }
 
@@ -93,7 +93,7 @@ export const MetaPixelConnection = ({ onBack }: MetaPixelConnectionProps) => {
           .eq('id', integration.id);
 
         if (error) throw error;
-        toast.success("Pixel atualizado com sucesso!");
+        toast.success("Pixel atualizado.");
       } else {
         // Create new
         const { error } = await supabase
@@ -106,14 +106,14 @@ export const MetaPixelConnection = ({ onBack }: MetaPixelConnectionProps) => {
           });
 
         if (error) throw error;
-        toast.success("Pixel configurado com sucesso!");
+        toast.success("Pixel configurado.");
       }
 
       setIsEditing(false);
       loadData();
     } catch (error) {
       console.error('Error saving integration:', error);
-      toast.error("Erro ao salvar configuração");
+      toast.error("Não foi possível salvar a configuração. Tente novamente.");
     } finally {
       setSaving(false);
     }
@@ -134,13 +134,13 @@ export const MetaPixelConnection = ({ onBack }: MetaPixelConnectionProps) => {
       loadData();
     } catch (error) {
       console.error('Error toggling integration:', error);
-      toast.error("Erro ao atualizar status");
+      toast.error("Não foi possível atualizar o Pixel. Tente novamente.");
     }
   };
 
   const handleDelete = async () => {
     if (!integration) return;
-    if (!confirm("Tem certeza que deseja remover esta integração?")) return;
+    if (!confirm("Remover esta integração? A configuração do Pixel é apagada. Não dá para desfazer.")) return;
 
     try {
       const { error } = await supabase
@@ -150,13 +150,13 @@ export const MetaPixelConnection = ({ onBack }: MetaPixelConnectionProps) => {
 
       if (error) throw error;
 
-      toast.success("Integração removida");
+      toast.success("Integração removida.");
       setIntegration(null);
       setPixelId("");
       setAccessToken("");
     } catch (error) {
       console.error('Error deleting integration:', error);
-      toast.error("Erro ao remover integração");
+      toast.error("Não foi possível remover a integração. Tente novamente.");
     }
   };
 
@@ -183,7 +183,7 @@ export const MetaPixelConnection = ({ onBack }: MetaPixelConnectionProps) => {
               Meta Conversions API
             </CardTitle>
             <CardDescription>
-              Envie eventos de conversão para o Meta Ads quando leads forem convertidos
+              Envie eventos de conversão ao Meta Ads quando um lead for ganho.
             </CardDescription>
           </div>
         </div>
@@ -193,10 +193,10 @@ export const MetaPixelConnection = ({ onBack }: MetaPixelConnectionProps) => {
         <div className="bg-muted/50 rounded-lg p-4 text-sm space-y-2">
           <p className="font-medium">Como configurar:</p>
           <ol className="list-decimal list-inside space-y-1 text-muted-foreground">
-            <li>Acesse o <strong>Events Manager</strong> da Meta</li>
-            <li>Selecione seu Pixel e vá em <strong>Configurações</strong></li>
-            <li>Na seção <strong>Conversions API</strong>, gere um Access Token</li>
-            <li>Copie o Pixel ID e Access Token para cá</li>
+            <li>Acesse o <strong>Events Manager</strong> da Meta.</li>
+            <li>Selecione seu Pixel e vá em <strong>Configurações</strong>.</li>
+            <li>Na seção <strong>Conversions API</strong>, gere um Access Token.</li>
+            <li>Copie o Pixel ID e o Access Token para cá.</li>
           </ol>
           <div className="mt-3 p-3 bg-primary/10 rounded-md border border-primary/20">
             <p className="text-primary font-medium flex items-center gap-2">
@@ -204,7 +204,7 @@ export const MetaPixelConnection = ({ onBack }: MetaPixelConnectionProps) => {
               Funciona em todos os funis
             </p>
             <p className="text-xs text-muted-foreground mt-1">
-              O evento de conversão será disparado automaticamente quando um lead entrar em qualquer etapa de "Ganho" em qualquer funil.
+              O evento de conversão é enviado automaticamente quando um lead entra em qualquer etapa de "Ganho", em qualquer funil.
             </p>
           </div>
         </div>
@@ -215,7 +215,7 @@ export const MetaPixelConnection = ({ onBack }: MetaPixelConnectionProps) => {
             <div className="flex items-center justify-between p-4 border rounded-lg">
               <div className="flex-1">
                 <div className="flex items-center gap-2">
-                  <span className="font-medium">Pixel Configurado</span>
+                  <span className="font-medium">Pixel configurado</span>
                   <Badge variant={integration.is_active ? "default" : "secondary"}>
                     {integration.is_active ? "Ativo" : "Inativo"}
                   </Badge>
@@ -243,13 +243,13 @@ export const MetaPixelConnection = ({ onBack }: MetaPixelConnectionProps) => {
               onClick={() => setIsEditing(true)}
               className="w-full"
             >
-              Editar Configuração
+              Editar configuração
             </Button>
           </div>
         ) : (
           <div className="space-y-4 border rounded-lg p-4">
             <h4 className="font-medium">
-              {integration ? "Editar Configuração" : "Nova Configuração"}
+              {integration ? "Editar configuração" : "Nova configuração"}
             </h4>
 
             <div className="space-y-2">
@@ -268,7 +268,7 @@ export const MetaPixelConnection = ({ onBack }: MetaPixelConnectionProps) => {
                   type={showToken ? "text" : "password"}
                   value={accessToken}
                   onChange={(e) => setAccessToken(e.target.value)}
-                  placeholder="Cole seu Access Token aqui"
+                  placeholder="Cole o Access Token aqui"
                   className="pr-10"
                 />
                 <Button
@@ -299,7 +299,7 @@ export const MetaPixelConnection = ({ onBack }: MetaPixelConnectionProps) => {
                 </Button>
               )}
               <Button onClick={handleSave} disabled={saving} className="flex-1">
-                {saving ? "Salvando..." : "Salvar Configuração"}
+                {saving ? "Salvando…" : "Salvar configuração"}
               </Button>
             </div>
           </div>

@@ -39,7 +39,7 @@ export function ConversionSparkline({ configId }: ConversionSparklineProps) {
                 : 'bg-muted'
             }`}
             style={{ height: `${height}px` }}
-            title={`${val}% conversao`}
+            title={`${val}% de conversão`}
           />
         );
       })}

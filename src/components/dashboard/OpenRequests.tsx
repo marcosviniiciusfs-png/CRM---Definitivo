@@ -31,7 +31,7 @@ export function OpenRequests({ requests, isLoading }: OpenRequestsProps) {
     return (
       <Card className="h-full">
         <CardHeader className="pb-2">
-          <CardTitle className="text-sm font-medium text-muted-foreground">Leads Pendentes</CardTitle>
+          <CardTitle className="text-sm font-medium text-muted-foreground">Leads pendentes</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
           {[1, 2, 3, 4].map(i => (
@@ -52,7 +52,7 @@ export function OpenRequests({ requests, isLoading }: OpenRequestsProps) {
     <Card className="h-full">
       <CardHeader className="pb-2">
         <div className="flex items-center justify-between">
-          <CardTitle className="text-sm font-medium text-muted-foreground">Leads Pendentes</CardTitle>
+          <CardTitle className="text-sm font-medium text-muted-foreground">Leads pendentes</CardTitle>
           <Badge variant="secondary" className="text-xs">
             {requests.length}
           </Badge>
@@ -60,7 +60,7 @@ export function OpenRequests({ requests, isLoading }: OpenRequestsProps) {
       </CardHeader>
       <CardContent className="overflow-auto max-h-[220px]">
         {requests.length === 0 ? (
-          <p className="text-sm text-muted-foreground text-center py-4">Nenhum lead pendente</p>
+          <p className="text-sm text-muted-foreground text-center py-4">Nenhum lead pendente.</p>
         ) : (
           <div className="space-y-1">
             {requests.slice(0, 8).map((request) => (

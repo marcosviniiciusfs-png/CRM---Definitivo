@@ -41,7 +41,7 @@ interface AddLeadModalProps {
 }
 
 const sourceOptions = [
-  { value: "Manual", label: "Cadastro Manual" },
+  { value: "Manual", label: "Cadastro manual" },
   { value: "Facebook", label: "Facebook" },
   { value: "WhatsApp", label: "WhatsApp" },
   { value: "Google ADS", label: "Google ADS" },
@@ -218,37 +218,37 @@ export const AddLeadModal = ({ open, onClose, onSuccess }: AddLeadModalProps) =>
     e.preventDefault();
 
     if (!nome.trim()) {
-      toast.error("O nome do lead é obrigatório");
+      toast.error("Preencha o nome do lead.");
       return;
     }
 
     if (!telefone.trim()) {
-      toast.error("O telefone do lead é obrigatório");
+      toast.error("Preencha o telefone do lead.");
       return;
     }
 
     if (!validatePhone(telefone)) {
-      toast.error("Telefone inválido. Informe o código do país e de 7 a 15 dígitos.");
+      toast.error("Telefone inválido. Inclua o código do país e de 7 a 15 dígitos.");
       return;
     }
 
     if (!tipoProduto.trim()) {
-      toast.error("O tipo de produto é obrigatório");
+      toast.error("Preencha o tipo de produto.");
       return;
     }
 
     if (source === "Outro" && !customSource.trim()) {
-      toast.error("Especifique a origem do lead");
+      toast.error("Informe a origem do lead.");
       return;
     }
 
     if (!selectedFunnelId) {
-      toast.error("Selecione um funil");
+      toast.error("Selecione um funil.");
       return;
     }
 
     if (!selectedStageId) {
-      toast.error("Selecione uma etapa do funil");
+      toast.error("Selecione uma etapa do funil.");
       return;
     }
 
@@ -296,7 +296,7 @@ export const AddLeadModal = ({ open, onClose, onSuccess }: AddLeadModalProps) =>
 
       if (error) throw error;
 
-      toast.success("Lead adicionado com sucesso!");
+      toast.success("Lead adicionado.");
       handleClose();
       onSuccess();
     } catch (error: any) {
@@ -305,7 +305,7 @@ export const AddLeadModal = ({ open, onClose, onSuccess }: AddLeadModalProps) =>
       if (error?.code === "23505" || error?.message?.includes("unique") || error?.message?.includes("duplicate")) {
         toast.error("Já existe um lead com este telefone na sua organização.");
       } else {
-        toast.error("Erro ao adicionar lead. Verifique os dados e tente novamente.");
+        toast.error("Não foi possível adicionar o lead. Confira os dados e tente novamente.");
       }
     } finally {
       setIsSaving(false);
@@ -316,7 +316,7 @@ export const AddLeadModal = ({ open, onClose, onSuccess }: AddLeadModalProps) =>
     <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent className="sm:max-w-[425px] max-h-[85vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Adicionar Novo Lead</DialogTitle>
+          <DialogTitle>Adicionar lead</DialogTitle>
         </DialogHeader>
         
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -354,7 +354,7 @@ export const AddLeadModal = ({ open, onClose, onSuccess }: AddLeadModalProps) =>
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="email">Email</Label>
+            <Label htmlFor="email">E-mail</Label>
             <Input
               id="email"
               type="email"
@@ -382,7 +382,7 @@ export const AddLeadModal = ({ open, onClose, onSuccess }: AddLeadModalProps) =>
               id="tipoProduto"
               value={tipoProduto}
               onChange={(e) => setTipoProduto(e.target.value)}
-              placeholder="Digite o produto desejado pelo lead"
+              placeholder="Produto que o lead quer"
               maxLength={120}
               required
             />
@@ -397,7 +397,7 @@ export const AddLeadModal = ({ open, onClose, onSuccess }: AddLeadModalProps) =>
               max="150"
               value={idade}
               onChange={(e) => setIdade(e.target.value)}
-              placeholder="Ex: 25"
+              placeholder="Ex.: 25"
             />
           </div>
 
@@ -412,7 +412,7 @@ export const AddLeadModal = ({ open, onClose, onSuccess }: AddLeadModalProps) =>
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="source">Origem do Lead</Label>
+            <Label htmlFor="source">Origem do lead</Label>
             <Select value={source} onValueChange={setSource}>
               <SelectTrigger>
                 <SelectValue placeholder="Selecione a origem" />
@@ -434,7 +434,7 @@ export const AddLeadModal = ({ open, onClose, onSuccess }: AddLeadModalProps) =>
                 id="customSource"
                 value={customSource}
                 onChange={(e) => setCustomSource(e.target.value.slice(0, 17))}
-                placeholder="Digite a origem"
+                placeholder="Nome da origem"
                 maxLength={17}
               />
               <p className="text-xs text-muted-foreground text-right">
@@ -508,7 +508,7 @@ export const AddLeadModal = ({ open, onClose, onSuccess }: AddLeadModalProps) =>
                   Salvando...
                 </>
               ) : (
-                "Adicionar Lead"
+                "Adicionar lead"
               )}
             </Button>
           </DialogFooter>

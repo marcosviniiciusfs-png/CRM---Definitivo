@@ -141,7 +141,7 @@ export function LeadTagsManager({ leadId, onTagsChanged }: LeadTagsManagerProps)
 
         toast({
           title: "Etiqueta removida",
-          description: "A etiqueta foi removida do lead",
+          description: "Etiqueta removida do lead.",
         });
       } else {
         // Adicionar tag
@@ -156,7 +156,7 @@ export function LeadTagsManager({ leadId, onTagsChanged }: LeadTagsManagerProps)
 
         toast({
           title: "Etiqueta adicionada",
-          description: "A etiqueta foi adicionada ao lead",
+          description: "Etiqueta adicionada ao lead.",
         });
       }
 
@@ -165,8 +165,8 @@ export function LeadTagsManager({ leadId, onTagsChanged }: LeadTagsManagerProps)
     } catch (error: any) {
       console.error("Erro ao alternar etiqueta:", error);
       toast({
-        title: "Erro",
-        description: "Não foi possível alterar a etiqueta",
+        title: "Não foi possível alterar a etiqueta",
+        description: "Tente novamente.",
         variant: "destructive",
       });
     }
@@ -216,7 +216,7 @@ export function LeadTagsManager({ leadId, onTagsChanged }: LeadTagsManagerProps)
                 <p className="text-sm text-muted-foreground">Carregando...</p>
               ) : availableTags.length === 0 ? (
                 <div className="text-sm text-muted-foreground text-center py-4">
-                  <p>Nenhuma etiqueta criada</p>
+                  <p>Nenhuma etiqueta criada ainda.</p>
                   <Button
                     variant="link"
                     size="sm"

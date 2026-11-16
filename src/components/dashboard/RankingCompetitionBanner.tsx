@@ -30,10 +30,10 @@ if (!isActive && !isRevealed) {
         <Trophy className="h-5 w-5 text-blue-500 flex-shrink-0" />
         <div className="flex-1 min-w-0">
           <p className="text-sm font-medium text-blue-700 dark:text-blue-400">
-            Ranking disponível apenas para sua equipe
+            Ranking disponível só para a sua equipe
           </p>
           <p className="text-xs text-blue-600/70">
-            Os resultados completos serão revelados quando o administrador decidir.
+            O administrador vai liberar o ranking completo depois.
           </p>
         </div>
       </div>
@@ -49,10 +49,10 @@ if (!isActive && !isRevealed) {
         <PartyPopper className="h-5 w-5 text-green-500 flex-shrink-0" />
         <div className="flex-1 min-w-0">
           <p className="text-sm font-medium text-green-700 dark:text-green-400">
-            Resultados revelados!
+            Resultados revelados
           </p>
           <p className="text-xs text-green-600/70">
-            A competição "{title}" foi revelada. Agora todos podem ver o ranking completo.
+            A competição "{title}" foi revelada. Todos já podem ver o ranking completo.
           </p>
         </div>
       </div>
@@ -76,15 +76,15 @@ if (!isActive && !isRevealed) {
       <div className="flex-1 min-w-0">
         <p className="text-sm font-medium text-yellow-700 dark:text-yellow-400">
           {isAdmin ? (
-            <>Competição ativa — Modo oculto para membros</>
+            <>Competição ativa. Os colaboradores só veem o próprio progresso.</>
           ) : (
-            <>Competição ativa! Você só pode ver seus próprios dados</>
+            <>Competição ativa. Você só vê os seus próprios dados.</>
           )}
         </p>
         {revealDate && (
           <p className="text-xs text-yellow-600/70 flex items-center gap-1 mt-0.5">
             <Clock className="h-3 w-3" />
-            Revelação em: {revealDate}
+            Revelação em {revealDate}
           </p>
         )}
       </div>
@@ -96,7 +96,7 @@ if (!isActive && !isRevealed) {
           onClick={onRevealNow}
         >
           <Eye className="h-3.5 w-3.5" />
-          Revelar Agora
+          Revelar agora
         </Button>
       )}
     </div>

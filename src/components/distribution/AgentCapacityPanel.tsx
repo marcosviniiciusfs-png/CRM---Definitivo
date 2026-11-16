@@ -68,7 +68,7 @@ export function AgentCapacityPanel({ organizationId }: { organizationId: string 
         const max = s.max_capacity || 50;
         return {
           userId: s.user_id,
-          name: profileMap.get(s.user_id) || 'Agente',
+          name: profileMap.get(s.user_id) || 'Colaborador',
           maxCapacity: max,
           currentLoad,
           capacityEnabled: enabled,
@@ -90,12 +90,12 @@ export function AgentCapacityPanel({ organizationId }: { organizationId: string 
   return (
     <div className="rounded-xl border bg-card shadow-sm p-4">
       <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-3">
-        Capacidade dos Agentes
+        Capacidade dos colaboradores
       </h3>
       <div className="space-y-3 max-h-[250px] overflow-y-auto scrollbar-subtle">
         {agents.length === 0 ? (
           <p className="text-xs text-muted-foreground text-center py-4">
-            Nenhum agente ativo
+            Nenhum colaborador ativo.
           </p>
         ) : (
           agents.map(agent => (

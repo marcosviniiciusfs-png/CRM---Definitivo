@@ -308,11 +308,11 @@ const Equipes = () => {
       if (targetTeamId) {
         await supabase.from("team_members").insert({ team_id: targetTeamId, user_id: memberId, role: "member" });
       }
-      toast.success("Membro movido com sucesso!");
+      toast.success("Colaborador movido.");
       invalidateData();
     } catch (error: any) {
       console.error("Error moving member:", error);
-      toast.error("Erro ao mover membro");
+      toast.error("Não foi possível mover o colaborador. Tente novamente.");
     }
   };
 
@@ -328,13 +328,13 @@ const Equipes = () => {
     try {
       const { error } = await supabase.from("teams").delete().eq("id", teamToDelete.id);
       if (error) throw error;
-      toast.success("Equipe excluída com sucesso!");
+      toast.success("Equipe excluída.");
       setDeleteDialogOpen(false);
       setTeamToDelete(null);
       invalidateData();
     } catch (error: any) {
       console.error("Error deleting team:", error);
-      toast.error("Erro ao excluir equipe");
+      toast.error("Não foi possível excluir a equipe. Tente novamente.");
     }
   };
 
@@ -372,7 +372,7 @@ const Equipes = () => {
               EQUIPES
             </h1>
             <p className="arcade-font text-[10px] text-muted-foreground mt-2 tracking-wide">
-              ORGANIZE SEUS AGENTES &gt;&gt;&gt;
+              ORGANIZE SEUS COLABORADORES &gt;&gt;&gt;
             </p>
           </div>
           <div className="flex items-center gap-2">
@@ -390,10 +390,10 @@ const Equipes = () => {
         {/* ARCADE STATS */}
         <div className="flex justify-center gap-3 mb-6">
           {[
-            { label: 'TEAMS', value: teams.length, sub: 'ATIVAS', icon: '■' },
-            { label: 'MEMBROS', value: membersInTeams, sub: `${membersWithoutTeam.length} LIVRES`, icon: '♦' },
+            { label: 'EQUIPES', value: teams.length, sub: 'ATIVAS', icon: '■' },
+            { label: 'COLABORADORES', value: membersInTeams, sub: `${membersWithoutTeam.length} LIVRES`, icon: '♦' },
             { label: 'LEADS/SEM', value: weeklyLeads, sub: weeklyDelta.toUpperCase(), icon: '▲' },
-            { label: 'CONV.%', value: `${conversionRate}%`, sub: 'PIPELINE', icon: '●' },
+            { label: 'CONV.%', value: `${conversionRate}%`, sub: 'FUNIL', icon: '●' },
           ].map(stat => (
             <div key={stat.label} className="arcade-stat w-[120px] p-2 flex flex-col items-center gap-1">
               <span className="arcade-font text-[9px] text-primary/40 tracking-wider">{stat.label}</span>
@@ -408,7 +408,7 @@ const Equipes = () => {
           <div className="relative flex-1 min-w-[160px] max-w-[240px]">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-primary/60" />
             <Input
-              placeholder="BUSCAR..."
+              placeholder="BUSCAR EQUIPE"
               value={searchTerm}
               onChange={e => setSearchTerm(e.target.value)}
               className="pl-9 h-9 arcade-font text-[9px] border-2 border-primary/30 focus:border-primary bg-card placeholder:text-primary/40"
@@ -469,7 +469,7 @@ const Equipes = () => {
                             {team.name.length > 18 ? team.name.slice(0, 18) + '…' : team.name}
                           </h3>
                           <p className="arcade-font text-[9px] text-muted-foreground mt-1">
-                            {teamMembersList.length} MEMBRO{teamMembersList.length !== 1 ? 'S' : ''}
+                            {teamMembersList.length} {teamMembersList.length !== 1 ? 'COLABORADORES' : 'COLABORADOR'}
                           </p>
                         </div>
                       </div>
@@ -598,7 +598,7 @@ const Equipes = () => {
                   </div>
                   <h3 className="arcade-font text-[11px] text-muted-foreground">SEM EQUIPE</h3>
                   <span className="arcade-font text-[8px] text-muted-foreground/50">
-                    {membersWithoutTeam.length} MEMBRO{membersWithoutTeam.length !== 1 ? 'S' : ''}
+                    {membersWithoutTeam.length} {membersWithoutTeam.length !== 1 ? 'COLABORADORES' : 'COLABORADOR'}
                   </span>
                 </div>
                 <SortableContext
@@ -615,7 +615,7 @@ const Equipes = () => {
                     ))}
                     {membersWithoutTeam.length === 0 && (
                       <div className="col-span-full arcade-font text-[9px] text-center py-3 text-primary/40 border-2 border-dashed border-primary/20">
-                        NENHUM MEMBRO SEM EQUIPE
+                        NENHUM COLABORADOR SEM EQUIPE
                       </div>
                     )}
                   </div>
@@ -665,9 +665,9 @@ const Equipes = () => {
         <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
           <AlertDialogContent>
             <AlertDialogHeader>
-              <AlertDialogTitle>Excluir equipe</AlertDialogTitle>
+              <AlertDialogTitle>Excluir equipe?</AlertDialogTitle>
               <AlertDialogDescription>
-                Tem certeza que deseja excluir a equipe "{teamToDelete?.name}"? Os membros não serão removidos da organização.
+                Excluir a equipe "{teamToDelete?.name}"? Os colaboradores continuam na organização.
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>

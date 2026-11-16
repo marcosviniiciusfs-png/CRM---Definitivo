@@ -85,7 +85,7 @@ export const GlobalFunnelMapping = () => {
       }
     } catch (error) {
       console.error("Error loading data:", error);
-      toast.error("Erro ao carregar funis");
+      toast.error("Não foi possível carregar os funis. Tente novamente.");
     } finally {
       if (!isUpdate) {
         setLoading(false);
@@ -117,7 +117,7 @@ export const GlobalFunnelMapping = () => {
         .single();
 
       if (!stageData) {
-        toast.error("Funil sem etapas configuradas");
+        toast.error("Este funil não tem etapas. Configure as etapas antes de escolher o funil.");
         return;
       }
 
@@ -149,11 +149,11 @@ export const GlobalFunnelMapping = () => {
         if (error) throw error;
       }
 
-      toast.success("Mapeamento atualizado com sucesso");
+      toast.success("Mapeamento atualizado.");
       await loadData(true); // Pass true to indicate it's an update
     } catch (error) {
       console.error("Error updating mapping:", error);
-      toast.error("Erro ao atualizar mapeamento");
+      toast.error("Não foi possível atualizar o mapeamento. Tente novamente.");
     } finally {
       setUpdating(false);
     }
@@ -172,9 +172,9 @@ export const GlobalFunnelMapping = () => {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Direcionamento de Leads</CardTitle>
+        <CardTitle>Direcionamento de leads</CardTitle>
         <CardDescription>
-          Configure para qual funil os leads de cada fonte devem ser direcionados automaticamente
+          Escolha para qual funil vão os leads de cada fonte.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6" style={{ opacity: updating ? 0.6 : 1, transition: 'opacity 0.2s' }}>
@@ -263,7 +263,7 @@ export const GlobalFunnelMapping = () => {
         </div>
 
         <p className="text-xs text-muted-foreground mt-4">
-          Os leads de cada fonte serão automaticamente adicionados à primeira etapa do funil selecionado
+          Os leads de cada fonte entram na primeira etapa do funil escolhido.
         </p>
       </CardContent>
     </Card>
