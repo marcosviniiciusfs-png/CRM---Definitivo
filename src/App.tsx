@@ -35,6 +35,7 @@ const LeadDistribution = lazy(() => import("./pages/LeadDistribution"));
 const Chat = lazy(() => import("./pages/Chat"));
 const Ranking = lazy(() => import("./pages/Ranking"));
 const RankingArena = lazy(() => import("./pages/RankingArena"));
+const TvRanking = lazy(() => import("./pages/TvRanking"));
 const Reunioes = lazy(() => import("./pages/Reunioes"));
 const Tasks = lazy(() => import("./pages/Tasks"));
 const Settings = lazy(() => import("./pages/Settings"));
@@ -102,6 +103,7 @@ const App = () => {
             <Routes>
                     <Route path="/" element={<LazyPage><Landing /></LazyPage>} />
                     <Route path="/auth" element={<LazyPage><Auth /></LazyPage>} />
+                    <Route path="/tv/:token" element={<LazyPage><TvRanking /></LazyPage>} />
                     <Route path="/admin-login" element={<LazyPage><AdminLogin /></LazyPage>} />
                     <Route element={<LazyPage><OrganizationAppScope /></LazyPage>}>
                       <Route element={<LazyPage><AuthenticatedAppProviders /></LazyPage>}>

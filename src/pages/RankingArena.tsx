@@ -25,8 +25,11 @@ import {
   type MemberInfo,
 } from "@/hooks/useRanking";
 import { isDemoRoute } from "@/lib/demoMode";
+import { usePermissions } from "@/hooks/usePermissions";
+import { useGamificationRefresh } from "@/hooks/useGamification";
+import { CampaignsPanel, FeedCard, GoalsPanel, SellerProfileCard } from "@/components/ranking/GamificationPanels";
 
-type Tab = RankingMetric | "teams";
+type Tab = RankingMetric | "teams" | "goals" | "campaigns";
 
 const PERIODS: Array<{ value: RankingPeriod; label: string; noun: string }> = [
   { value: "today", label: "Hoje", noun: "hoje" },
@@ -78,6 +81,9 @@ export default function RankingArena() {
   const [period, setPeriod] = useState<RankingPeriod>("month");
   const [tab, setTab] = useState<Tab>("production");
   const currentUserId = useCurrentUserId();
+  const permissions = usePermissions();
+  const isAdmin = permissions.role === "owner" || permissions.role === "admin";
+  useGamificationRefresh();
 
   const range = useMemo(() => periodRange(period), [period]);
   const previousRange = useMemo(() => periodUntilYesterday(period), [period]);
@@ -88,14 +94,17 @@ export default function RankingArena() {
   const { data: teamData } = useTeamsWithMembers();
   const { data: myEvents = [] } = useMyScoreEvents(range);
 
-  const metric: RankingMetric = tab === "teams" ? "production" : tab;
+  const metric: RankingMetric = tab === "teams" || tab === "goals" || tab === "campaigns" ? "production" : tab;
   const tabs: Array<{ value: Tab; label: string }> = [
     { value: "production", label: terms.revenue === "Receita ganha" ? "Receita" : terms.revenue },
     { value: "sales", label: terms.sales },
     { value: "points", label: "Pontos" },
     { value: "conversion", label: "Conversão" },
     { value: "teams", label: "Equipes" },
+    { value: "goals", label: "Metas" },
+    { value: "campaigns", label: "Campanhas" },
   ];
+  const teamsList = teamData?.teams ?? [];
 
   const ranked = useMemo(() => rankRows(rows, metric), [rows, metric]);
   const previousRanks = useMemo(() => {
@@ -172,7 +181,11 @@ export default function RankingArena() {
 
       <div className="mt-5 grid gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
         <div className="min-w-0 space-y-4">
-          {tab === "teams" ? (
+          {tab === "goals" ? (
+            <GoalsPanel members={members} teams={teamsList} isAdmin={isAdmin} currentUserId={currentUserId} />
+          ) : tab === "campaigns" ? (
+            <CampaignsPanel members={members} teams={teamsList} isAdmin={isAdmin} currentUserId={currentUserId} />
+          ) : tab === "teams" ? (
             <section className="rounded-lg border bg-card">
               {teamRanked.length === 0 ? (
                 <p className="p-8 text-center text-sm text-muted-foreground">Nenhuma equipe cadastrada. Crie equipes em Administrativo › Equipes.</p>
@@ -270,6 +283,7 @@ export default function RankingArena() {
         </div>
 
         <aside className="space-y-4">
+          <SellerProfileCard userId={currentUserId} />
           <section className="rounded-lg border bg-card p-4">
             <h2 className="text-base font-semibold text-foreground">Sua posição</h2>
             {me && me.rank > 0 ? (
@@ -314,6 +328,8 @@ export default function RankingArena() {
               </ul>
             )}
           </section>
+
+          <FeedCard members={members} />
 
           <p className="px-1 text-xs text-muted-foreground">
             Procurando o ranking de tarefas ou a corrida de agendamentos?{" "}

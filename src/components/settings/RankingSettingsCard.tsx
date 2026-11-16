@@ -7,6 +7,7 @@ import { Switch } from "@/components/ui/switch";
 import { SCORE_KINDS, type ScoreKind } from "@/lib/scoring";
 import { useOrganizationSegment, useSetRankingShowValues } from "@/hooks/useOrganizationSegment";
 import { useSaveScoreRule, useScoreRules } from "@/hooks/useRanking";
+import { useSetTvToken, useTvToken } from "@/hooks/useGamification";
 
 interface Draft {
   points: string;
@@ -126,7 +127,47 @@ export function RankingSettingsCard() {
             {saveRule.isPending ? "Salvando..." : "Salvar pontuação"}
           </Button>
         </div>
+
+        <TvLinkSection />
       </CardContent>
     </Card>
+  );
+}
+
+/** Link de só leitura para deixar o ranking numa TV, sem login. */
+function TvLinkSection() {
+  const { data: token, isLoading } = useTvToken(true);
+  const setToken = useSetTvToken();
+  const url = token ? `${window.location.origin}/tv/${token}` : null;
+
+  const change = (enable: boolean) =>
+    setToken.mutate(enable, {
+      onSuccess: () => toast.success(enable ? "Link da TV criado. O link antigo deixou de funcionar." : "Link da TV desligado."),
+      onError: () => toast.error("Não foi possível mudar o link da TV. Tente de novo."),
+    });
+
+  return (
+    <div className="space-y-2 rounded-md border px-3 py-3">
+      <p className="text-sm font-medium text-foreground">Modo TV</p>
+      <p className="text-[13px] text-muted-foreground">
+        Abra o link numa TV do escritório para mostrar o ranking, a meta, a campanha e as vendas do dia, trocando de tela sozinho. Não precisa de login: trate o link como uma senha.
+      </p>
+      {isLoading ? null : url ? (
+        <div className="flex flex-wrap items-center gap-2">
+          <Input readOnly value={url} className="h-8 min-w-0 flex-1 font-mono text-xs" onFocus={(e) => e.currentTarget.select()} aria-label="Link da TV" />
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => navigator.clipboard.writeText(url).then(() => toast.success("Link copiado."))}
+          >
+            Copiar
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => change(true)} disabled={setToken.isPending}>Gerar outro</Button>
+          <Button variant="ghost" size="sm" onClick={() => change(false)} disabled={setToken.isPending}>Desligar</Button>
+        </div>
+      ) : (
+        <Button variant="outline" size="sm" onClick={() => change(true)} disabled={setToken.isPending}>Criar link da TV</Button>
+      )}
+    </div>
   );
 }

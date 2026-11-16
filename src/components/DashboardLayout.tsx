@@ -16,6 +16,7 @@ import { AnnouncementPopup } from "@/components/AnnouncementPopup";
 import { useAnnouncements } from "@/hooks/useAnnouncements";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { MobileBottomNav } from "@/components/MobileBottomNav";
+import { CelebrationWatcher } from "@/components/CelebrationWatcher";
 
 interface DashboardLayoutProps {
   children: ReactNode;
@@ -162,6 +163,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
         open={calendarModalOpen}
         onOpenChange={setCalendarModalOpen}
       />
+      <CelebrationWatcher />
       <AnnouncementPopup
         announcement={currentAnnouncement}
         onDismiss={handleDismissAnnouncement}

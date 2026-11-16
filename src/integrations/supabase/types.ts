@@ -534,6 +534,63 @@ export type Database = {
         }
         Relationships: []
       }
+      campaigns: {
+        Row: {
+          closed_at: string | null
+          created_at: string
+          created_by: string | null
+          ends_on: string
+          format: string
+          id: string
+          metric: string
+          name: string
+          organization_id: string
+          participant_user_ids: string[] | null
+          prize: string | null
+          reveal_on: string | null
+          starts_on: string
+          target: number | null
+          team_ids: string[] | null
+          winners: Json | null
+        }
+        Insert: {
+          closed_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          ends_on: string
+          format: string
+          id?: string
+          metric: string
+          name: string
+          organization_id: string
+          participant_user_ids?: string[] | null
+          prize?: string | null
+          reveal_on?: string | null
+          starts_on: string
+          target?: number | null
+          team_ids?: string[] | null
+          winners?: Json | null
+        }
+        Update: {
+          closed_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          ends_on?: string
+          format?: string
+          id?: string
+          metric?: string
+          name?: string
+          organization_id?: string
+          participant_user_ids?: string[] | null
+          prize?: string | null
+          reveal_on?: string | null
+          starts_on?: string
+          target?: number | null
+          team_ids?: string[] | null
+          winners?: Json | null
+        }
+        Relationships: []
+      }
       commission_configs: {
         Row: {
           commission_type: string
@@ -2775,6 +2832,42 @@ export type Database = {
         }
         Relationships: []
       }
+      seller_goals: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          metric: string
+          month: string
+          organization_id: string
+          scope: string
+          scope_id: string | null
+          target: number
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          metric: string
+          month: string
+          organization_id: string
+          scope: string
+          scope_id?: string | null
+          target: number
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          metric?: string
+          month?: string
+          organization_id?: string
+          scope?: string
+          scope_id?: string | null
+          target?: number
+        }
+        Relationships: []
+      }
       sales_funnels: {
         Row: {
           created_at: string
@@ -3076,6 +3169,36 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      user_achievements: {
+        Row: {
+          code: string
+          details: Json
+          earned_at: string
+          id: string
+          organization_id: string
+          period_key: string
+          user_id: string
+        }
+        Insert: {
+          code: string
+          details?: Json
+          earned_at?: string
+          id?: string
+          organization_id: string
+          period_key?: string
+          user_id: string
+        }
+        Update: {
+          code?: string
+          details?: Json
+          earned_at?: string
+          id?: string
+          organization_id?: string
+          period_key?: string
+          user_id?: string
+        }
+        Relationships: []
       }
       user_roles: {
         Row: {
@@ -4151,6 +4274,23 @@ export type Database = {
         Args: { p_organization_id: string; p_segment: string }
         Returns: string
       }
+      campaign_standings: {
+        Args: { p_campaign_id: string }
+        Returns: { entity_id: string; entity_type: string; hidden: boolean; value: number | null }[]
+      }
+      gamification_refresh: { Args: { p_organization_id: string }; Returns: undefined }
+      get_tv_token: { Args: { p_organization_id: string }; Returns: string | null }
+      goals_progress: {
+        Args: { p_month: string; p_organization_id: string }
+        Returns: { achieved: number | null; goal_id: string; metric: string; scope: string; scope_id: string | null; target: number | null }[]
+      }
+      ranking_feed: {
+        Args: { p_limit?: number; p_organization_id: string }
+        Returns: { amount: number | null; id: string; kind: string; occurred_at: string; user_id: string }[]
+      }
+      seller_profile: { Args: { p_daily_points?: number; p_organization_id: string; p_user_id: string }; Returns: Json }
+      set_tv_token: { Args: { p_enable: boolean; p_organization_id: string }; Returns: string | null }
+      tv_board: { Args: { p_token: string }; Returns: Json }
       ranking_board: {
         Args: { p_from: string; p_organization_id: string; p_to: string }
         Returns: {
