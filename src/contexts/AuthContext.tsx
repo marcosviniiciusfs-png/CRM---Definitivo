@@ -4,6 +4,7 @@ import { logger } from "@/lib/logger";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
 import { demoSectionAccess, isDemoRoute } from "@/lib/demoMode";
+import { isImpersonatingUser, leaveImpersonation } from "@/lib/impersonationSession";
 
 interface SubscriptionData {
   subscribed: boolean;
@@ -337,6 +338,8 @@ function RealAuthProvider({ children }: { children: ReactNode }) {
   };
 
   const logUserSession = async (userId: string, isLogin: boolean) => {
+    // Acesso de suporte (super admin na conta do usuário) não conta como sessão do usuário.
+    if (isImpersonatingUser(userId)) return;
     try {
       const { data: memberData } = await supabase
         .from('organization_members')
@@ -572,6 +575,12 @@ function RealAuthProvider({ children }: { children: ReactNode }) {
   };
 
   const signOut = async () => {
+    // Durante o acesso de suporte, "Sair" volta para a conta do super admin. Nunca usar o
+    // signOut global aqui: ele derrubaria o usuário real em todos os aparelhos.
+    if (user?.id && isImpersonatingUser(user.id)) {
+      await leaveImpersonation();
+      return;
+    }
     if (user?.id) {
       await logUserSession(user.id, false);
     }

@@ -13,7 +13,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { supabase } from "@/integrations/supabase/client";
 import { getAdminToken } from "@/contexts/AdminAuthContext";
 import { Switch } from "@/components/ui/switch";
-import { ArrowLeft, User, Building2, Shield, Users, Mail, Calendar, Clock, KeyRound, Send, Trash2, CreditCard, Unlock } from "lucide-react";
+import { ArrowLeft, User, Building2, Shield, Users, Mail, Calendar, Clock, KeyRound, Send, Trash2, CreditCard, Unlock, LogIn } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
+import { ImpersonateUserDialog } from "@/components/admin/ImpersonateUserDialog";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { toast } from "sonner";
@@ -101,6 +103,30 @@ const navState = location.state as { tab?: string; page?: number; search?: strin
   const [showRemoveMemberConfirm, setShowRemoveMemberConfirm] = useState(false);
   const [memberToRemove, setMemberToRemove] = useState<OrganizationMember | null>(null);
   const [removingMember, setRemovingMember] = useState(false);
+
+  // Entrar como este usuário (Fase 6): só para super admin do login normal (user_roles).
+  // A Edge Function confere tudo de novo; aqui só esconde o botão quando não faz sentido.
+  const { user: currentUser, isSuperAdmin } = useAuth();
+  const [showImpersonateDialog, setShowImpersonateDialog] = useState(false);
+  const [targetIsSuperAdmin, setTargetIsSuperAdmin] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    if (!userId || !isSuperAdmin) return;
+    let cancelled = false;
+    setTargetIsSuperAdmin(null);
+    supabase
+      .rpc('has_role', { _user_id: userId, _role: 'super_admin' })
+      .then(({ data, error }) => {
+        if (!cancelled) setTargetIsSuperAdmin(error ? null : Boolean(data));
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [userId, isSuperAdmin]);
+
+  const canImpersonate = Boolean(
+    isSuperAdmin && userId && currentUser?.id && currentUser.id !== userId && targetIsSuperAdmin === false,
+  );
 
   useEffect(() => {
     if (userId) {
@@ -493,7 +519,28 @@ const navState = location.state as { tab?: string; page?: number; search?: strin
             <h1 className="text-3xl font-bold tracking-tight text-gray-900">Detalhes do Usuário</h1>
             <p className="text-gray-500">Informações completas da conta e colaboradores</p>
           </div>
+          {canImpersonate && (
+            <Button
+              variant="outline"
+              onClick={() => setShowImpersonateDialog(true)}
+              className="border-gray-300 text-gray-700 hover:bg-gray-100"
+            >
+              <LogIn className="w-4 h-4" />
+              Entrar como este usuário
+            </Button>
+          )}
         </div>
+
+        {canImpersonate && userId && (
+          <ImpersonateUserDialog
+            open={showImpersonateDialog}
+            onOpenChange={setShowImpersonateDialog}
+            targetUserId={userId}
+            targetName={userDetails.full_name || userDetails.email}
+            organizationName={userDetails.organization_name}
+            returnPath={`/admin/user/${userId}`}
+          />
+        )}
 
         {/* Success Notification Card */}
         {planUpdateSuccess && (

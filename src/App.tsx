@@ -7,6 +7,7 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { AdminAuthProvider } from "@/contexts/AdminAuthContext";
 import { MigrationMaintenance } from "@/components/MigrationMaintenance";
+import { ImpersonationBanner } from "@/components/ImpersonationBanner";
 
 // Páginas carregadas sob demanda (lazy)
 const Landing = lazy(() => import("./pages/Landing"));
@@ -104,6 +105,8 @@ const App = () => {
       <BrowserRouter>
         <AdminAuthProvider>
           <AuthProvider>
+            {/* Faixa do acesso de suporte (Fase 6): aparece em qualquer rota enquanto durar. */}
+            <ImpersonationBanner />
             <Routes>
                     <Route path="/" element={<LazyPage><Landing /></LazyPage>} />
                     <Route path="/auth" element={<LazyPage><Auth /></LazyPage>} />
