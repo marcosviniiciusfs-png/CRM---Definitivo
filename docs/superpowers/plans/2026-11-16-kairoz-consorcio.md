@@ -45,7 +45,20 @@ Cada fase é um PR, testado no localhost e publicado. A ordem coloca primeiro os
 - **Administradoras:** cadastro simples por organização (nome, logo, cor).
 - **Venda de cota** (`consortium_sales`): lead, vendedor, administradora, tipo de bem, grupo, cota, crédito, prazo, parcela, nº da proposta/contrato, data da adesão, status (aguardando 1ª parcela, ativa, cancelada), data do pagamento da 1ª parcela, motivo do cancelamento. Um cliente pode comprar várias cotas.
 - Ao mover o lead para "Cota vendida", abre o formulário da cota. O crédito somado vira a produção.
-- Regra da organização: a venda conta na adesão ou na 1ª parcela. Na regra da adesão, cancelar a cota estorna. Na regra da 1ª parcela, o sistema cria uma tarefa para confirmar o pagamento.
+- Regra da organização: a venda conta na adesão ou na 1ª parcela. Na regra da adesão, cancelar a cota estorna. Na regra da 1ª parcela, a cota só conta quando alguém confirma o pagamento.
+
+Feito na Fase 1:
+- Tabelas `lead_consortium_profiles`, `consortium_administrators` e `consortium_sales`, com RLS; regra em `organization_settings`.
+- A soma do crédito das cotas não canceladas vira o valor do lead; `consortium_sales_summary()` dá a produção por vendedor aplicando a regra.
+- Ficha do lead com Qualificação e Cotas (registrar, confirmar 1ª parcela, cancelar com motivo).
+- No funil, mover para a etapa de ganho abre o registro da cota; o lead só muda de etapa depois de registrar.
+- Configurações › Organização com a regra e o cadastro de administradoras (com atalhos das mais comuns).
+- Dashboard das organizações em modo consórcio usa as cotas para produção, quantidade e equipe.
+
+Ficou para depois:
+- Tarefa automática para confirmar a 1ª parcela (hoje: botão "Confirmar 1ª parcela" na cota).
+- Qualificação vinda de formulários e do Meta, e o tipo de bem no cartão do funil.
+- Escolher outro vendedor na cota: hoje o vendedor é o responsável do lead.
 
 ### Fase 2: ranking e gamificação (média)
 

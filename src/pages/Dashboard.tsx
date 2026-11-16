@@ -4,7 +4,9 @@ import { supabase } from '@/integrations/supabase/client';
 import { useOrganizationReady } from '@/hooks/useOrganizationReady';
 import { LoadingAnimation } from '@/components/LoadingAnimation';
 import { SalesOverview, type SalesOverviewData } from '@/components/dashboard/SalesOverview';
-import { useSegmentTerms } from '@/hooks/useOrganizationSegment';
+import { useOrganizationSegment } from '@/hooks/useOrganizationSegment';
+import { fetchOrganizationMembersSafe } from '@/hooks/useOrganizationMembers';
+import { format } from 'date-fns';
 import { useNavigate } from 'react-router-dom';
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -14,7 +16,7 @@ const Dashboard = () => {
   const { organizationId, isReady, isSuperAdmin } = useOrganizationReady();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
-  const segmentTerms = useSegmentTerms();
+  const { isConsorcio, terms: segmentTerms } = useOrganizationSegment();
 
   const [period, setPeriod] = useState<'today' | 'month' | 'quarter' | 'year'>('month');
 
@@ -50,6 +52,43 @@ const Dashboard = () => {
   };
 
   const { startDate, endDate } = getDateRange(period);
+
+  // Modo consórcio: produção e vendas vêm das cotas registradas, pela regra da organização.
+  const { data: consortiumSummary } = useQuery({
+    queryKey: ['consortium-summary', organizationId, format(startDate, 'yyyy-MM-dd'), format(endDate, 'yyyy-MM-dd')],
+    queryFn: async () => {
+      if (!organizationId) return null;
+      const [{ data, error }, members] = await Promise.all([
+        supabase.rpc('consortium_sales_summary', {
+          p_organization_id: organizationId,
+          p_from: format(startDate, 'yyyy-MM-dd'),
+          p_to: format(endDate, 'yyyy-MM-dd'),
+        }),
+        fetchOrganizationMembersSafe(),
+      ]);
+      if (error) throw error;
+      const rows = data ?? [];
+      return {
+        revenue: rows.reduce((sum, row) => sum + Number(row.credit_total || 0), 0),
+        sales: rows.reduce((sum, row) => sum + Number(row.sales_count || 0), 0),
+        team: rows
+          .filter((row) => row.seller_user_id)
+          .map((row) => {
+            const member = members.find((m) => m.user_id === row.seller_user_id);
+            return {
+              id: row.seller_user_id as string,
+              name: member?.full_name || 'Colaborador',
+              sales: Number(row.sales_count || 0),
+              revenue: Number(row.credit_total || 0),
+              avatarUrl: member?.avatar_url ?? null,
+            };
+          })
+          .sort((a, b) => b.revenue - a.revenue),
+      };
+    },
+    enabled: isConsorcio && !!organizationId,
+    staleTime: 1000 * 60 * 2,
+  });
 
   // Compartilhado por vendas, receita e ranking. Antes cada card repetia a
   // mesma consulta de estágios ganhos, multiplicando round-trips na abertura.
@@ -415,7 +454,7 @@ const Dashboard = () => {
       .replace('.', '');
   });
 
-  const overview: SalesOverviewData = {
+  const baseOverview: SalesOverviewData = {
     revenue: monthRevenue ?? 0,
     sales: soldTotal ?? 0,
     leads: totalLeads ?? 0,
@@ -438,6 +477,10 @@ const Dashboard = () => {
       avatarUrl: seller.avatar_url,
     })),
   };
+
+  const overview: SalesOverviewData = isConsorcio && consortiumSummary
+    ? { ...baseOverview, revenue: consortiumSummary.revenue, sales: consortiumSummary.sales, team: consortiumSummary.team }
+    : baseOverview;
 
   const loading = totalLeads === undefined;
 

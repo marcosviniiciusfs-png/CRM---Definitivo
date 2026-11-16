@@ -21,7 +21,8 @@ import { LoadingAnimation } from "@/components/LoadingAnimation";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 import { formatBRLCompact } from "@/lib/money";
-import { useSegmentTerms } from "@/hooks/useOrganizationSegment";
+import { useOrganizationSegment } from "@/hooks/useOrganizationSegment";
+import { ConsortiumSaleDialog } from "@/components/consortium/ConsortiumSaleDialog";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -179,7 +180,7 @@ const Pipeline = () => {
   const isMobile = useIsMobile();
   const toggleNoShow = useToggleNoShow();
   const isDemo = isDemoRoute();
-  const segmentTerms = useSegmentTerms();
+  const { isConsorcio, terms: segmentTerms } = useOrganizationSegment();
 
   const handleToggleNoShow = useCallback((leadId: string, currentStatus: StatusReuniao | null | undefined) => {
     toggleNoShow.mutate({ leadId, currentStatus: currentStatus ?? null });
@@ -1445,8 +1446,8 @@ const Pipeline = () => {
     // Verificar se o stage de destino é um stage de ganho (won)
     const targetStageData = stages.find(s => s.id === targetStage);
     if (targetStageData?.stageData?.stage_type === 'won' && activeStage !== targetStage) {
-      // Verificar se o lead tem valor definido
-      if (!activeLead.valor || activeLead.valor <= 0) {
+      // Verificar se o lead tem valor definido (no consórcio o crédito vem da cota registrada)
+      if (!isConsorcio && (!activeLead.valor || activeLead.valor <= 0)) {
         toast.error("Este lead não tem valor definido. Adicione um valor antes de confirmar a venda.");
         return;
       }
@@ -1463,7 +1464,7 @@ const Pipeline = () => {
 
     // Processar movimentação normal
     await processLeadMove(event, leadId, overId, activeLead, targetStage, activeStage, isDroppedOverStage, overLead);
-  }, [leads, stages, user?.id, usingCustomFunnel, activeFunnel, permissions.role, permissions.canMoveLeadsPipeline, permissions.canViewTeamLeads, teamMemberIds]);
+  }, [leads, stages, user?.id, usingCustomFunnel, activeFunnel, permissions.role, permissions.canMoveLeadsPipeline, permissions.canViewTeamLeads, teamMemberIds, isConsorcio]);
 
   const processLeadMove = async (
     event: DragEndEvent,
@@ -1829,7 +1830,7 @@ const Pipeline = () => {
     // Verificar se é etapa won
     const targetStageData = stages.find(s => s.id === targetStageId);
     if (targetStageData?.stageData?.stage_type === 'won') {
-      if (!activeLead.valor || activeLead.valor <= 0) {
+      if (!isConsorcio && (!activeLead.valor || activeLead.valor <= 0)) {
         toast.error('Este lead não tem valor definido. Adicione um valor antes de confirmar a venda.');
         return;
       }
@@ -1863,7 +1864,7 @@ const Pipeline = () => {
       toast.error('Não foi possível mover o lead. Tente novamente.');
       loadLeads(undefined, false);
     }
-  }, [leads, stages, usingCustomFunnel, user?.id, permissions, teamMemberIds]);
+  }, [leads, stages, usingCustomFunnel, user?.id, permissions, teamMemberIds, isConsorcio]);
 
   // Handler otimizado para mudança de aba com transição suave
   const handleTabChange = useCallback((value: string) => {
@@ -3015,8 +3016,21 @@ const Pipeline = () => {
         </AlertDialogContent>
       </AlertDialog>
 
+      {/* Modo consórcio: registrar a cota é a confirmação da venda */}
+      {isConsorcio && wonConfirmation.lead && (
+        <ConsortiumSaleDialog
+          open={wonConfirmation.show}
+          onOpenChange={(open) => !open && handleWonConfirmation(false)}
+          leadId={wonConfirmation.lead.id}
+          leadName={wonConfirmation.lead.nome_lead}
+          suggestedCredit={wonConfirmation.lead.valor}
+          confirmLabel="Registrar e mover"
+          onSaved={() => handleWonConfirmation(true)}
+        />
+      )}
+
       {/* Dialog de Confirmação de Venda */}
-      <AlertDialog open={wonConfirmation.show} onOpenChange={(open) => !open && handleWonConfirmation(false)}>
+      <AlertDialog open={!isConsorcio && wonConfirmation.show} onOpenChange={(open) => !open && handleWonConfirmation(false)}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <div className="flex items-center justify-center mb-4">

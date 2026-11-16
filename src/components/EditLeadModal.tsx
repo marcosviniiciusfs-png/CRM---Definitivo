@@ -30,6 +30,7 @@ import { fetchOrganizationMembersSafe } from "@/hooks/useOrganizationMembers";
 import { getAppIcon } from "@/lib/iconRegistry";
 import { parseMeetingSchedule } from "@/lib/meetingSchedule";
 import { useOrganizationSegment } from "@/hooks/useOrganizationSegment";
+import { LeadConsortiumPanel } from "@/components/consortium/LeadConsortiumPanel";
 
 interface EditLeadModalProps {
   lead: Lead;
@@ -1778,6 +1779,14 @@ export const EditLeadModal = ({ lead, open, onClose, onUpdate }: EditLeadModalPr
                     )}
                   </CardContent>
                 </Card>
+
+                {isConsorcio && (
+                  <LeadConsortiumPanel
+                    leadId={lead.id}
+                    leadName={editedName || lead.nome_lead}
+                    leadValue={parseFloat(editedValue || "0") || null}
+                  />
+                )}
 
                 {/* Dados do negócio */}
                 <Card className="bg-primary/5 border-primary/10">

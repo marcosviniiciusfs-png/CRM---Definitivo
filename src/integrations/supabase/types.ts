@@ -432,6 +432,108 @@ export type Database = {
           },
         ]
       }
+      consortium_administrators: {
+        Row: {
+          color: string | null
+          created_at: string
+          created_by: string | null
+          id: string
+          is_active: boolean
+          name: string
+          organization_id: string
+        }
+        Insert: {
+          color?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_active?: boolean
+          name: string
+          organization_id: string
+        }
+        Update: {
+          color?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_active?: boolean
+          name?: string
+          organization_id?: string
+        }
+        Relationships: []
+      }
+      consortium_sales: {
+        Row: {
+          adhesion_date: string
+          administrator_id: string | null
+          asset_type: string | null
+          cancel_reason: string | null
+          cancelled_on: string | null
+          contract_number: string | null
+          created_at: string
+          created_by: string | null
+          credit_amount: number
+          first_installment_paid_on: string | null
+          group_code: string | null
+          id: string
+          installment_amount: number | null
+          lead_id: string
+          organization_id: string
+          quota_number: string | null
+          seller_user_id: string | null
+          status: string
+          term_months: number | null
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          adhesion_date?: string
+          administrator_id?: string | null
+          asset_type?: string | null
+          cancel_reason?: string | null
+          cancelled_on?: string | null
+          contract_number?: string | null
+          created_at?: string
+          created_by?: string | null
+          credit_amount: number
+          first_installment_paid_on?: string | null
+          group_code?: string | null
+          id?: string
+          installment_amount?: number | null
+          lead_id: string
+          organization_id: string
+          quota_number?: string | null
+          seller_user_id?: string | null
+          status?: string
+          term_months?: number | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          adhesion_date?: string
+          administrator_id?: string | null
+          asset_type?: string | null
+          cancel_reason?: string | null
+          cancelled_on?: string | null
+          contract_number?: string | null
+          created_at?: string
+          created_by?: string | null
+          credit_amount?: number
+          first_installment_paid_on?: string | null
+          group_code?: string | null
+          id?: string
+          installment_amount?: number | null
+          lead_id?: string
+          organization_id?: string
+          quota_number?: string | null
+          seller_user_id?: string | null
+          status?: string
+          term_months?: number | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
       commission_configs: {
         Row: {
           commission_type: string
@@ -1450,6 +1552,51 @@ export type Database = {
           },
         ]
       }
+      lead_consortium_profiles: {
+        Row: {
+          asset_type: string | null
+          bid_amount: number | null
+          bid_percent: number | null
+          desired_credit: number | null
+          desired_term_months: number | null
+          lead_id: string
+          max_installment: number | null
+          organization_id: string
+          purchase_timeframe: string | null
+          updated_at: string
+          updated_by: string | null
+          uses_fgts: boolean | null
+        }
+        Insert: {
+          asset_type?: string | null
+          bid_amount?: number | null
+          bid_percent?: number | null
+          desired_credit?: number | null
+          desired_term_months?: number | null
+          lead_id: string
+          max_installment?: number | null
+          organization_id: string
+          purchase_timeframe?: string | null
+          updated_at?: string
+          updated_by?: string | null
+          uses_fgts?: boolean | null
+        }
+        Update: {
+          asset_type?: string | null
+          bid_amount?: number | null
+          bid_percent?: number | null
+          desired_credit?: number | null
+          desired_term_months?: number | null
+          lead_id?: string
+          max_installment?: number | null
+          organization_id?: string
+          purchase_timeframe?: string | null
+          updated_at?: string
+          updated_by?: string | null
+          uses_fgts?: boolean | null
+        }
+        Relationships: []
+      }
       lead_distribution_configs: {
         Row: {
           auto_redistribute: boolean
@@ -2298,18 +2445,21 @@ export type Database = {
       }
       organization_settings: {
         Row: {
+          consortium_sale_counts_on: string
           organization_id: string
           segment: string
           updated_at: string
           updated_by: string | null
         }
         Insert: {
+          consortium_sale_counts_on?: string
           organization_id: string
           segment?: string
           updated_at?: string
           updated_by?: string | null
         }
         Update: {
+          consortium_sale_counts_on?: string
           organization_id?: string
           segment?: string
           updated_at?: string
@@ -3893,6 +4043,18 @@ export type Database = {
           roulettes_in: number
           teams_as_leader: number
         }
+      }
+      consortium_sales_summary: {
+        Args: { p_from: string; p_organization_id: string; p_to: string }
+        Returns: {
+          credit_total: number
+          sales_count: number
+          seller_user_id: string | null
+        }[]
+      }
+      set_consortium_sale_rule: {
+        Args: { p_organization_id: string; p_rule: string }
+        Returns: string
       }
       set_organization_segment: {
         Args: { p_organization_id: string; p_segment: string }

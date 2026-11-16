@@ -3,42 +3,55 @@ import { supabase } from "@/integrations/supabase/client";
 import { useOrganization } from "@/contexts/OrganizationContext";
 import { isDemoRoute } from "@/lib/demoMode";
 import { getSegmentTerms, isOrganizationSegment, type OrganizationSegment } from "@/lib/segmentTerms";
+import type { SaleCountsOn } from "@/lib/consortium";
 
-const queryKey = (organizationId: string | null) => ["organization-segment", organizationId] as const;
+interface OrganizationSettings {
+  segment: OrganizationSegment;
+  saleRule: SaleCountsOn;
+}
+
+const DEFAULT_SETTINGS: OrganizationSettings = { segment: "generico", saleRule: "adesao" };
+const DEMO_SETTINGS: OrganizationSettings = { segment: "consorcio", saleRule: "adesao" };
+
+export const organizationSettingsKey = (organizationId: string | null) => ["organization-settings", organizationId] as const;
 
 /**
- * Segmento da organização (genérico ou consórcio). Sem linha em organization_settings,
- * ou se a tabela ainda não existir no banco, vale "generico". As telas de demonstração
- * usam consórcio, que é o segmento de todos os clientes hoje.
+ * Configurações de produto da organização: segmento (genérico ou consórcio) e, no consórcio,
+ * quando a venda conta. Sem linha em organization_settings, ou se a tabela ainda não existir
+ * no banco, vale o padrão (genérico, na adesão). As telas de demonstração usam consórcio.
  */
 export function useOrganizationSegment() {
   const { organizationId } = useOrganization();
   const demo = isDemoRoute();
 
   const query = useQuery({
-    queryKey: queryKey(organizationId),
-    queryFn: async (): Promise<OrganizationSegment> => {
-      if (!organizationId) return "generico";
+    queryKey: organizationSettingsKey(organizationId),
+    queryFn: async (): Promise<OrganizationSettings> => {
+      if (!organizationId) return DEFAULT_SETTINGS;
       const { data, error } = await supabase
         .from("organization_settings")
-        .select("segment")
+        .select("segment, consortium_sale_counts_on")
         .eq("organization_id", organizationId)
         .maybeSingle();
       if (error) {
         console.warn("[segment] configuração da organização indisponível:", error.message);
-        return "generico";
+        return DEFAULT_SETTINGS;
       }
-      return isOrganizationSegment(data?.segment) ? data.segment : "generico";
+      return {
+        segment: isOrganizationSegment(data?.segment) ? data.segment : "generico",
+        saleRule: data?.consortium_sale_counts_on === "primeira_parcela" ? "primeira_parcela" : "adesao",
+      };
     },
     enabled: !demo && !!organizationId,
     staleTime: 1000 * 60 * 10,
   });
 
-  const segment: OrganizationSegment = demo ? "consorcio" : query.data ?? "generico";
+  const settings = demo ? DEMO_SETTINGS : query.data ?? DEFAULT_SETTINGS;
   return {
-    segment,
-    isConsorcio: segment === "consorcio",
-    terms: getSegmentTerms(segment),
+    segment: settings.segment,
+    saleRule: settings.saleRule,
+    isConsorcio: settings.segment === "consorcio",
+    terms: getSegmentTerms(settings.segment),
     loading: !demo && query.isLoading,
   };
 }
@@ -46,9 +59,19 @@ export function useOrganizationSegment() {
 /** Atalho para quem só precisa dos rótulos. */
 export const useSegmentTerms = () => useOrganizationSegment().terms;
 
-export function useSetOrganizationSegment() {
+function useUpdateSettingsCache() {
   const { organizationId } = useOrganization();
   const queryClient = useQueryClient();
+  return (patch: Partial<OrganizationSettings>) =>
+    queryClient.setQueryData<OrganizationSettings>(organizationSettingsKey(organizationId), (current) => ({
+      ...(current ?? DEFAULT_SETTINGS),
+      ...patch,
+    }));
+}
+
+export function useSetOrganizationSegment() {
+  const { organizationId } = useOrganization();
+  const updateCache = useUpdateSettingsCache();
 
   return useMutation({
     mutationFn: async (segment: OrganizationSegment) => {
@@ -60,8 +83,24 @@ export function useSetOrganizationSegment() {
       if (error) throw error;
       return segment;
     },
-    onSuccess: (segment) => {
-      queryClient.setQueryData(queryKey(organizationId), segment);
+    onSuccess: (segment) => updateCache({ segment }),
+  });
+}
+
+export function useSetConsortiumSaleRule() {
+  const { organizationId } = useOrganization();
+  const updateCache = useUpdateSettingsCache();
+
+  return useMutation({
+    mutationFn: async (rule: SaleCountsOn) => {
+      if (!organizationId) throw new Error("Organização não encontrada.");
+      const { error } = await supabase.rpc("set_consortium_sale_rule", {
+        p_organization_id: organizationId,
+        p_rule: rule,
+      });
+      if (error) throw error;
+      return rule;
     },
+    onSuccess: (saleRule) => updateCache({ saleRule }),
   });
 }
