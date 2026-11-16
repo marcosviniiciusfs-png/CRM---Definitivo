@@ -71,13 +71,25 @@ export function AdminAuthProvider({ children }: { children: ReactNode }) {
 
     const adminLogin = async (email: string, password: string): Promise<{ error?: string }> => {
         try {
-            const { data, error } = await supabase.rpc("admin_login_system", {
-                p_email: email,
-                p_password: password
+            // Login pela Edge Function admin-login: exige estar logado no CRM como super admin
+            // com o mesmo e-mail e limita as tentativas.
+            const { data: sessionData } = await supabase.auth.getSession();
+            if (!sessionData.session) {
+                return { error: "Entre no CRM com sua conta de super admin antes de abrir o painel." };
+            }
+            const { data, error } = await supabase.functions.invoke("admin-login", {
+                body: { email, password }
             });
 
             if (error) {
-                return { error: error.message || "Erro ao conectar ao servidor" };
+                let message = "Não foi possível validar o acesso. Tente de novo.";
+                try {
+                    const payload = await (error as { context?: Response }).context?.json();
+                    if (payload?.error) message = payload.error;
+                } catch {
+                    // Mantém a mensagem padrão.
+                }
+                return { error: message };
             }
 
             const result = data as any;

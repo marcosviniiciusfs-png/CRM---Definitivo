@@ -218,3 +218,6 @@ verify_jwt = false
 # confere de novo o usuário e o papel super_admin em user_roles.
 [functions.impersonate-user]
 verify_jwt = true
+
+[functions.admin-login]
+verify_jwt = true
