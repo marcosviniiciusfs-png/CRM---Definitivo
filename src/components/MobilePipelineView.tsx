@@ -6,10 +6,13 @@ import { cn } from '@/lib/utils';
 import { mapTriggerSourceToReason } from '@/lib/redistribution';
 import { useToggleNoShow } from '@/hooks/useToggleNoShow';
 import type { StatusReuniao } from '@/types/chat';
+import type { LeadAttentionResult } from '@/lib/leadCardState';
+import { Inbox } from 'lucide-react';
 
 interface MobilePipelineViewProps {
   stages: any[];
   leadsByStage: Map<string, Lead[]>;
+  attentionMap?: Record<string, LeadAttentionResult>;
   selectedFunnelId: string | null;
   allFunnels: any[];
   onTabChange: (funnelId: string) => void;
@@ -27,7 +30,7 @@ interface MobilePipelineViewProps {
 }
 
 export function MobilePipelineView({
-  stages, leadsByStage, selectedFunnelId, allFunnels,
+  stages, leadsByStage, attentionMap = {}, selectedFunnelId, allFunnels,
   onTabChange, onEdit, onViewDetails, onDelete, onLeadMove,
   leadTagsMap, profilesMap, duplicateLeadIds,
   agendamentosMap, redistributedMap, stagePagination, onLoadMore,
@@ -90,10 +93,10 @@ export function MobilePipelineView({
               key={f.id}
               onClick={() => onTabChange(f.id)}
               className={cn(
-                'flex-shrink-0 px-3 py-2 text-sm font-medium border-b-2 transition-colors whitespace-nowrap',
+                'flex-shrink-0 px-3 py-2 text-[13px] border-b-2 transition-colors whitespace-nowrap',
                 selectedFunnelId === f.id
-                  ? 'border-primary text-primary'
-                  : 'border-transparent text-muted-foreground hover:text-foreground'
+                  ? 'border-foreground font-semibold text-foreground'
+                  : 'border-transparent font-medium text-muted-foreground hover:text-foreground'
               )}
             >
               {f.name}
@@ -119,10 +122,10 @@ export function MobilePipelineView({
               data-stage={stage.id}
               onClick={() => handleStageTab(stage.id)}
               className={cn(
-                'flex-shrink-0 flex items-center gap-1 px-2.5 py-1.5 rounded-full text-[11px] font-medium border transition-all',
+                'flex-shrink-0 flex h-9 items-center gap-1.5 px-3 rounded-full text-[13px] border transition-colors',
                 isActive
-                  ? 'bg-primary/10 border-primary/40 text-primary'
-                  : 'bg-background border-border text-muted-foreground'
+                  ? 'bg-foreground border-foreground text-background font-semibold'
+                  : 'bg-card border-border text-foreground/80 font-medium'
               )}
             >
               <span
@@ -130,10 +133,7 @@ export function MobilePipelineView({
                 style={hexColor ? { backgroundColor: hexColor } : undefined}
               />
               <span>{stage.title}</span>
-              <span className={cn(
-                'text-[10px] px-1.5 py-0.5 rounded-full ml-0.5',
-                isActive ? 'bg-primary/20 text-primary' : 'bg-muted text-muted-foreground'
-              )}>
+              <span className={cn('tabular-nums', isActive ? 'opacity-75' : 'text-muted-foreground')}>
                 {stagePagination[stage.id]
                   ? `${stagePagination[stage.id].totalCount}`
                   : count}
@@ -145,18 +145,18 @@ export function MobilePipelineView({
 
       {/* Lista de leads da etapa ativa - scroll vertical */}
       <div
-        className="flex-1 overflow-y-auto px-3 pt-2.5 space-y-2.5"
+        className="flex-1 overflow-y-auto px-3 pt-3 space-y-2.5"
         style={{
           WebkitOverflowScrolling: 'touch',
           overscrollBehaviorY: 'contain',
           minHeight: 0,
-          paddingBottom: 'max(80px, env(safe-area-inset-bottom, 0px))',
+          paddingBottom: 'calc(96px + env(safe-area-inset-bottom, 0px))',
         }}
       >
         {activeLeads.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-10 text-center text-muted-foreground">
-            <div className="text-3xl mb-2">📋</div>
-            <p className="font-medium text-sm">Nenhum lead nesta etapa ainda.</p>
+            <Inbox className="mb-2 h-6 w-6 text-muted-foreground/70" aria-hidden="true" />
+            <p className="font-medium text-sm text-foreground">Nenhum lead nesta etapa.</p>
             <p className="text-xs mt-1">Adicione um lead ou mova um existente para cá.</p>
           </div>
         ) : (
@@ -185,6 +185,7 @@ export function MobilePipelineView({
                   isRedistributed={!!redistributedMap[lead.id]}
                   redistributedFromName={redistributedMap[lead.id]?.fromName}
                   redistributionReason={mapTriggerSourceToReason(redistributedMap[lead.id]?.triggerSource)}
+                  attention={attentionMap[lead.id]}
                 />
               );
             })}
@@ -195,7 +196,7 @@ export function MobilePipelineView({
                 <button
                   onClick={() => onLoadMore(activeStageId)}
                   disabled={pagination?.isLoading}
-                  className="w-full py-2.5 px-4 mt-1 text-sm text-muted-foreground border border-dashed border-muted-foreground/30 rounded-lg hover:border-primary/50 hover:text-primary transition-colors disabled:opacity-50 active:scale-[0.98]"
+                  className="w-full min-h-[44px] px-4 mt-1 text-sm font-medium text-foreground/80 border border-dashed border-border-strong rounded-lg hover:bg-card transition-colors disabled:opacity-50"
                 >
                   {pagination?.isLoading
                     ? 'Carregando...'

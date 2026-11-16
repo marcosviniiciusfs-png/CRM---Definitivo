@@ -2,8 +2,9 @@ import { Lead } from '@/types/chat';
 import type { StatusReuniao } from '@/types/chat';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { ChevronRight, Phone, Check, AlertCircle, Calendar, RefreshCw, Pencil, Trash2 } from 'lucide-react';
+import { Check, Calendar, CalendarCheck, Copy, MessageCircle, MoreHorizontal, RefreshCw, Trash2 } from 'lucide-react';
 import { useState, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { format, isPast, isToday, isTomorrow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -13,6 +14,8 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { type RedistributionReason } from '@/lib/redistribution';
 import { isLeadDuplicateRecord } from '@/lib/leadDuplicate';
+import type { LeadAttentionResult } from '@/lib/leadCardState';
+import { formatBRL, formatRelativeShort } from '@/lib/money';
 
 interface MobileLeadCardProps {
   lead: Lead;
@@ -32,19 +35,22 @@ interface MobileLeadCardProps {
   isRedistributed?: boolean;
   redistributedFromName?: string;
   redistributionReason?: RedistributionReason;
+  attention?: LeadAttentionResult;
 }
 
+const badgeBase = 'inline-flex h-6 items-center gap-1 rounded-full px-2 text-xs font-semibold';
+
 export function MobileLeadCard({
-  lead, stages, currentStageId, onEdit, onViewDetails, onDelete, onMoveRequest,
-  responsavelName, tags = [], isDuplicate, agendamentos,
+  lead, onEdit, onViewDetails, onDelete, onMoveRequest,
+  responsavelName, responsavelAvatarUrl, tags = [], isDuplicate, agendamentos,
   statusReuniao, onToggleNoShow,
   isRedistributed, redistributedFromName, redistributionReason = 'inactivity',
+  attention,
 }: MobileLeadCardProps) {
-  const [copied, setCopied] = useState(false);
+  const navigate = useNavigate();
   const [copiedInfo, setCopiedInfo] = useState(false);
 
-  const handleCopyInfo = useCallback((e: React.MouseEvent) => {
-    e.stopPropagation();
+  const handleCopyInfo = useCallback(() => {
     const lines: string[] = [];
     if (lead.nome_lead) lines.push(`Nome: ${lead.nome_lead}`);
     if (lead.telefone_lead) lines.push(`Telefone: ${lead.telefone_lead}`);
@@ -59,162 +65,139 @@ export function MobileLeadCard({
     });
   }, [lead, responsavelName]);
 
-  const handleCopyPhone = useCallback((e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (!lead.telefone_lead) return;
-    navigator.clipboard.writeText(lead.telefone_lead).then(() => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1500);
-    });
-  }, [lead.telefone_lead]);
-
-  const formatValue = (v?: number | null) =>
-    v ? new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v) : null;
-
   const getAgendamentoStatus = () => {
     const dates = [agendamentos?.reuniao, agendamentos?.venda].filter(Boolean) as string[];
     if (!dates.length) return null;
     const nearest = dates.map(d => new Date(d)).sort((a, b) => a.getTime() - b.getTime())[0];
-    if (isPast(nearest) && !isToday(nearest)) return { label: 'Atrasado', color: 'destructive' as const };
-    if (isToday(nearest)) return { label: 'Hoje', color: 'warning' as const };
-    if (isTomorrow(nearest)) return { label: 'Amanhã', color: 'default' as const };
-    return { label: format(nearest, 'dd/MM', { locale: ptBR }), color: 'default' as const };
+    const time = format(nearest, 'HH:mm', { locale: ptBR });
+    if (isPast(nearest) && !isToday(nearest)) return { label: `Reunião atrasada`, tone: 'danger' as const };
+    if (isToday(nearest)) return { label: `Reunião hoje, ${time}`, tone: 'info' as const };
+    if (isTomorrow(nearest)) return { label: `Reunião amanhã, ${time}`, tone: 'info' as const };
+    return { label: `Reunião ${format(nearest, 'dd/MM', { locale: ptBR })}`, tone: 'info' as const };
   };
 
   const agendStatus = getAgendamentoStatus();
   const isMarkedDuplicate = isLeadDuplicateRecord(lead.additional_data);
+  const sourceLabel = lead.source === 'Facebook Leads' ? 'Meta Ads' : lead.source?.trim() || null;
+  const detailLine = [sourceLabel, lead.telefone_lead].filter(Boolean).join(' · ');
+  const responsibleLabel = responsavelName?.trim() || 'Sem responsável';
+  const relativeCreated = formatRelativeShort(lead.created_at);
+  const needsReply = attention?.kind === 'needs_reply';
+  const showAttention = !!attention?.label && (attention.kind === 'needs_reply' || attention.kind === 'overdue' || attention.kind === 'today');
 
   return (
     <Card
       className={cn(
-        'p-3 active:scale-[0.99] transition-transform cursor-pointer select-none',
-        (isMarkedDuplicate || isDuplicate) && 'border-amber-300'
+        'cursor-pointer select-none rounded-lg border p-3.5 shadow-none transition-colors active:bg-accent/40',
+        (isMarkedDuplicate || isDuplicate) && 'border-warning/40'
       )}
       onClick={onViewDetails}
     >
-      {/* Linha 1: avatar iniciais + nome + valor */}
-      <div className="flex items-center gap-2 mb-1.5">
-        <div className={cn(
-          'w-8 h-8 rounded-full flex-shrink-0 flex items-center justify-center text-[11px] font-semibold',
-          getAvatarColor(lead.nome_lead)
-        )}>
-          {getInitials(lead.nome_lead)}
-        </div>
-        <div className="flex-1 min-w-0">
-          <button
-            onClick={handleCopyInfo}
-            className="text-sm font-medium text-foreground truncate text-left w-full active:text-primary transition-colors"
-            title="Toque para copiar as informações"
-          >
-            {copiedInfo ? <span className="text-green-500">Copiado</span> : (lead.nome_lead || 'Sem nome')}
-          </button>
-          {responsavelName && (
-            <p className="text-[11px] text-muted-foreground truncate">{responsavelName}</p>
-          )}
-        </div>
-        {formatValue(lead.valor) && (
-          <span className="text-sm font-medium text-green-600 dark:text-green-400 flex-shrink-0">
-            {formatValue(lead.valor)}
+      {/* Linha 1: nome + valor */}
+      <div className="flex items-baseline gap-2">
+        <h3 className="min-w-0 flex-1 truncate text-[15px] font-semibold text-foreground">
+          {lead.nome_lead || 'Sem nome'}
+        </h3>
+        {!!lead.valor && lead.valor > 0 && (
+          <span className="shrink-0 text-sm font-semibold tabular-nums text-foreground/80">
+            {formatBRL(lead.valor)}
           </span>
         )}
       </div>
 
-      {/* Linha 2: telefone + origem */}
-      {(lead.telefone_lead || lead.source) && (
-        <div className="flex items-center gap-2 mb-2">
-          {lead.telefone_lead && (
-            <button
-              onClick={handleCopyPhone}
-              className="flex items-center gap-1 text-xs text-muted-foreground active:text-foreground min-h-[28px]"
-            >
-              {copied ? <Check className="h-3 w-3 text-green-500" /> : <Phone className="h-3 w-3" />}
-              <span>{lead.telefone_lead}</span>
-            </button>
-          )}
-          <div className="flex-1" />
-          {lead.source && (
-            <span className="text-[10px] px-1.5 py-0.5 bg-muted text-muted-foreground rounded-full border border-border">
-              {lead.source}
-            </span>
-          )}
-        </div>
+      {/* Linha 2: origem · telefone */}
+      {detailLine && (
+        <p className="mt-0.5 truncate text-[13px] tabular-nums text-muted-foreground">{detailLine}</p>
       )}
 
-      {/* Tags */}
-      {tags.length > 0 && (
-        <div className="flex gap-1 mb-2 flex-wrap">
-          {tags.slice(0, 3).map(tag => (
+      {/* Um estado por cartão, em ordem de prioridade, mais marcadores secundários */}
+      {(showAttention || agendStatus || isMarkedDuplicate || isDuplicate || isRedistributed || tags.length > 0) && (
+        <div className="mt-2 flex flex-wrap items-center gap-1.5">
+          {showAttention && (
             <span
-              key={tag.id}
-              className="text-[10px] px-1.5 py-0.5 rounded-full font-medium"
-              style={{ backgroundColor: tag.color + '25', color: tag.color, border: `0.5px solid ${tag.color}55` }}
+              className={cn(
+                badgeBase,
+                attention?.kind === 'needs_reply' && 'bg-warning-tint text-warning',
+                attention?.kind === 'overdue' && 'bg-destructive-tint text-destructive',
+                attention?.kind === 'today' && 'bg-info-tint text-info',
+              )}
             >
-              {tag.name}
+              {attention?.label}
             </span>
-          ))}
-          {tags.length > 3 && (
-            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground">+{tags.length - 3}</span>
           )}
-        </div>
-      )}
-
-      {/* Badges de status */}
-      {(isMarkedDuplicate || isDuplicate || agendStatus || isRedistributed) && (
-        <div className="flex items-center gap-1.5 mb-2 flex-wrap">
+          {!showAttention && agendStatus && (
+            <span
+              className={cn(
+                badgeBase,
+                statusReuniao === 'no_show'
+                  ? 'bg-warning-tint text-warning'
+                  : agendStatus.tone === 'danger' ? 'bg-destructive-tint text-destructive' : 'bg-info-tint text-info'
+              )}
+            >
+              <Calendar className="h-3 w-3" />
+              {statusReuniao === 'no_show' ? 'Não compareceu' : agendStatus.label}
+            </span>
+          )}
           {(isMarkedDuplicate || isDuplicate) && (
             <span
-              className="flex items-center gap-1 text-[10px] px-1.5 py-0.5 bg-amber-50 text-amber-700 border border-amber-200 rounded-full"
+              className={cn(badgeBase, 'bg-warning-tint text-warning')}
               title={isMarkedDuplicate
                 ? 'Novo registro criado para um lead que já existia no CRM.'
                 : 'Existe outro lead com o mesmo telefone ou e-mail.'}
             >
-              <AlertCircle className="h-2.5 w-2.5" />
               Duplicado
             </span>
           )}
-          {agendStatus && (
-            <span className={cn(
-              'flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full border',
-              statusReuniao === 'no_show'
-                ? 'bg-orange-50 text-orange-700 border-orange-200'
-                : agendStatus.color === 'destructive' ? 'bg-red-50 text-red-700 border-red-200' :
-                  agendStatus.color === 'warning' ? 'bg-amber-50 text-amber-700 border-amber-200' :
-                  'bg-blue-50 text-blue-700 border-blue-200'
-            )}>
-              <Calendar className="h-2.5 w-2.5" />
-              {statusReuniao === 'no_show' ? `No-show · ${agendStatus.label}` : agendStatus.label}
+          {isRedistributed && (redistributionReason !== 'inactivity' || redistributedFromName) && (
+            <span className={cn(badgeBase, 'bg-secondary text-foreground/80')}>
+              <RefreshCw className="h-3 w-3" />Redistribuído
             </span>
           )}
-          {isRedistributed && (redistributionReason !== 'inactivity' || redistributedFromName) && (
-            <span className={cn(
-              'flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full border',
-              redistributionReason === 'inactivity'
-                ? 'bg-blue-50 text-blue-700 border-blue-200'
-                : 'bg-slate-100 text-slate-700 border-slate-300'
-            )}>
-              <RefreshCw className="h-2.5 w-2.5" />Redistribuído
+          {tags.slice(0, 2).map(tag => (
+            <span
+              key={tag.id}
+              className="inline-flex h-6 items-center rounded-full px-2 text-xs font-medium"
+              style={{ backgroundColor: tag.color + '1f', color: tag.color }}
+            >
+              {tag.name}
             </span>
+          ))}
+          {tags.length > 2 && (
+            <span className="inline-flex h-6 items-center rounded-full bg-secondary px-2 text-xs text-muted-foreground">+{tags.length - 2}</span>
           )}
         </div>
       )}
 
-      {/* Linha de ações */}
-      <div className="flex items-center gap-2 pt-1.5 border-t border-border/50">
+      {/* Rodapé: responsável, tempo e ações */}
+      <div className="mt-3 flex items-center gap-2 border-t border-border pt-2.5">
+        {responsavelAvatarUrl && (
+          <img src={responsavelAvatarUrl} alt="" className="h-5 w-5 shrink-0 rounded-full object-cover" />
+        )}
+        <span className="min-w-0 flex-1 truncate text-xs text-muted-foreground">
+          {responsibleLabel}
+          {relativeCreated && <> · {relativeCreated}</>}
+        </span>
+
         <DropdownMenu>
           <DropdownMenuTrigger asChild onClick={e => e.stopPropagation()}>
-            <Button variant="ghost" size="sm" className="h-9 min-w-[36px] text-xs text-muted-foreground px-2">
-              <Pencil className="h-3.5 w-3.5" />
+            <Button variant="ghost" size="icon" className="h-9 w-9 text-muted-foreground" aria-label="Mais ações do lead">
+              <MoreHorizontal className="h-4 w-4" />
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="start">
+          <DropdownMenuContent align="end">
             <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onEdit(); }}>
               Editar lead
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleCopyInfo(); }}>
+              {copiedInfo ? <Check className="h-3.5 w-3.5 mr-2" /> : <Copy className="h-3.5 w-3.5 mr-2" />}
+              {copiedInfo ? 'Informações copiadas' : 'Copiar informações'}
             </DropdownMenuItem>
             <DropdownMenuItem
               disabled={!agendamentos?.reuniao}
               onClick={(e) => { e.stopPropagation(); onToggleNoShow?.(); }}
             >
-              {statusReuniao === 'no_show' ? 'Desfazer no-show' : 'Marcar como no-show'}
+              <CalendarCheck className="h-3.5 w-3.5 mr-2" />
+              {statusReuniao === 'no_show' ? 'Desfazer não comparecimento' : 'Marcar que não compareceu'}
             </DropdownMenuItem>
             <DropdownMenuItem
               onClick={(e) => { e.stopPropagation(); onDelete(); }}
@@ -225,40 +208,25 @@ export function MobileLeadCard({
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
-        <div className="flex-1" />
         <Button
+          variant="outline"
           size="sm"
-          className="h-9 text-xs gap-1.5 bg-blue-600 hover:bg-blue-700 text-white border-0 active:scale-95 transition-transform"
+          className="h-9 px-3 text-[13px]"
           onClick={(e) => { e.stopPropagation(); onMoveRequest(); }}
         >
           Mover
-          <ChevronRight className="h-3.5 w-3.5" />
         </Button>
+        {needsReply && (
+          <Button
+            size="sm"
+            className="h-9 bg-foreground px-3 text-[13px] text-background hover:bg-foreground/90"
+            onClick={(e) => { e.stopPropagation(); navigate(`/chat?lead_id=${lead.id}`); }}
+          >
+            <MessageCircle className="h-3.5 w-3.5" />
+            Responder
+          </Button>
+        )}
       </div>
     </Card>
   );
-}
-
-function getInitials(name?: string | null): string {
-  if (!name) return '?';
-  const parts = name.trim().split(' ').filter(Boolean);
-  if (parts.length === 1) return parts[0][0].toUpperCase();
-  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
-}
-
-const AVATAR_COLORS = [
-  'bg-blue-100 text-blue-700',
-  'bg-green-100 text-green-700',
-  'bg-purple-100 text-purple-700',
-  'bg-orange-100 text-orange-700',
-  'bg-pink-100 text-pink-700',
-  'bg-teal-100 text-teal-700',
-  'bg-indigo-100 text-indigo-700',
-  'bg-red-100 text-red-700',
-];
-
-function getAvatarColor(name?: string | null): string {
-  if (!name) return AVATAR_COLORS[0];
-  const sum = name.split('').reduce((acc, c) => acc + c.charCodeAt(0), 0);
-  return AVATAR_COLORS[sum % AVATAR_COLORS.length];
 }

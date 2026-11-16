@@ -14,10 +14,20 @@ export default {
     },
     extend: {
       fontFamily: {
+        sans: ['"Inter"', "ui-sans-serif", "system-ui", "-apple-system", '"Segoe UI"', "sans-serif"],
+        mono: ['"JetBrains Mono"', "ui-monospace", "SFMono-Regular", "monospace"],
         handwritten: ['"Caveat"', '"Patrick Hand"', 'cursive'],
       },
       colors: {
-        border: "hsl(var(--border))",
+        border: {
+          DEFAULT: "hsl(var(--border))",
+          strong: "hsl(var(--border-strong))",
+        },
+        info: {
+          DEFAULT: "hsl(var(--info))",
+          foreground: "hsl(var(--info-foreground))",
+          tint: "hsl(var(--info-tint))",
+        },
         input: "hsl(var(--input))",
         ring: "hsl(var(--ring))",
         background: "hsl(var(--background))",
@@ -33,14 +43,17 @@ export default {
         destructive: {
           DEFAULT: "hsl(var(--destructive))",
           foreground: "hsl(var(--destructive-foreground))",
+          tint: "hsl(var(--destructive-tint))",
         },
         success: {
           DEFAULT: "hsl(var(--success))",
           foreground: "hsl(var(--success-foreground))",
+          tint: "hsl(var(--success-tint))",
         },
         warning: {
           DEFAULT: "hsl(var(--warning))",
           foreground: "hsl(var(--warning-foreground))",
+          tint: "hsl(var(--warning-tint))",
         },
         muted: {
           DEFAULT: "hsl(var(--muted))",

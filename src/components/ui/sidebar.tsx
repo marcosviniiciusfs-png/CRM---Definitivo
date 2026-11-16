@@ -14,7 +14,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 
 const SIDEBAR_COOKIE_NAME = "sidebar:state";
 const SIDEBAR_COOKIE_MAX_AGE = 60 * 60 * 24 * 7;
-const SIDEBAR_WIDTH = "16rem";
+const SIDEBAR_WIDTH = "14.5rem";
 const SIDEBAR_WIDTH_MOBILE = "18rem";
 const SIDEBAR_WIDTH_ICON = "3rem";
 const SIDEBAR_KEYBOARD_SHORTCUT = "b";
@@ -77,7 +77,7 @@ const SidebarProvider = React.forwardRef<
 
   // Helper to check if sidebar is locked
   const isLocked = React.useCallback(() => {
-    return localStorage.getItem(SIDEBAR_LOCK_KEY) === 'true';
+    return localStorage.getItem(SIDEBAR_LOCK_KEY) !== 'false';
   }, []);
 
   // Helper to toggle the sidebar - respects lock state (desktop only)

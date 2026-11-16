@@ -1,4 +1,4 @@
-import { Home, Filter, CheckSquare, Users, Settings, LogOut, MessageCircle, Lock, Unlock, ChevronDown, Building2, UserCircle, Layers, Activity, BarChart2, Shuffle, Puzzle, Trophy, AlertTriangle, CalendarDays, Gauge } from "lucide-react";
+import { Home, Filter, CheckSquare, Users, Settings, LogOut, MessageCircle, Lock, Unlock, ChevronDown, Building2, UserCircle, Layers, Activity, BarChart2, Shuffle, Puzzle, Trophy, AlertTriangle, CalendarDays, Gauge, type LucideIcon } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLocation } from "react-router-dom";
@@ -14,6 +14,8 @@ import { useSectionAccess } from "@/hooks/useSectionAccess";
 import { useChatAccess } from "@/hooks/useChatAccess";
 import { cn } from "@/lib/utils";
 import { useTaskAlert } from "@/contexts/TaskAlertContext";
+import { SIDEBAR_LOCK_KEY, readSidebarLocked } from "@/lib/sidebarLock";
+import { demoAwareUrl } from "@/lib/demoMode";
 import {
   Sidebar,
   SidebarContent,
@@ -60,31 +62,56 @@ const URL_TO_SECTION: Record<string, string> = {
   '/settings': 'settings',
 };
 
-const items = [
-  { title: "Início", url: "/dashboard", icon: Home },
-  { title: "Funil de Vendas", url: "/pipeline", icon: Filter },
-  { title: "Métricas", url: "/lead-metrics", icon: BarChart2 },
-  { title: "Painel", url: "/painel", icon: Gauge },
-  { title: "Roleta de Leads", url: "/lead-distribution", icon: Shuffle },
-  { title: "Chat", url: "/chat", icon: MessageCircle },
-  { title: "Ranking", url: "/ranking", icon: Trophy },
-  { title: "Reuniões", url: "/reunioes", icon: CalendarDays },
+interface NavItem {
+  title: string;
+  url: string;
+  icon: LucideIcon;
+}
+
+// Grupos do menu (DESIGN.md: menu com nomes e grupos Vendas, Análise e Equipe).
+const NAV_GROUPS: Array<{ label: string; items: NavItem[]; withAdmin?: boolean }> = [
+  {
+    label: "Vendas",
+    items: [
+      { title: "Início", url: "/dashboard", icon: Home },
+      { title: "Funil de vendas", url: "/pipeline", icon: Filter },
+      { title: "Chat", url: "/chat", icon: MessageCircle },
+      { title: "Reuniões", url: "/reunioes", icon: CalendarDays },
+      { title: "Tarefas", url: "/tasks", icon: CheckSquare },
+    ],
+  },
+  {
+    label: "Análise",
+    items: [
+      { title: "Métricas", url: "/lead-metrics", icon: BarChart2 },
+      { title: "Painel", url: "/painel", icon: Gauge },
+      { title: "Ranking", url: "/ranking", icon: Trophy },
+    ],
+  },
+  {
+    label: "Equipe",
+    items: [
+      { title: "Roleta de leads", url: "/lead-distribution", icon: Shuffle },
+    ],
+    withAdmin: true,
+  },
 ];
 
-const administrativoItems = [
+const administrativoItems: NavItem[] = [
   { title: "Colaboradores", url: "/administrativo/colaboradores", icon: UserCircle },
   { title: "Produção", url: "/administrativo/producao", icon: Layers },
   { title: "Equipes", url: "/administrativo/equipes", icon: Users },
   { title: "Atividades", url: "/administrativo/atividades", icon: Activity },
 ];
 
-const bottomItems = [
-  { title: "Tarefas", url: "/tasks", icon: CheckSquare },
+const footerItems: NavItem[] = [
   { title: "Integrações", url: "/integrations", icon: Puzzle },
   { title: "Configurações", url: "/settings", icon: Settings },
 ];
 
-const SIDEBAR_LOCK_KEY = "sidebar-locked";
+const itemBase =
+  "flex h-9 items-center gap-2.5 rounded-md px-2.5 text-sm text-sidebar-foreground transition-colors duration-150 hover:bg-sidebar-accent/70 hover:text-sidebar-accent-foreground";
+const itemActive = "bg-sidebar-accent text-sidebar-accent-foreground font-medium";
 
 function AppSidebarComponent() {
   const { open, setOpen, isMobile, openMobile, setOpenMobile } = useSidebar();
@@ -116,9 +143,7 @@ function AppSidebarComponent() {
     }
 
     // Override universal: atribuicao a canal libera /chat mesmo se o
-    // sectionAccess global do plano/admin disser false. Sem isso, o
-    // cadeado continuava aparecendo para members sem can_view_chat
-    // mesmo com canal atribuido (bug observado).
+    // sectionAccess global do plano/admin disser false.
     if (url === '/chat' && canAccessChat) return true;
 
     if (sectionAccess === null) return undefined;
@@ -133,7 +158,6 @@ function AppSidebarComponent() {
     if (sectionLoading || permissions.loading || roleLoading) return false;
 
     // 2. Se for Super Admin, Proprietário ou Administrador, NUNCA mostre cadeados.
-    // Super Admin ignora qualquer bloqueio de plano ou seção.
     if (isSuperAdmin || permissions.role === 'owner' || permissions.role === 'admin') return false;
 
     // 3. Se ainda não temos os dados carregados do mapa de acesso, não bloqueie por segurança
@@ -147,30 +171,7 @@ function AppSidebarComponent() {
     return LOCKED_FEATURES.includes(url);
   }, [isSectionVisible, sectionAccess, sectionLoading, permissions.role, permissions.loading, isSuperAdmin]);
 
-  // Classes condicionais para hover/active - neutras para ambos os temas
-  const hoverClass = "hover:bg-sidebar-accent/60";
-  const activeClass = "active-sidebar-gradient";
-  const activeTextClass = "text-white";
-
-  // Helper para animações de ícone
-  const getIconAnimationClass = (url: string, isActive: boolean) => {
-    if (url === "/pipeline") return isActive ? "active-icon-pipeline" : "sidebar-icon-pipeline";
-    if (url === "/chat") return isActive ? "active-icon-chat" : "sidebar-icon-chat";
-    if (url === "/ranking") return isActive ? "active-icon-ranking" : "sidebar-icon-ranking";
-    if (url === "/lead-distribution") return isActive ? "active-icon-shuffle" : "sidebar-icon-shuffle";
-    if (url === "/settings") return isActive ? "active-icon-settings" : "sidebar-icon-settings";
-    if (url === "/integrations") return isActive ? "active-icon-integrations" : "sidebar-icon-integrations";
-    if (url === "/dashboard") return isActive ? "active-icon-home" : "sidebar-icon-home";
-    if (url === "/lead-metrics") return isActive ? "active-icon-metrics" : "sidebar-icon-metrics";
-
-    return isActive ? "active-icon-default" : "sidebar-icon-default";
-  };
-
-  // Inicializar estado de bloqueio do localStorage
-  const [isLocked, setIsLocked] = useState(() => {
-    const saved = localStorage.getItem(SIDEBAR_LOCK_KEY);
-    return saved === 'true';
-  });
+  const [isLocked, setIsLocked] = useState(readSidebarLocked);
   const [administrativoOpen, setAdministrativoOpen] = useState(false);
 
   // Fechar sidebar mobile ao navegar
@@ -211,281 +212,198 @@ function AppSidebarComponent() {
     }
   }, [isLocked, setOpen, isMobile]);
 
+  const isItemHidden = (url: string) => {
+    if ((url === '/lead-metrics' || url === '/painel') && !permissions.canViewTeamMetrics) return true;
+    return isSectionVisible(url) === false;
+  };
+
+  const renderNavItem = (item: NavItem) => {
+    if (isItemHidden(item.url)) return null;
+    const locked = isFeatureLocked(item.url);
+
+    if (locked) {
+      return (
+        <SidebarMenuItem key={item.url}>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <SidebarMenuButton
+                aria-disabled
+                className={cn(itemBase, "cursor-not-allowed opacity-50 hover:bg-transparent")}
+              >
+                <item.icon className="h-4 w-4 flex-shrink-0" />
+                <span className="truncate">{item.title}</span>
+                <Lock className="ml-auto h-3.5 w-3.5 flex-shrink-0 text-sidebar-foreground/50" />
+              </SidebarMenuButton>
+            </TooltipTrigger>
+            <TooltipContent side="right" className="text-xs">
+              {item.title}: em breve
+            </TooltipContent>
+          </Tooltip>
+        </SidebarMenuItem>
+      );
+    }
+
+    const isTasksItem = item.url === '/tasks';
+    const showTaskIndicator = isTasksItem && hasPendingTasks && !needsAudioPermission;
+    const showWarningIndicator = isTasksItem && hasPendingTasks && needsAudioPermission;
+
+    return (
+      <SidebarMenuItem key={item.url}>
+        <SidebarMenuButton asChild tooltip={isOpen ? undefined : item.title}>
+          <NavLink to={demoAwareUrl(item.url)} end className={itemBase} activeClassName={itemActive}>
+            {({ isActive }) => (
+              <>
+                <item.icon
+                  className={cn("h-4 w-4 flex-shrink-0", isActive ? "text-sidebar-primary" : "text-sidebar-foreground/80")}
+                  strokeWidth={isActive ? 2 : 1.75}
+                />
+                <span className="truncate">{item.title}</span>
+                {showTaskIndicator && (
+                  <span className="ml-auto h-2 w-2 rounded-full bg-warning" aria-label="Há tarefas pendentes" />
+                )}
+                {showWarningIndicator && (
+                  <AlertTriangle className="ml-auto h-3.5 w-3.5 text-warning" aria-label="Ative o som para os alertas de tarefa" />
+                )}
+              </>
+            )}
+          </NavLink>
+        </SidebarMenuButton>
+      </SidebarMenuItem>
+    );
+  };
+
   return (
     <TooltipProvider delayDuration={300}>
       <Sidebar
         collapsible="icon"
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
-        className="border-r border-sidebar-border shadow-sm"
+        className="border-r border-sidebar-border"
       >
-        <SidebarContent className="bg-sidebar overflow-y-auto">
-          <div className="p-4 pb-4 flex items-center justify-center">
+        <SidebarContent className="bg-sidebar overflow-y-auto gap-0">
+          <div className={cn("flex h-14 items-center", isOpen ? "px-4" : "justify-center px-2")}>
             <img
               src={logoFull}
               alt="KairoZ"
               className={cn(
                 "w-auto object-contain",
-                isOpen ? "h-10 block" : "h-10 hidden",
+                isOpen ? "h-10 block" : "hidden",
                 theme === "dark" ? "brightness-0 invert" : "logo-red-filter"
               )}
             />
             <img
               src={logoIcon}
-              alt="K"
+              alt="KairoZ"
               className={cn(
                 "w-auto object-contain",
-                isOpen ? "h-8 hidden" : "h-8 block",
+                isOpen ? "hidden" : "h-7 block",
                 theme === "dark" ? "brightness-0 invert" : "logo-red-filter"
               )}
             />
           </div>
 
-          <SidebarGroup>
-            <SidebarGroupLabel className="text-sidebar-foreground/60 text-sm px-3">Menu</SidebarGroupLabel>
-            <SidebarGroupContent>
-              <SidebarMenu className="space-y-1">
-                {items.map((item) => {
-                  // Ocultar "Métricas" para membros
-                  if ((item.url === '/lead-metrics' || item.url === '/painel') && !permissions.canViewTeamMetrics) {
-                    return null;
-                  }
+          <div className={cn("pb-2", isOpen ? "px-3" : "px-2")}>
+            <OrganizationSwitcher collapsed={!isOpen} />
+          </div>
 
-                  // Section access: if explicitly disabled, hide completely
-                  const accessOverride = isSectionVisible(item.url);
-                  if (accessOverride === false) return null;
+          {NAV_GROUPS.map((group) => (
+            <SidebarGroup key={group.label} className="py-1">
+              <SidebarGroupLabel className="h-7 px-2.5 text-[11px] font-semibold uppercase tracking-[0.06em] text-sidebar-foreground/60">
+                {group.label}
+              </SidebarGroupLabel>
+              <SidebarGroupContent>
+                <SidebarMenu className="gap-0.5">
+                  {group.items.map(renderNavItem)}
 
-                  const locked = isFeatureLocked(item.url);
-
-                  return (
-                    <SidebarMenuItem key={item.title}>
-                      <SidebarMenuButton asChild={!locked}>
-                        {locked ? (
-                          isOpen ? (
-                            <div className={cn("flex items-center gap-2 opacity-50 cursor-not-allowed text-sidebar-foreground text-base px-3 py-2.5")}>
-                              <item.icon className="h-5 w-5 flex-shrink-0" />
-                              <span className="truncate">{item.title}</span>
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <Lock className="ml-auto h-3.5 w-3.5 flex-shrink-0 text-sidebar-foreground/40" />
-                                </TooltipTrigger>
-                                <TooltipContent side="right" className="text-xs">
-                                  Em breve
-                                </TooltipContent>
-                              </Tooltip>
-                            </div>
-                          ) : (
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <div className="flex items-center justify-center opacity-50 cursor-not-allowed text-sidebar-foreground py-2.5">
-                                  <item.icon className="h-5 w-5" />
-                                </div>
-                              </TooltipTrigger>
-                              <TooltipContent side="right" className="text-xs">
-                                {item.title} - Em breve
-                              </TooltipContent>
-                            </Tooltip>
-                          )
-                        ) : (
-                          <NavLink
-                            to={item.url}
-                            end
-                            className={cn(hoverClass, "text-sidebar-foreground text-base px-3 py-2.5 transition-all duration-200")}
-                            activeClassName={cn(activeClass, activeTextClass, "font-semibold shadow-md")}
-                          >
-                            {({ isActive }) => (
-                              <>
-                                <item.icon className={cn("h-5 w-5 flex-shrink-0 transition-all duration-300", getIconAnimationClass(item.url, isActive))} />
-                                <span className="truncate">{item.title}</span>
-                              </>
-                            )}
-                          </NavLink>
-                        )}
-                      </SidebarMenuButton>
-                    </SidebarMenuItem>
-                  );
-                })}
-
-                {permissions.canAccessAdminSection && (
-                  <Collapsible open={administrativoOpen} onOpenChange={setAdministrativoOpen} className="group/collapsible">
-                    <SidebarMenuItem>
-                      <CollapsibleTrigger asChild>
-                        <SidebarMenuButton className={cn(hoverClass, "text-sidebar-foreground text-base px-3 py-2.5")}>
-                          <Building2 className="h-5 w-5 flex-shrink-0 sidebar-icon-default" />
-                          <span>Administrativo</span>
-                          <ChevronDown className="ml-auto h-4 w-4 transition-transform duration-200 group-data-[state=open]/collapsible:rotate-180" />
-                        </SidebarMenuButton>
-                      </CollapsibleTrigger>
-                      <CollapsibleContent>
-                        <SidebarMenuSub>
-                          {administrativoItems.map((subItem) => {
-                            const subAccess = isSectionVisible(subItem.url);
-                            if (subAccess === false) return null;
-                            return (
-                              <SidebarMenuSubItem key={subItem.title}>
-                                <SidebarMenuSubButton asChild>
-                                  <NavLink
-                                    to={subItem.url}
-                                    className={cn(hoverClass, "text-sidebar-foreground text-sm px-3 py-2")}
-                                    activeClassName={cn(activeClass, activeTextClass, "font-semibold")}
-                                  >
-                                    {({ isActive }) => (
-                                      <>
-                                        <subItem.icon className={cn("h-4 w-4 flex-shrink-0 transition-all duration-300", isActive ? "active-icon-default" : "sidebar-icon-default")} />
-                                        <span>{subItem.title}</span>
-                                      </>
-                                    )}
-                                  </NavLink>
-                                </SidebarMenuSubButton>
-                              </SidebarMenuSubItem>
-                            );
-                          })}
-                        </SidebarMenuSub>
-                      </CollapsibleContent>
-                    </SidebarMenuItem>
-                  </Collapsible>
-                )}
-
-                {bottomItems.map((item) => {
-                  // Section access: if explicitly disabled, hide completely
-                  const accessOverride = isSectionVisible(item.url);
-                  if (accessOverride === false) return null;
-
-                  const locked = isFeatureLocked(item.url);
-
-                  // Indicador especial para Tarefas
-                  const isTasksItem = item.url === '/tasks';
-                  const showTaskIndicator = isTasksItem && hasPendingTasks;
-                  const showWarningIndicator = isTasksItem && hasPendingTasks && needsAudioPermission;
-                  const warningBgClass = showWarningIndicator ? "bg-amber-400/10" : "";
-
-                  if (locked) {
-                    return (
-                      <SidebarMenuItem key={item.title}>
-                        <SidebarMenuButton>
-                          {isOpen ? (
-                            <div className={cn("flex items-center gap-2 opacity-50 cursor-not-allowed text-sidebar-foreground text-base w-full")}>
-                              <item.icon className="h-5 w-5 flex-shrink-0" />
-                              <span>{item.title}</span>
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <Lock className="ml-auto h-3.5 w-3.5 flex-shrink-0 text-sidebar-foreground/40" />
-                                </TooltipTrigger>
-                                <TooltipContent side="right" className="text-xs">
-                                  Em breve
-                                </TooltipContent>
-                              </Tooltip>
-                            </div>
-                          ) : (
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <div className="flex items-center justify-center opacity-50 cursor-not-allowed text-sidebar-foreground py-2.5 w-full">
-                                  <item.icon className="h-5 w-5" />
-                                </div>
-                              </TooltipTrigger>
-                              <TooltipContent side="right" className="text-xs">
-                                {item.title} - Em breve
-                              </TooltipContent>
-                            </Tooltip>
-                          )}
-                        </SidebarMenuButton>
+                  {group.withAdmin && permissions.canAccessAdminSection && (
+                    <Collapsible open={administrativoOpen} onOpenChange={setAdministrativoOpen} className="group/collapsible">
+                      <SidebarMenuItem>
+                        <CollapsibleTrigger asChild>
+                          <SidebarMenuButton className={itemBase} tooltip={isOpen ? undefined : "Administrativo"}>
+                            <Building2 className="h-4 w-4 flex-shrink-0 text-sidebar-foreground/80" strokeWidth={1.75} />
+                            <span>Administrativo</span>
+                            <ChevronDown className="ml-auto h-4 w-4 transition-transform duration-200 group-data-[state=open]/collapsible:rotate-180" />
+                          </SidebarMenuButton>
+                        </CollapsibleTrigger>
+                        <CollapsibleContent>
+                          <SidebarMenuSub>
+                            {administrativoItems.map((subItem) => {
+                              if (isSectionVisible(subItem.url) === false) return null;
+                              return (
+                                <SidebarMenuSubItem key={subItem.url}>
+                                  <SidebarMenuSubButton asChild>
+                                    <NavLink
+                                      to={subItem.url}
+                                      className="flex h-8 items-center gap-2 rounded-md px-2 text-sm text-sidebar-foreground hover:bg-sidebar-accent/70"
+                                      activeClassName={itemActive}
+                                    >
+                                      {({ isActive }) => (
+                                        <>
+                                          <subItem.icon className={cn("h-4 w-4 flex-shrink-0", isActive ? "text-sidebar-primary" : "text-sidebar-foreground/80")} />
+                                          <span>{subItem.title}</span>
+                                        </>
+                                      )}
+                                    </NavLink>
+                                  </SidebarMenuSubButton>
+                                </SidebarMenuSubItem>
+                              );
+                            })}
+                          </SidebarMenuSub>
+                        </CollapsibleContent>
                       </SidebarMenuItem>
-                    );
-                  }
+                    </Collapsible>
+                  )}
+                </SidebarMenu>
+              </SidebarGroupContent>
+            </SidebarGroup>
+          ))}
 
-                  return (
-                    <SidebarMenuItem key={item.title} className="relative">
-                      <SidebarMenuButton asChild>
-                        <NavLink
-                          to={item.url}
-                          className={cn(hoverClass, warningBgClass, "text-sidebar-foreground text-base px-3 py-2.5 relative transition-all duration-200")}
-                          activeClassName={cn(activeClass, "text-white font-semibold shadow-md")}
-                        >
-                          {({ isActive }) => (
-                            <>
-                              <item.icon className={cn("h-5 w-5 flex-shrink-0 transition-all duration-300", getIconAnimationClass(item.url, isActive))} />
-                              <span>{item.title}</span>
-
-                              {/* Indicador de tarefas pendentes */}
-                              {showTaskIndicator && !showWarningIndicator && (
-                                <span className="absolute top-1 right-1 h-2.5 w-2.5 bg-amber-400 rounded-full animate-pulse" />
-                              )}
-
-                              {/* Indicador de aviso (precisa ativar som) */}
-                              {showWarningIndicator && (
-                                <span className="absolute top-0.5 right-0.5 text-amber-400 animate-pulse">
-                                  <AlertTriangle className="h-4 w-4" />
-                                </span>
-                              )}
-                            </>
-                          )}
-                        </NavLink>
-                      </SidebarMenuButton>
-                    </SidebarMenuItem>
-                  );
-                })}
+          <SidebarGroup className="mt-auto py-2">
+            <SidebarGroupContent>
+              <SidebarMenu className="gap-0.5">
+                {footerItems.map(renderNavItem)}
               </SidebarMenu>
             </SidebarGroupContent>
           </SidebarGroup>
         </SidebarContent>
 
-        <SidebarFooter className="bg-sidebar border-t border-sidebar-border p-4 overflow-hidden">
-          {/* Conteúdo expandido */}
-          {isOpen && (
-            <div className="space-y-3">
-              {/* Seletor de Organização */}
-              <OrganizationSwitcher collapsed={false} />
-
-              <MenuLockToggle
-                locked={isLocked}
-                onToggle={setIsLocked}
-              />
-              {subscriptionData?.subscribed && subscriptionData.product_id && (
-                <div className="flex items-center justify-center">
-                  <span className="text-xs font-semibold border border-sidebar-border rounded-full px-2.5 py-0.5 bg-sidebar-accent text-sidebar-foreground">
-                    Plano {PLAN_NAMES[subscriptionData.product_id] || subscriptionData.product_id}
-                  </span>
-                </div>
-              )}
-              <p className="text-xs text-sidebar-foreground/60 truncate">
-                {user?.email}
-              </p>
-              <Button
-                onClick={signOut}
-                variant="outline"
-                className="w-full justify-start gap-2 bg-black hover:bg-black/80 border-sidebar-border text-white text-sm"
-                size="sm"
-              >
-                <LogOut className="h-4 w-4" />
-                Sair
-              </Button>
-            </div>
-          )}
-
-          {/* Conteúdo colapsado */}
-          {!isOpen && (
+        <SidebarFooter className="bg-sidebar border-t border-sidebar-border p-3 overflow-hidden">
+          {isOpen ? (
             <div className="space-y-2">
-              {/* Seletor de Organização colapsado */}
-              <OrganizationSwitcher collapsed={true} />
-
+              <MenuLockToggle locked={isLocked} onToggle={setIsLocked} />
+              <div className="flex items-center gap-2 px-1">
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-xs text-sidebar-foreground/70" title={user?.email ?? undefined}>
+                    {user?.email}
+                  </p>
+                  {subscriptionData?.subscribed && subscriptionData.product_id && PLAN_NAMES[subscriptionData.product_id] && (
+                    <p className="text-[11px] font-medium text-sidebar-foreground/60">
+                      Plano {PLAN_NAMES[subscriptionData.product_id]}
+                    </p>
+                  )}
+                </div>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button onClick={signOut} variant="ghost" size="icon" className="h-8 w-8 flex-shrink-0" aria-label="Sair">
+                      <LogOut className="h-4 w-4" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="top" className="text-xs">Sair</TooltipContent>
+                </Tooltip>
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-1">
               <Button
                 onClick={() => setIsLocked(!isLocked)}
-                variant="ghostIcon"
+                variant="ghost"
                 size="icon"
-                className={cn("w-full", isLocked && "bg-sidebar-accent")}
+                className={cn("h-8 w-full", isLocked && "bg-sidebar-accent")}
+                aria-label={isLocked ? "Deixar o menu recolher" : "Manter o menu aberto"}
               >
-                {isLocked ? (
-                  <Lock className="h-4 w-4" />
-                ) : (
-                  <Unlock className="h-4 w-4" />
-                )}
+                {isLocked ? <Lock className="h-4 w-4" /> : <Unlock className="h-4 w-4" />}
               </Button>
-              <Button
-                onClick={signOut}
-                variant="ghostIcon"
-                size="icon"
-                className="w-full"
-              >
+              <Button onClick={signOut} variant="ghost" size="icon" className="h-8 w-full" aria-label="Sair">
                 <LogOut className="h-4 w-4" />
               </Button>
             </div>

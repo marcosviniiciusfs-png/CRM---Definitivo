@@ -11,7 +11,7 @@ import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Settings2, Search, Plus, Download, Upload, CalendarIcon, Users, Shield, LayoutGrid, List, Check, Lock, Unlock, Pencil, MoreVertical, SlidersHorizontal, X, ArrowRight, UserCog, MessageSquarePlus, Trash2, Filter, Copy } from "lucide-react";
+import { Settings2, Search, Plus, Download, Upload, CalendarIcon, Users, Shield, LayoutGrid, List, Check, Lock, Unlock, Pencil, MoreVertical, MoreHorizontal, SlidersHorizontal, X, ArrowRight, UserCog, MessageSquarePlus, Trash2, Filter, Copy } from "lucide-react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { FunnelPermissionsDialog } from "@/components/FunnelPermissionsDialog";
 import { useNavigate } from "react-router-dom";
@@ -20,6 +20,7 @@ import { useOrganizationReady } from "@/hooks/useOrganizationReady";
 import { LoadingAnimation } from "@/components/LoadingAnimation";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
+import { formatBRLCompact } from "@/lib/money";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -1913,44 +1914,53 @@ const Pipeline = () => {
     );
   }
 
+  // Resumo do cabeçalho (DESIGN.md: o número que importa no topo da página).
+  let summaryLeadCount = 0;
+  let summaryTotalValue = 0;
+  for (const stageLeads of leadsByStage.values()) {
+    summaryLeadCount += stageLeads.length;
+    for (const lead of stageLeads) summaryTotalValue += Number(lead.valor) || 0;
+  }
+
   return (
     <>
       {/* Header Section - Always Visible */}
-      <div className="flex flex-col h-full p-2 sm:p-3">
-        <div className="space-y-1.5 flex-shrink-0 mb-2">
+      <div className="flex flex-col h-full px-3 pt-2 pb-2 sm:px-5 sm:pt-4">
+        <div className="space-y-3 flex-shrink-0 mb-3">
           {/* Linha 1: Título + Ações */}
-            <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center justify-between gap-3">
               <div className="min-w-0">
-              <h1 className="text-lg sm:text-xl md:text-2xl font-bold tracking-tight text-foreground truncate">
+              <h1 className="text-xl sm:text-2xl font-semibold tracking-[-0.01em] text-foreground truncate">
                 Funil de vendas
               </h1>
-              <p className="text-[11px] sm:text-xs text-muted-foreground hidden sm:block">
-                {viewMode === 'kanban'
-                  ? "Arraste e solte os cards para mover leads entre as etapas"
-                  : "Visualize e gerencie seus leads em formato de lista"}
+              <p className="text-xs sm:text-[13px] text-muted-foreground tabular-nums">
+                {summaryLeadCount} {summaryLeadCount === 1 ? "lead" : "leads"}
+                {summaryTotalValue > 0 && <> · {formatBRLCompact(summaryTotalValue)} no funil</>}
               </p>
             </div>
               <div className="flex items-center gap-1.5 flex-shrink-0">
               {/* View Mode Toggle */}
-              <div className="flex items-center border rounded-md overflow-hidden">
+              <div className="flex items-center gap-0.5 rounded-md border bg-card p-0.5">
                 <Button
                   variant="ghost"
                   size="sm"
+                  aria-pressed={viewMode === 'kanban'}
                   className={cn(
-                    "rounded-none h-8 px-2.5 text-sm",
-                    viewMode === 'kanban' && "bg-primary/10 text-primary"
+                    "h-7 rounded px-2.5 text-[13px] text-muted-foreground",
+                    viewMode === 'kanban' && "bg-accent text-foreground"
                   )}
                   onClick={() => setViewMode('kanban')}
                 >
                   <LayoutGrid className="h-4 w-4 sm:mr-1" />
-                  <span className="hidden sm:inline">Funil</span>
+                  <span className="hidden sm:inline">Quadro</span>
                 </Button>
                 <Button
                   variant="ghost"
                   size="sm"
+                  aria-pressed={viewMode === 'list'}
                   className={cn(
-                    "rounded-none h-8 px-2.5 text-sm border-l",
-                    viewMode === 'list' && "bg-primary/10 text-primary"
+                    "h-7 rounded px-2.5 text-[13px] text-muted-foreground",
+                    viewMode === 'list' && "bg-accent text-foreground"
                   )}
                   onClick={() => setViewMode('list')}
                 >
@@ -1987,34 +1997,51 @@ const Pipeline = () => {
                       )}
                     </DropdownMenuContent>
                   </DropdownMenu>
+                  {/* No celular, adicionar lead fica no botão flutuante (DESIGN.md). */}
                   {permissions.canCreateLeads && (
-                    <Button size="sm" className="h-9 w-9 p-0 bg-primary hover:bg-primary/90" onClick={() => setShowAddModal(true)}>
-                      <Plus className="h-4 w-4" />
+                    <Button
+                      className="fixed right-4 z-40 h-14 w-14 rounded-full p-0 shadow-[0_8px_24px_hsl(var(--primary)/0.3)] [&_svg]:size-6"
+                      style={{ bottom: "calc(4.75rem + env(safe-area-inset-bottom, 0px))" }}
+                      onClick={() => setShowAddModal(true)}
+                      aria-label="Adicionar lead"
+                    >
+                      <Plus />
                     </Button>
                   )}
                 </>
               ) : (
                 <>
-                  {(permissions.role === "owner" || permissions.role === "admin") && (
-                    <Button variant="outline" size="sm" className="h-8 px-3" onClick={() => navigate("/funnel-builder")}>
-                      <Settings2 className="h-4 w-4 sm:mr-2" />
-                      <span className="hidden sm:inline">Gerenciar funis</span>
-                    </Button>
-                  )}
-                  <Button variant="outline" size="sm" className="h-8 px-3" onClick={handleExportCSV}>
-                    <Upload className="h-4 w-4 sm:mr-2" />
-                    <span className="hidden sm:inline">Exportar</span>
-                  </Button>
-                  {canViewOrganizationLeads && (
-                    <Button variant="outline" size="sm" className="h-8 px-3" onClick={() => setShowImportModal(true)}>
-                      <Download className="h-4 w-4 sm:mr-2" />
-                      <span className="hidden sm:inline">Importar</span>
-                    </Button>
-                  )}
+                  {/* Ações secundárias num só menu; o botão vermelho fica sozinho (DESIGN.md). */}
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="outline" size="sm" className="h-8 px-3">
+                        <MoreHorizontal className="h-4 w-4" />
+                        Mais
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      {(permissions.role === "owner" || permissions.role === "admin") && (
+                        <DropdownMenuItem onClick={() => navigate("/funnel-builder")}>
+                          <Settings2 className="h-4 w-4 mr-2" />
+                          Gerenciar funis
+                        </DropdownMenuItem>
+                      )}
+                      <DropdownMenuItem onClick={handleExportCSV}>
+                        <Upload className="h-4 w-4 mr-2" />
+                        Exportar
+                      </DropdownMenuItem>
+                      {canViewOrganizationLeads && (
+                        <DropdownMenuItem onClick={() => setShowImportModal(true)}>
+                          <Download className="h-4 w-4 mr-2" />
+                          Importar
+                        </DropdownMenuItem>
+                      )}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                   {permissions.canCreateLeads && (
-                    <Button size="sm" className="h-8 px-3 bg-primary hover:bg-primary/90" onClick={() => setShowAddModal(true)}>
-                      <Plus className="h-4 w-4 sm:mr-2" />
-                      <span className="hidden sm:inline">Adicionar lead</span>
+                    <Button size="sm" className="h-8 px-3" onClick={() => setShowAddModal(true)}>
+                      <Plus className="h-4 w-4" />
+                      Adicionar lead
                     </Button>
                   )}
                 </>
@@ -2071,18 +2098,18 @@ const Pipeline = () => {
                 />
               </div>
               <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="h-8 w-[110px] sm:w-[145px] bg-background">
-                  <SelectValue placeholder="Status" />
+                <SelectTrigger className="h-8 w-auto gap-2 bg-card text-[13px]">
+                  <SelectValue placeholder="Etapa" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">Todos os status</SelectItem>
+                  <SelectItem value="all">Todas as etapas</SelectItem>
                   {stages.map(stage => (
                     <SelectItem key={stage.id} value={stage.id}>{stage.title}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
               <Select value={sourceFilter} onValueChange={setSourceFilter}>
-                <SelectTrigger className="h-8 w-[110px] sm:w-[145px] bg-background">
+                <SelectTrigger className="h-8 w-auto gap-2 bg-card text-[13px]">
                   <SelectValue placeholder="Origem" />
                 </SelectTrigger>
                 <SelectContent>
@@ -2093,7 +2120,7 @@ const Pipeline = () => {
                 </SelectContent>
               </Select>
               <Select value={responsibleFilter} onValueChange={setResponsibleFilter}>
-                <SelectTrigger className="h-8 w-[120px] sm:w-[155px] bg-background">
+                <SelectTrigger className="h-8 w-auto gap-2 bg-card text-[13px]">
                   <SelectValue placeholder="Responsável" />
                 </SelectTrigger>
                 <SelectContent>
@@ -2149,19 +2176,30 @@ const Pipeline = () => {
           <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-hide" role="group" aria-label="Filtrar por atenção">
             {ATTENTION_FILTERS.map((filter) => {
               const active = attentionFilter === filter.kind;
+              const count = attentionCounts[filter.kind];
+              // Responder usa a cor de atenção e Atrasadas a de erro; as outras ficam neutras.
+              const tone =
+                count > 0 && filter.kind === 'needs_reply'
+                  ? "border-transparent bg-warning-tint text-warning hover:bg-warning-tint hover:text-warning"
+                  : count > 0 && filter.kind === 'overdue'
+                  ? "border-transparent bg-destructive-tint text-destructive hover:bg-destructive-tint hover:text-destructive"
+                  : "text-foreground/80";
               return (
                 <Button
                   key={filter.kind}
                   type="button"
-                  variant={active ? "default" : "outline"}
+                  variant="outline"
                   size="sm"
                   aria-pressed={active}
-                  className="h-7 shrink-0 gap-1.5 rounded-full px-3 text-xs"
+                  className={cn(
+                    "h-7 shrink-0 gap-1.5 rounded-full px-3 text-xs font-semibold",
+                    active ? "border-foreground bg-foreground text-background hover:bg-foreground/90 hover:text-background" : tone
+                  )}
                   onClick={() => setAttentionFilter(active ? null : filter.kind)}
                 >
                   {filter.label}
-                  <span className={cn("tabular-nums", active ? "opacity-90" : "text-muted-foreground")}>
-                    {attentionCounts[filter.kind]}
+                  <span className={cn("tabular-nums", active ? "opacity-80" : "opacity-75")}>
+                    {count}
                   </span>
                 </Button>
               );
@@ -2518,6 +2556,7 @@ const Pipeline = () => {
             <MobilePipelineView
               stages={stages}
               leadsByStage={leadsByStage}
+              attentionMap={attentionMap}
               selectedFunnelId={selectedFunnelId}
               allFunnels={allFunnels}
               onTabChange={handleTabChange}
@@ -2557,7 +2596,7 @@ const Pipeline = () => {
                         <div key={funnel.id} className="flex items-center">
                           <TabsTrigger
                             value={funnel.id}
-                            className="data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-4 py-2 text-sm transition-all duration-200 hover:bg-muted/50"
+                            className="rounded-none border-b-2 border-transparent px-3 py-2 text-[13px] text-muted-foreground transition-colors duration-150 hover:text-foreground data-[state=active]:border-foreground data-[state=active]:bg-transparent data-[state=active]:font-semibold data-[state=active]:text-foreground data-[state=active]:shadow-none"
                           >
                             <div className="flex items-center gap-2">
                               {iconEmoji && (
