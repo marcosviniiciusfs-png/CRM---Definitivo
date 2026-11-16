@@ -2,6 +2,7 @@ import { useState, type ReactNode } from "react";
 import { ArrowRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { formatBRL } from "@/lib/money";
+import { getSegmentTerms, type SegmentTerms } from "@/lib/segmentTerms";
 
 export type OverviewPeriod = "today" | "month" | "quarter" | "year";
 
@@ -28,6 +29,8 @@ interface SalesOverviewProps {
   onOpenRanking?: () => void;
   /** Mostra o aviso de dados de exemplo (tela de demonstração). */
   isSample?: boolean;
+  /** Rótulos do segmento da organização (consórcio troca venda por cota e receita por produção). */
+  terms?: SegmentTerms;
 }
 
 const PERIODS: Array<{ value: OverviewPeriod; label: string; noun: string }> = [
@@ -141,7 +144,7 @@ function ShareRow({ label, value, total, max, suffix }: { label: string; value: 
   );
 }
 
-export function SalesOverview({ data, period, onPeriodChange, onOpenRanking, isSample }: SalesOverviewProps) {
+export function SalesOverview({ data, period, onPeriodChange, onOpenRanking, isSample, terms = getSegmentTerms("generico") }: SalesOverviewProps) {
   const [tab, setTab] = useState<TabValue>("vendas");
   const periodNoun = PERIODS.find((p) => p.value === period)?.noun ?? "no período";
   const ticket = data.sales > 0 ? data.revenue / data.sales : 0;
@@ -154,7 +157,7 @@ export function SalesOverview({ data, period, onPeriodChange, onOpenRanking, isS
     { label: "Atendidos", value: data.attended, rate: `${pctLabel(data.attended, data.leads)} dos leads` },
     { label: "Reuniões feitas", value: data.meetingsRealized, rate: `${pctLabel(data.meetingsRealized, data.attended)} dos atendidos` },
     { label: "Propostas", value: data.proposals, rate: `${pctLabel(data.proposals, data.meetingsRealized)} das reuniões` },
-    { label: "Vendas", value: data.sales, rate: `${pctLabel(data.sales, data.proposals)} das propostas` },
+    { label: terms.sales, value: data.sales, rate: `${pctLabel(data.sales, data.proposals)} das propostas` },
   ];
 
   return (
@@ -209,10 +212,10 @@ export function SalesOverview({ data, period, onPeriodChange, onOpenRanking, isS
       {tab === "vendas" && (
         <div className="mt-5 space-y-4">
           <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
-            <Kpi label="Receita ganha" value={formatBRL(data.revenue)} detail={`${nf.format(data.sales)} ${data.sales === 1 ? "venda" : "vendas"} ${periodNoun}`} />
-            <Kpi label="Vendas" value={nf.format(data.sales)} detail={`de ${nf.format(data.leads)} leads`} />
-            <Kpi label="Ticket médio" value={data.sales > 0 ? formatBRL(ticket) : "—"} detail="receita ÷ vendas" />
-            <Kpi label="Conversão" value={pctLabel(data.sales, data.leads)} detail="de lead para venda" />
+            <Kpi label={terms.revenue} value={formatBRL(data.revenue)} detail={`${nf.format(data.sales)} ${data.sales === 1 ? terms.sale : terms.sales.toLowerCase()} ${periodNoun}`} />
+            <Kpi label={terms.sales} value={nf.format(data.sales)} detail={`de ${nf.format(data.leads)} leads`} />
+            <Kpi label={terms.averageSale} value={data.sales > 0 ? formatBRL(ticket) : "—"} detail={`${terms.revenue.toLowerCase()} ÷ ${terms.sales.toLowerCase()}`} />
+            <Kpi label="Conversão" value={pctLabel(data.sales, data.leads)} detail={`de lead para ${terms.sale}`} />
           </div>
 
           <div className="grid gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
@@ -299,8 +302,8 @@ export function SalesOverview({ data, period, onPeriodChange, onOpenRanking, isS
                   <tr className="border-b border-border text-left text-xs text-muted-foreground">
                     <th className="w-8 pb-2 font-medium">#</th>
                     <th className="pb-2 font-medium">Vendedor</th>
-                    <th className="pb-2 text-right font-medium">Vendas</th>
-                    <th className="pb-2 text-right font-medium">Receita</th>
+                    <th className="pb-2 text-right font-medium">{terms.sales}</th>
+                    <th className="pb-2 text-right font-medium">{terms.revenue === "Produção" ? "Produção" : "Receita"}</th>
                     <th className="hidden w-[30%] pb-2 pl-4 font-medium sm:table-cell">
                       <span className="sr-only">Participação</span>
                     </th>

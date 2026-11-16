@@ -15,6 +15,8 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { AvatarUpload } from "@/components/AvatarUpload";
+import { OrganizationSegmentCard } from "@/components/settings/OrganizationSegmentCard";
+import { usePermissions } from "@/hooks/usePermissions";
 
 const PLAN_NAMES: { [key: string]: string } = {
   'star': 'Star',
@@ -25,6 +27,8 @@ const PLAN_NAMES: { [key: string]: string } = {
 const Settings = () => {
   const { user, subscriptionData, refreshSubscription } = useAuth();
   const { theme, toggleTheme } = useTheme();
+  const permissions = usePermissions();
+  const canManageOrganization = permissions.role === "owner" || permissions.role === "admin";
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const [loading, setLoading] = useState(true);
@@ -261,7 +265,16 @@ const Settings = () => {
         <TabsList className="w-full justify-start border-b rounded-none h-auto p-0 bg-transparent">
           <TabsTrigger value="perfil" className="rounded-none px-3 sm:px-6 py-2 sm:py-3 text-sm sm:text-base data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:shadow-none hover:bg-muted/50 transition-all duration-200">Perfil</TabsTrigger>
           <TabsTrigger value="notificacoes" className="rounded-none px-3 sm:px-6 py-2 sm:py-3 text-sm sm:text-base data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:shadow-none hover:bg-muted/50 transition-all duration-200">Notificações</TabsTrigger>
+          {canManageOrganization && (
+            <TabsTrigger value="organizacao" className="rounded-none px-3 sm:px-6 py-2 sm:py-3 text-sm sm:text-base data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:shadow-none hover:bg-muted/50 transition-all duration-200">Organização</TabsTrigger>
+          )}
         </TabsList>
+
+        {canManageOrganization && (
+          <TabsContent value="organizacao" className="space-y-3 sm:space-y-4 md:space-y-6 mt-3 sm:mt-4 md:mt-6">
+            <OrganizationSegmentCard />
+          </TabsContent>
+        )}
 
         <TabsContent value="perfil" className="space-y-3 sm:space-y-4 md:space-y-6 mt-3 sm:mt-4 md:mt-6">
           <Card>

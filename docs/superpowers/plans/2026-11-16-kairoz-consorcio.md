@@ -36,7 +36,7 @@ Cada fase é um PR, testado no localhost e publicado. A ordem coloca primeiro os
 
 - Chave por organização (`organizations` ou tabela de configurações) e um hook `useSegment()` para o front.
 - Termos trocados no modo consórcio: "Valor" → "Crédito", "Venda" → "Venda de cota", "Produtos" → "Planos".
-- Funil-modelo de consórcio ao criar organização ou funil: Novo lead → Qualificado → Simulação enviada → Proposta enviada → Aguardando pagamento → Cota vendida → Perdido, já com os eventos de etapa ligados.
+- Funil-modelo de consórcio, oferecido em qualquer funil ainda sem etapas próprias e sem leads: Novo lead → Qualificado → Simulação enviada → Reunião agendada → Reunião feita → Proposta enviada → Aguardando pagamento → Cota vendida, mais Perdido. As duas etapas de reunião já vêm ligadas aos eventos "agendado" e "compareceu".
 - Esconde o catálogo genérico com estoque e custo para organizações em modo consórcio.
 
 ### Fase 1: qualificação e registro da cota (média)
@@ -81,6 +81,16 @@ Cada fase é um PR, testado no localhost e publicado. A ordem coloca primeiro os
 ### Fase 5: gamificação completa (média)
 
 - Fases 2 a 4 do plano de gamificação: metas de produção com ritmo (também por administradora), níveis, medalhas, sequências, campanhas com prêmio, feed ao vivo e modo TV.
+
+### Fase 6: entrar como usuário, para suporte (média)
+
+Pedido do dono do KairoZ: o super admin entra na conta de um cliente para ver e fazer o que ele vê, como no CRM Hurtz. Não depende das fases de consórcio; fica por último para não atrapalhar.
+
+- **Só o super admin do login normal** (papel `super_admin` em `user_roles`) pode usar. O painel de admin com senha própria (`admin_credentials`/`admin_sessions`) não entra nisso.
+- Botão "Entrar como este usuário" na ficha do usuário no painel de admin, com motivo obrigatório.
+- Uma Edge Function confere o papel, registra o acesso (`impersonation_logs`: quem, quem foi acessado, motivo, início, fim) e devolve uma sessão do usuário. O navegador guarda a sessão do super admin para voltar depois.
+- Faixa fixa no topo durante todo o acesso: "Você está como Fulano (Organização X) · Voltar para minha conta". A sessão emprestada expira em 1 hora.
+- Pré-requisito: fechar antes as falhas do painel de admin listadas no relatório de análise (fora do repositório), porque entrar como qualquer usuário aumenta o estrago de um acesso indevido.
 
 ## Depois, se fizer sentido
 

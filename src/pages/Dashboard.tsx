@@ -4,6 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useOrganizationReady } from '@/hooks/useOrganizationReady';
 import { LoadingAnimation } from '@/components/LoadingAnimation';
 import { SalesOverview, type SalesOverviewData } from '@/components/dashboard/SalesOverview';
+import { useSegmentTerms } from '@/hooks/useOrganizationSegment';
 import { useNavigate } from 'react-router-dom';
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -13,6 +14,7 @@ const Dashboard = () => {
   const { organizationId, isReady, isSuperAdmin } = useOrganizationReady();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
+  const segmentTerms = useSegmentTerms();
 
   const [period, setPeriod] = useState<'today' | 'month' | 'quarter' | 'year'>('month');
 
@@ -464,6 +466,7 @@ const Dashboard = () => {
       period={period}
       onPeriodChange={setPeriod}
       onOpenRanking={() => navigate('/ranking')}
+      terms={segmentTerms}
     />
   );
 };

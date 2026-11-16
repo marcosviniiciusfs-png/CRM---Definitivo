@@ -2296,6 +2296,27 @@ export type Database = {
           },
         ]
       }
+      organization_settings: {
+        Row: {
+          organization_id: string
+          segment: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          organization_id: string
+          segment?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          organization_id?: string
+          segment?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
       organizations: {
         Row: {
           created_at: string
@@ -3872,6 +3893,10 @@ export type Database = {
           roulettes_in: number
           teams_as_leader: number
         }
+      }
+      set_organization_segment: {
+        Args: { p_organization_id: string; p_segment: string }
+        Returns: string
       }
       reveal_ranking_competition: {
         Args: { p_org_id: string }

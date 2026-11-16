@@ -14,6 +14,7 @@ import { ItemCard } from "@/components/ItemCard";
 import { ProductionDashboard } from "@/components/ProductionDashboard";
 import { FinancialSummary } from "@/components/FinancialSummary";
 import { useOrganizationReady as useOrgReady } from "@/hooks/useOrganizationReady";
+import { useOrganizationSegment } from "@/hooks/useOrganizationSegment";
 
 export interface Item {
   id: string;
@@ -33,6 +34,8 @@ export interface Item {
 
 export default function Producao() {
   const { organizationId } = useOrgReady();
+  // Modo consórcio: sem catálogo de produtos com estoque e custo (DESIGN de consórcio, Fase 0).
+  const { isConsorcio } = useOrganizationSegment();
   const queryClient = useQueryClient();
   const [items, setItems] = useState<Item[]>([]);
   const [filteredItems, setFilteredItems] = useState<Item[]>([]);
@@ -123,7 +126,7 @@ export default function Producao() {
         <div>
           <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-foreground">Produção</h1>
           <p className="text-muted-foreground">
-            Gerencie a produção e produtos da empresa
+            {isConsorcio ? "Acompanhe a produção e o financeiro da empresa" : "Gerencie a produção e produtos da empresa"}
           </p>
         </div>
 
@@ -133,10 +136,12 @@ export default function Producao() {
               <Factory className="h-4 w-4" />
               <span className="hidden sm:inline">Produção</span>
             </TabsTrigger>
+            {!isConsorcio && (
             <TabsTrigger value="produtos" className="flex items-center gap-1 sm:gap-2 rounded-none px-3 sm:px-6 py-2 sm:py-3 text-xs sm:text-sm data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:shadow-none hover:bg-muted/50 transition-all duration-200 whitespace-nowrap">
               <Package className="h-4 w-4" />
               <span className="hidden sm:inline">Produtos da Empresa</span>
             </TabsTrigger>
+            )}
             <TabsTrigger value="financeiro" className="flex items-center gap-1 sm:gap-2 rounded-none px-3 sm:px-6 py-2 sm:py-3 text-xs sm:text-sm data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:shadow-none hover:bg-muted/50 transition-all duration-200 whitespace-nowrap">
               <DollarSign className="h-4 w-4" />
               <span className="hidden sm:inline">Financeiro</span>

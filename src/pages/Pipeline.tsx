@@ -21,6 +21,7 @@ import { LoadingAnimation } from "@/components/LoadingAnimation";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 import { formatBRLCompact } from "@/lib/money";
+import { useSegmentTerms } from "@/hooks/useOrganizationSegment";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -178,6 +179,7 @@ const Pipeline = () => {
   const isMobile = useIsMobile();
   const toggleNoShow = useToggleNoShow();
   const isDemo = isDemoRoute();
+  const segmentTerms = useSegmentTerms();
 
   const handleToggleNoShow = useCallback((leadId: string, currentStatus: StatusReuniao | null | undefined) => {
     toggleNoShow.mutate({ leadId, currentStatus: currentStatus ?? null });
@@ -1935,7 +1937,7 @@ const Pipeline = () => {
               </h1>
               <p className="text-xs sm:text-[13px] text-muted-foreground tabular-nums">
                 {summaryLeadCount} {summaryLeadCount === 1 ? "lead" : "leads"}
-                {summaryTotalValue > 0 && <> · {formatBRLCompact(summaryTotalValue)} no funil</>}
+                {summaryTotalValue > 0 && <> · {formatBRLCompact(summaryTotalValue)} {segmentTerms.pipelineTotalSuffix}</>}
               </p>
             </div>
               <div className="flex items-center gap-1.5 flex-shrink-0">
@@ -2452,7 +2454,7 @@ const Pipeline = () => {
               <span className="w-[200px]">Nome</span>
               <span className="w-[120px]">Telefone</span>
               <span className="w-[150px]">Etapa</span>
-              <span className="w-[100px]">Valor</span>
+              <span className="w-[100px]">{segmentTerms.value}</span>
               <span className="w-[100px]">Origem</span>
               <span className="w-[120px]">Responsável</span>
               <span className="flex-1">Data</span>

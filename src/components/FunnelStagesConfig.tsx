@@ -34,6 +34,8 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { StageAutomationConfig } from "./StageAutomationConfig";
+import { useOrganizationSegment } from "@/hooks/useOrganizationSegment";
+import { applyConsortiumTemplate, consortiumTemplatePreview } from "@/lib/consortiumFunnelTemplate";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   MEETING_EVENTS,
@@ -142,6 +144,8 @@ const SortableStageItem = ({
 
 export const FunnelStagesConfig = ({ funnelId }: FunnelStagesConfigProps) => {
   const queryClient = useQueryClient();
+  const { isConsorcio } = useOrganizationSegment();
+  const [applyingTemplate, setApplyingTemplate] = useState(false);
   const [stages, setStages] = useState<Stage[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -460,6 +464,22 @@ export const FunnelStagesConfig = ({ funnelId }: FunnelStagesConfigProps) => {
   const linkedEventOwner =
     linkedEvent === "none" ? null : findMeetingEventOwner(stages, linkedEvent, editingStage?.id);
 
+  const handleApplyConsortiumTemplate = async () => {
+    if (applyingTemplate) return;
+    setApplyingTemplate(true);
+    try {
+      await applyConsortiumTemplate(funnelId, stages);
+      await queryClient.invalidateQueries({ queryKey: ["pipeline-funnels"] });
+      await loadStages();
+      toast.success("Etapas do modelo de consórcio criadas.");
+    } catch (error) {
+      console.error("Erro ao aplicar o modelo de consórcio:", error);
+      toast.error(error instanceof Error ? error.message : "Não foi possível criar as etapas. Tente de novo.");
+    } finally {
+      setApplyingTemplate(false);
+    }
+  };
+
   if (loading) {
     return <div className="text-center py-8">Carregando etapas...</div>;
   }
@@ -489,6 +509,18 @@ export const FunnelStagesConfig = ({ funnelId }: FunnelStagesConfigProps) => {
           </Button>
         )}
       </div>
+
+      {isConsorcio && !showForm && stages.every((s) => s.is_final || s.stage_type !== "custom") && (
+        <Card className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="min-w-0">
+            <p className="text-sm font-semibold text-foreground">Modelo de consórcio</p>
+            <p className="text-[13px] text-muted-foreground">{consortiumTemplatePreview()}</p>
+          </div>
+          <Button variant="outline" size="sm" className="shrink-0" onClick={handleApplyConsortiumTemplate} disabled={applyingTemplate}>
+            {applyingTemplate ? "Criando etapas..." : "Usar este modelo"}
+          </Button>
+        </Card>
+      )}
 
       {showForm && (
         <Card className="p-4 space-y-4">

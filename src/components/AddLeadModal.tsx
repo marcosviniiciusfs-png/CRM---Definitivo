@@ -21,6 +21,7 @@ import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
+import { useSegmentTerms } from "@/hooks/useOrganizationSegment";
 
 interface Funnel {
   id: string;
@@ -50,6 +51,7 @@ const sourceOptions = [
 ];
 
 export const AddLeadModal = ({ open, onClose, onSuccess }: AddLeadModalProps) => {
+  const segmentTerms = useSegmentTerms();
   const { organizationId: contextOrgId } = useOrganization();
   const [nome, setNome] = useState("");
   const [telefone, setTelefone] = useState("");
@@ -402,7 +404,7 @@ export const AddLeadModal = ({ open, onClose, onSuccess }: AddLeadModalProps) =>
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="valor">Valor</Label>
+            <Label htmlFor="valor">{segmentTerms.value}</Label>
             <Input
               id="valor"
               value={valor}

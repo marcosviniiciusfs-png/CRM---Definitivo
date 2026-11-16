@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { SalesOverview, type OverviewPeriod, type SalesOverviewData } from "@/components/dashboard/SalesOverview";
+import { useSegmentTerms } from "@/hooks/useOrganizationSegment";
 
 // Dados fictícios só para ver o layout sem login (rota /demo-dashboard, apenas em DEV).
 const SAMPLE: SalesOverviewData = {
@@ -38,5 +39,6 @@ const SAMPLE: SalesOverviewData = {
 
 export default function DemoDashboard() {
   const [period, setPeriod] = useState<OverviewPeriod>("month");
-  return <SalesOverview data={SAMPLE} period={period} onPeriodChange={setPeriod} isSample />;
+  const terms = useSegmentTerms();
+  return <SalesOverview data={SAMPLE} period={period} onPeriodChange={setPeriod} isSample terms={terms} />;
 }
