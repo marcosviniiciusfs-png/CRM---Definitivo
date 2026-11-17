@@ -41,11 +41,41 @@ const createSafeStorage = () => {
   };
 };
 
+/**
+ * Cadeado da sessão entre abas. A biblioteca usa o Navigator LockManager e, quando outra aba segura o
+ * cadeado, a nova espera e falha com "lock:sb-api-auth-token timed out". Aqui a espera é limitada a
+ * poucos segundos; se o cadeado não for liberado, a operação segue sem ele em vez de travar o login.
+ */
+const MAX_LOCK_WAIT_MS = 4000;
+
+const tolerantLock = async <R>(name: string, acquireTimeout: number, fn: () => Promise<R>): Promise<R> => {
+  if (typeof navigator === "undefined" || !navigator.locks) return fn();
+
+  const waitMs = acquireTimeout < 0 ? MAX_LOCK_WAIT_MS : Math.min(acquireTimeout, MAX_LOCK_WAIT_MS);
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), waitMs);
+  let started = false;
+
+  try {
+    return await navigator.locks.request(name, { signal: controller.signal }, async () => {
+      started = true;
+      clearTimeout(timer);
+      return fn();
+    });
+  } catch (error) {
+    clearTimeout(timer);
+    // Só recorre ao modo sem cadeado se a espera acabou antes de a operação começar.
+    if (!started && (error as { name?: string })?.name === "AbortError") return fn();
+    throw error;
+  }
+};
+
 export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
   auth: {
     storage: createSafeStorage(),
     persistSession: true,
     autoRefreshToken: true,
+    lock: tolerantLock,
   }
 });
 
