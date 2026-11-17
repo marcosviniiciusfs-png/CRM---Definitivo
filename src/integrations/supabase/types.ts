@@ -867,6 +867,48 @@ export type Database = {
         }
         Relationships: []
       }
+      conversation_responses: {
+        Row: {
+          created_at: string
+          id: string
+          inbound_at: string
+          inbound_on: string
+          instance_id: string
+          is_first_response: boolean
+          lead_id: string
+          organization_id: string
+          replied_at: string | null
+          response_seconds: number | null
+          seller_user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          inbound_at: string
+          inbound_on: string
+          instance_id: string
+          is_first_response?: boolean
+          lead_id: string
+          organization_id: string
+          replied_at?: string | null
+          response_seconds?: number | null
+          seller_user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          inbound_at?: string
+          inbound_on?: string
+          instance_id?: string
+          is_first_response?: boolean
+          lead_id?: string
+          organization_id?: string
+          replied_at?: string | null
+          response_seconds?: number | null
+          seller_user_id?: string
+        }
+        Relationships: []
+      }
       commission_configs: {
         Row: {
           commission_type: string
@@ -4590,6 +4632,22 @@ export type Database = {
       set_organization_segment: {
         Args: { p_organization_id: string; p_segment: string }
         Returns: string
+      }
+      attendance_metrics: {
+        Args: { p_from: string; p_organization_id: string; p_to: string }
+        Returns: {
+          answered: number
+          answered_5min: number
+          avg_seconds: number | null
+          channels: number
+          channels_connected: number
+          conversations: number
+          first_response_avg_seconds: number | null
+          median_seconds: number | null
+          oldest_pending_at: string | null
+          pending: number
+          user_id: string
+        }[]
       }
       campaign_standings: {
         Args: { p_campaign_id: string }

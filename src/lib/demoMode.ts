@@ -24,6 +24,7 @@ const DEMO_URLS: Record<string, string> = {
   "/pipeline": "/demo-pipeline",
   "/dashboard": "/demo-dashboard",
   "/ranking": "/demo-ranking",
+  "/atendimento": "/demo-atendimento",
 };
 
 /** Nas rotas de demonstração (só em DEV), os links do menu apontam para a versão demo. */
