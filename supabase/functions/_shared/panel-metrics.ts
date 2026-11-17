@@ -236,3 +236,49 @@ export function normalizeAdAccountId(value: string): string | null {
   const digits = String(value ?? "").trim().replace(/^act_/i, "");
   return /^\d{5,25}$/.test(digits) ? `act_${digits}` : null;
 }
+
+// ------------------------------------------------------------------
+// Conexão da conta de anúncios (token de usuário do sistema)
+// ------------------------------------------------------------------
+export interface AdAccountOption {
+  /** act_123456789 */
+  id: string;
+  name: string;
+  /** account_status 1 = ativa. */
+  active: boolean;
+  currency: string | null;
+  business: string | null;
+}
+
+/** Interpreta a resposta de /me/adaccounts. Ignora linhas sem id válido e repetidas. */
+export function parseAdAccounts(rows: unknown): AdAccountOption[] {
+  if (!Array.isArray(rows)) return [];
+  const seen = new Set<string>();
+  const out: AdAccountOption[] = [];
+  for (const raw of rows) {
+    const row = (raw ?? {}) as Record<string, unknown>;
+    const id = normalizeAdAccountId(String(row.account_id ?? row.id ?? ""));
+    if (!id || seen.has(id)) continue;
+    seen.add(id);
+    const name = typeof row.name === "string" && row.name.trim() ? row.name.trim() : id;
+    out.push({
+      id,
+      name,
+      active: Number(row.account_status) === 1,
+      currency: typeof row.currency === "string" ? row.currency : null,
+      business: typeof row.business_name === "string" && row.business_name.trim() ? row.business_name.trim() : null,
+    });
+  }
+  return out.sort((a, b) => Number(b.active) - Number(a.active) || a.name.localeCompare(b.name, "pt-BR"));
+}
+
+/** Mensagem em português para um erro da Graph API. */
+export function describeMetaError(code: number | null, message: string): string {
+  if (code === 190) return "O token é inválido ou expirou. Gere um novo token e tente de novo.";
+  if (code === 10 || code === 200 || code === 299) {
+    return "O token não tem permissão para ler anúncios. Gere o token com a permissão ads_read e dê acesso à conta de anúncios ao usuário do sistema.";
+  }
+  if (code === 4 || code === 17 || code === 32 || code === 613) return "A Meta limitou as consultas por agora. Espere alguns minutos e tente de novo.";
+  if (code === 100) return "A Meta recusou o pedido. Confira se o token foi gerado para um usuário do sistema com acesso à conta de anúncios.";
+  return message ? `A Meta respondeu: ${message}` : "Não foi possível falar com a Meta agora. Tente de novo.";
+}

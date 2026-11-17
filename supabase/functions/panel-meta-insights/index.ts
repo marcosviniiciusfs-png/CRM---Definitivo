@@ -4,7 +4,8 @@
 //   status     — membro: configuração do painel e o que o usuário pode mudar
 //   insights   — membro: números do período {from, to} (AAAA-MM-DD); nada é lido se o painel estiver desligado
 //   set_goal   — owner/admin (ou super admin): meta mensal de conversas
-//   configure  — super admin: ligar/desligar, origem do token, contas de anúncio, token próprio
+//   configure  — owner/admin da organização (ou super admin): ligar/desligar, origem do token, contas, token próprio
+//   list_accounts — owner/admin (ou super admin): testa o token e lista as contas de anúncio que ele enxerga
 //
 // O painel nasce desligado. Enquanto estiver desligado, nenhuma chamada à Meta é feita.
 
@@ -17,14 +18,17 @@ import {
   requireSuperAdmin,
 } from "../_shared/organization-auth.ts";
 import { decryptMetaToken, encryptMetaToken } from "../_shared/meta-token-crypto.ts";
+import { rejectRateLimited } from "../_shared/request-security.ts";
 import {
   buildDaily,
   cacheTtlMs,
   classifyCreatives,
   costPerConversation,
+  describeMetaError,
   indicatorsFrom,
   isValidIsoDate,
   normalizeAdAccountId,
+  parseAdAccounts,
   previousPeriod,
   sumTotals,
   type MetaInsightRow,
@@ -82,6 +86,12 @@ async function isSuperAdmin(req: Request, supabase: Supabase): Promise<boolean> 
   } catch {
     return false;
   }
+}
+
+/** Quem configura o painel da organização: o dono, os administradores dela ou um super admin. */
+async function requireConfigurer(req: Request, supabase: Supabase, organizationId: string) {
+  if (await isSuperAdmin(req, supabase)) return await requireSuperAdmin(req, supabase);
+  return await requireOrganizationMember(req, supabase, organizationId, ["owner", "admin"]);
 }
 
 /** Token e contas de anúncio que o painel usa, conforme a origem escolhida pelo super admin. */
@@ -261,6 +271,7 @@ async function handleStatus(req: Request, supabase: Supabase, organizationId: st
   const { membership } = await requireOrganizationMember(req, supabase, organizationId);
   const settings = await loadSettings(supabase, organizationId);
   const superAdmin = await isSuperAdmin(req, supabase);
+  const canConfigure = superAdmin || ["owner", "admin"].includes(membership.role);
   const { data: ownToken } = await supabase
     .from("panel_meta_tokens")
     .select("updated_at")
@@ -269,11 +280,11 @@ async function handleStatus(req: Request, supabase: Supabase, organizationId: st
   return json({
     enabled: settings.enabled,
     tokenSource: settings.token_source,
-    adAccountIds: superAdmin ? settings.ad_account_ids : [],
+    adAccountIds: canConfigure ? settings.ad_account_ids : [],
     monthlyConversationGoal: settings.monthly_conversation_goal,
     hasOwnToken: Boolean(ownToken),
-    canConfigure: superAdmin,
-    canEditGoal: superAdmin || ["owner", "admin"].includes(membership.role),
+    canConfigure,
+    canEditGoal: canConfigure,
   });
 }
 
@@ -299,7 +310,8 @@ async function handleSetGoal(req: Request, supabase: Supabase, body: Record<stri
 }
 
 async function handleConfigure(req: Request, supabase: Supabase, body: Record<string, unknown>, organizationId: string) {
-  const { user } = await requireSuperAdmin(req, supabase);
+  const { user } = await requireConfigurer(req, supabase, organizationId);
+  const current = await loadSettings(supabase, organizationId);
 
   const update: Record<string, unknown> = {
     organization_id: organizationId,
@@ -312,6 +324,20 @@ async function handleConfigure(req: Request, supabase: Supabase, body: Record<st
     const ids = body.ad_account_ids.map((id) => normalizeAdAccountId(String(id)));
     if (ids.some((id) => !id)) return json({ error: "Conta de anúncios inválida. Use só os números ou act_123..." }, 400);
     update.ad_account_ids = [...new Set(ids as string[])].slice(0, MAX_ACCOUNTS);
+  }
+
+  // Só liga com o que o painel precisa para ler: token e contas.
+  if (update.enabled === true) {
+    const source = (update.token_source as string | undefined) ?? current.token_source;
+    const accounts = (update.ad_account_ids as string[] | undefined) ?? current.ad_account_ids;
+    const typedToken = typeof body.access_token === "string" && body.access_token.trim().length > 0;
+    let hasToken = typedToken;
+    if (!hasToken && source === "own") {
+      const { data: saved } = await supabase.from("panel_meta_tokens").select("organization_id").eq("organization_id", organizationId).maybeSingle();
+      hasToken = Boolean(saved);
+    }
+    if (source === "own" && !hasToken) return json({ error: "Cole o token antes de ligar o painel." }, 400);
+    if (source === "own" && accounts.length === 0) return json({ error: "Escolha pelo menos uma conta de anúncios antes de ligar o painel." }, 400);
   }
 
   const { error } = await supabase.from("panel_settings").upsert(update, { onConflict: "organization_id" });
@@ -338,6 +364,37 @@ async function handleConfigure(req: Request, supabase: Supabase, body: Record<st
   return json({ success: true });
 }
 
+/**
+ * Testa a conexão: com o token colado (ainda não salvo) ou com o já salvo, lista as contas de anúncio que ele
+ * enxerga. O token nunca é devolvido nem registrado.
+ */
+async function handleListAccounts(req: Request, supabase: Supabase, body: Record<string, unknown>, organizationId: string) {
+  await requireConfigurer(req, supabase, organizationId);
+  const limited = rejectRateLimited(req, "panel-list-accounts", 10, 60_000, { ...corsHeaders, "Content-Type": "application/json" });
+  if (limited) return limited;
+
+  let token = typeof body.access_token === "string" ? body.access_token.trim() : "";
+  if (!token) {
+    const settings = await loadSettings(supabase, organizationId);
+    token = (await resolveCredential(supabase, settings)).token;
+  }
+  if (!token) return json({ error: "Cole o token para testar a conexão." }, 400);
+  if (token.length > 2000) return json({ error: "O token é grande demais. Confira se colou só o token." }, 400);
+
+  try {
+    const rows = await graphAll("me/adaccounts", { fields: "account_id,name,account_status,currency,business_name", limit: "100" }, token);
+    const accounts = parseAdAccounts(rows);
+    if (accounts.length === 0) {
+      return json({ accounts: [], warning: "O token funciona, mas não enxerga nenhuma conta de anúncios. Dê acesso à conta ao usuário do sistema no Business Manager." });
+    }
+    return json({ accounts });
+  } catch (error) {
+    if (error instanceof MetaError) return json({ error: describeMetaError(error.code, error.message) }, 400);
+    console.error("[panel-meta-insights] list_accounts", error instanceof Error ? error.message : String(error));
+    return json({ error: "Não foi possível falar com a Meta agora. Tente de novo." }, 502);
+  }
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
   if (req.method !== "POST") return json({ error: "Method not allowed" }, 405);
@@ -361,6 +418,8 @@ Deno.serve(async (req) => {
         return await handleSetGoal(req, supabase, body, organizationId);
       case "configure":
         return await handleConfigure(req, supabase, body, organizationId);
+      case "list_accounts":
+        return await handleListAccounts(req, supabase, body, organizationId);
       default:
         return json({ error: "Modo desconhecido." }, 400);
     }

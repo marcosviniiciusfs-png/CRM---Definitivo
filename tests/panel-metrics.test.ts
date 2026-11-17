@@ -101,3 +101,29 @@ test("normalizeAdAccountId aceita número puro ou act_", () => {
   assert.equal(normalizeAdAccountId(" act_123456789 "), "act_123456789");
   assert.equal(normalizeAdAccountId("abc"), null);
 });
+
+import { describeMetaError, parseAdAccounts } from "../supabase/functions/_shared/panel-metrics.ts";
+
+test("lista de contas de anúncio da Meta", () => {
+  const accounts = parseAdAccounts([
+    { account_id: "222222", name: "Corretora B", account_status: 1, currency: "BRL", business_name: "Corretora B Ltda" },
+    { id: "act_111111", name: " Corretora A ", account_status: 1, currency: "BRL" },
+    { account_id: "333333", name: "Antiga", account_status: 2 },
+    { account_id: "222222", name: "Repetida", account_status: 1 },
+    { name: "Sem id" },
+    null,
+  ]);
+  assert.deepEqual(accounts.map((a) => a.id), ["act_111111", "act_222222", "act_333333"]);
+  assert.equal(accounts[0].name, "Corretora A");
+  assert.equal(accounts[1].business, "Corretora B Ltda");
+  assert.equal(accounts[2].active, false);
+  assert.deepEqual(parseAdAccounts("x"), []);
+});
+
+test("erros da Meta em português", () => {
+  assert.match(describeMetaError(190, "x"), /expirou/);
+  assert.match(describeMetaError(200, "x"), /ads_read/);
+  assert.match(describeMetaError(17, "x"), /limitou/);
+  assert.match(describeMetaError(null, "algo"), /A Meta respondeu: algo/);
+  assert.match(describeMetaError(null, ""), /Tente de novo/);
+});
