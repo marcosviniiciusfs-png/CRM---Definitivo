@@ -2,11 +2,13 @@ import React from "react";
 import { Navigate, useLocation } from "react-router-dom";
 import { useOrganizationReady } from "@/hooks/useOrganizationReady";
 import { useOrganization } from "@/contexts/OrganizationContext";
+import { useAuth } from "@/contexts/AuthContext";
 import { LoadingAnimation } from "@/components/LoadingAnimation";
 
 export function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, isLoading, isReady, isSuperAdmin, organizationId } = useOrganizationReady();
   const { isInitialized } = useOrganization();
+  const { roleLoading } = useAuth();
   const location = useLocation();
 
   const isIntegrationsFlow =
@@ -35,6 +37,15 @@ export function ProtectedRoute({ children }: { children: React.ReactNode }) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-background">
         <LoadingAnimation text="Carregando workspace..." />
+      </div>
+    );
+  }
+
+  // Sem organização, ainda pode ser super admin: espera confirmar o papel antes de barrar.
+  if (!isReady && roleLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-background">
+        <LoadingAnimation text="Verificando acesso..." />
       </div>
     );
   }

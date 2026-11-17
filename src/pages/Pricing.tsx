@@ -6,7 +6,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useNavigate, useLocation } from "react-router-dom";
 
 export default function Pricing() {
-  const { isReady, organizationId } = useOrganizationReady();
+  const { isReady, organizationId, isSuperAdmin } = useOrganizationReady();
   const location = useLocation();
   const { signOut } = useAuth();
   const navigate = useNavigate();
@@ -21,6 +21,11 @@ export default function Pricing() {
       navigate(fromPath + fromSearch, { replace: true });
     }
   }, [isReady, organizationId, location.state, navigate]);
+
+  // Super admin sem organização (conta só de suporte) vai direto para o painel de admin.
+  React.useEffect(() => {
+    if (isSuperAdmin && !organizationId) navigate("/admin", { replace: true });
+  }, [isSuperAdmin, organizationId, navigate]);
 
   const handleLogout = async () => {
     await signOut();
