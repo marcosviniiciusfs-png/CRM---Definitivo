@@ -6,6 +6,7 @@ import {
   cacheTtlMs,
   classifyCreatives,
   costPerConversation,
+  costPerLead,
   indicatorsFrom,
   normalizeAdAccountId,
   percentDelta,
@@ -126,4 +127,16 @@ test("erros da Meta em português", () => {
   assert.match(describeMetaError(17, "x"), /limitou/);
   assert.match(describeMetaError(null, "algo"), /A Meta respondeu: algo/);
   assert.match(describeMetaError(null, ""), /Tente de novo/);
+});
+
+test("custo por lead usa só o gasto das campanhas que geraram leads", () => {
+  const result = costPerLead([
+    { campaign_id: "1", spend: "100", actions: [{ action_type: "lead", value: "10" }] },
+    { campaign_id: "2", spend: "50", actions: [] },
+    { campaign_id: "3", spend: "60", actions: [{ action_type: "onsite_conversion.lead_grouped", value: "5" }] },
+  ]);
+  assert.equal(result.leads, 15);
+  assert.equal(result.leadSpend, 160);
+  assert.ok(Math.abs((result.cost ?? 0) - 160 / 15) < 1e-9);
+  assert.equal(costPerLead([]).cost, null);
 });

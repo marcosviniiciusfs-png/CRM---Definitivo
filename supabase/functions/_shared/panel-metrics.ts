@@ -99,6 +99,20 @@ export function costPerConversation(campaignRows: MetaInsightRow[]): {
   return { principalSpend, conversations, cost: ratio(principalSpend, conversations) };
 }
 
+/** Custo por lead: gasto só das campanhas que geraram leads ÷ leads (formulário). */
+export function costPerLead(campaignRows: MetaInsightRow[]): { leadSpend: number; leads: number; cost: number | null } {
+  let leadSpend = 0;
+  let leads = 0;
+  for (const row of campaignRows) {
+    const found = leadsFrom(row.actions);
+    if (found > 0) {
+      leads += found;
+      leadSpend += num(row.spend);
+    }
+  }
+  return { leadSpend, leads, cost: ratio(leadSpend, leads) };
+}
+
 export interface Indicators {
   reach: number;
   impressions: number;
@@ -128,6 +142,7 @@ export interface DailyPoint {
   realConversations: number;
   leads: number;
   costPerConversation: number | null;
+  costPerLead: number | null;
 }
 
 /** Linhas diárias (time_increment=1) de várias contas somadas por dia. */
@@ -136,7 +151,7 @@ export function buildDaily(rows: MetaInsightRow[]): DailyPoint[] {
   for (const row of rows) {
     const date = row.date_start ?? "";
     if (!date) continue;
-    const point = byDay.get(date) ?? { date, spend: 0, conversations: 0, realConversations: 0, leads: 0, costPerConversation: null };
+    const point = byDay.get(date) ?? { date, spend: 0, conversations: 0, realConversations: 0, leads: 0, costPerConversation: null, costPerLead: null };
     point.spend += num(row.spend);
     point.conversations += actionValue(row.actions, ACTION.conversation);
     point.realConversations += actionValue(row.actions, ACTION.realConversation);
@@ -144,7 +159,11 @@ export function buildDaily(rows: MetaInsightRow[]): DailyPoint[] {
     byDay.set(date, point);
   }
   return [...byDay.values()]
-    .map((point) => ({ ...point, costPerConversation: ratio(point.spend, point.conversations) }))
+    .map((point) => ({
+      ...point,
+      costPerConversation: ratio(point.spend, point.conversations),
+      costPerLead: ratio(point.spend, point.leads),
+    }))
     .sort((a, b) => a.date.localeCompare(b.date));
 }
 
@@ -160,6 +179,9 @@ export interface CreativeRow {
   cost: number | null;
   continuedRate: number | null;
   verdict: CreativeVerdict;
+  leads: number;
+  costPerLead: number | null;
+  leadVerdict: CreativeVerdict;
 }
 
 /**
@@ -182,6 +204,9 @@ export function classifyCreatives(adRows: MetaInsightRow[]): CreativeRow[] {
       cost: ratio(spend, conversations),
       continuedRate: ratio(realConversations, conversations),
       verdict: null as CreativeVerdict,
+      leads: leadsFrom(row.actions),
+      costPerLead: ratio(spend, leadsFrom(row.actions)),
+      leadVerdict: null as CreativeVerdict,
     };
   });
 
@@ -198,8 +223,20 @@ export function classifyCreatives(adRows: MetaInsightRow[]): CreativeRow[] {
     else if (row.cost > average * 1.25 || (row.conversations >= 5 && continued < 0.3)) row.verdict = "review";
   }
 
+  // Negócio de formulário: mesma régua, em leads. Melhor: 5 leads ou mais e custo até a média; Revisar: custo 25% acima da média.
+  const withLeads = rows.filter((row) => row.leads > 0);
+  const leadAverage = ratio(
+    withLeads.reduce((sum, row) => sum + row.spend, 0),
+    withLeads.reduce((sum, row) => sum + row.leads, 0),
+  );
+  for (const row of rows) {
+    if (leadAverage === null || row.costPerLead === null) continue;
+    if (row.leads >= 5 && row.costPerLead <= leadAverage) row.leadVerdict = "best";
+    else if (row.costPerLead > leadAverage * 1.25) row.leadVerdict = "review";
+  }
+
   return rows
-    .filter((row) => row.spend > 0 || row.conversations > 0)
+    .filter((row) => row.spend > 0 || row.conversations > 0 || row.leads > 0)
     .sort((a, b) => b.conversations - a.conversations || b.spend - a.spend);
 }
 

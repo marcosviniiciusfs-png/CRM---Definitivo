@@ -24,6 +24,7 @@ import {
   cacheTtlMs,
   classifyCreatives,
   costPerConversation,
+  costPerLead,
   describeMetaError,
   indicatorsFrom,
   isValidIsoDate,
@@ -174,6 +175,7 @@ async function fetchPeriod(token: string, accounts: string[], from: string, to: 
 
   const totals = sumTotals(perAccount.flatMap((item) => item.totals));
   const cost = costPerConversation(perAccount.flatMap((item) => item.campaigns));
+  const leadCost = costPerLead(perAccount.flatMap((item) => item.campaigns));
   return {
     result: {
       conversations: totals.conversations,
@@ -181,6 +183,7 @@ async function fetchPeriod(token: string, accounts: string[], from: string, to: 
       leads: totals.leads,
       spend: totals.spend,
       costPerConversation: cost.cost,
+      costPerLead: leadCost.cost,
     },
     indicators: indicatorsFrom(totals),
     daily: detailed ? buildDaily(perAccount.flatMap((item) => item.daily)) : [],
