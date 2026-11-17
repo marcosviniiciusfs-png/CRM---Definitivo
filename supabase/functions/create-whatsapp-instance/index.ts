@@ -9,6 +9,9 @@ import {
   normalizeUrl,
 } from "../_shared/evolution-config.ts";
 
+// Cada vendedor conecta o próprio WhatsApp; o teto só evita abuso e protege a Evolution API.
+const MAX_CHANNELS_PER_ORG = 100;
+
 const CHANNEL_COLORS = ["#25D366", "#3b82f6", "#f59e0b", "#ef4444", "#8b5cf6"];
 
 interface CreateInstanceRequest {
@@ -454,9 +457,9 @@ serve(async (req) => {
     };
 
     // ========================================
-    // STEP 2: RESOLVE ORG + VALIDATE CHANNEL LIMIT
+    // STEP 2: RESOLVE ORG + VALIDATE CHANNEL LIMIT (segurança, não de plano)
     // ========================================
-    // Resolve org and enforce the 5-channel cap BEFORE talking to Evolution API,
+    // Resolve org and enforce the safety cap BEFORE talking to Evolution API,
     // so a hit on the limit doesn't leak an orphan instance on Evolution's side.
     const orgId = await getOrCreateOrganizationId(supabase, {
       id: user.id,
@@ -495,9 +498,9 @@ serve(async (req) => {
       throw new Error(
         `Could not validate WhatsApp channel limit: ${countError.message}`,
       );
-    } else if (count && count >= 5) {
+    } else if (count && count >= MAX_CHANNELS_PER_ORG) {
       throw new Error(
-        "Limite de 5 canais WhatsApp atingido. Desconecte um canal para conectar um novo.",
+        `Limite de segurança de ${MAX_CHANNELS_PER_ORG} canais WhatsApp atingido. Desconecte um canal para conectar um novo.`,
       );
     }
 

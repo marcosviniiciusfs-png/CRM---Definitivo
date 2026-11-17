@@ -1,4 +1,4 @@
-import { Home, Filter, CheckSquare, Users, Settings, LogOut, MessageCircle, Lock, Unlock, ChevronDown, Building2, UserCircle, Layers, Activity, BarChart2, Shuffle, Puzzle, Trophy, AlertTriangle, CalendarDays, Gauge, Calculator, Wallet, type LucideIcon } from "lucide-react";
+import { Home, Filter, CheckSquare, Users, Settings, LogOut, MessageCircle, Lock, Unlock, ChevronDown, Building2, UserCircle, Layers, Activity, BarChart2, Shuffle, Puzzle, Trophy, AlertTriangle, CalendarDays, Gauge, Headset, Calculator, Wallet, type LucideIcon } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLocation } from "react-router-dom";
@@ -90,6 +90,7 @@ const NAV_GROUPS: Array<{ label: string; items: NavItem[]; withAdmin?: boolean }
       { title: "Métricas", url: "/lead-metrics", icon: BarChart2 },
       { title: "Painel", url: "/painel", icon: Gauge },
       { title: "Ranking", url: "/ranking", icon: Trophy },
+      { title: "Atendimento", url: "/atendimento", icon: Headset },
     ],
   },
   {

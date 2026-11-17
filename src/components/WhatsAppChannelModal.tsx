@@ -11,7 +11,8 @@ import { WhatsAppChannel, LeadAlertInterestRule } from "@/types/whatsapp-channel
 import WhatsAppConnection from "@/components/WhatsAppConnection";
 import { ChannelAssignMembersDialog } from "@/components/ChannelAssignMembersDialog";
 
-const MAX_CHANNELS = 5;
+// Sem limite de canais: cada vendedor conecta o próprio número. O teto de 100 só protege o servidor.
+const MAX_CHANNELS = 100;
 const ALERT_SOURCES = [
   { value: "whatsapp", label: "WhatsApp" },
   { value: "facebook", label: "Facebook Leads" },
@@ -570,7 +571,7 @@ export function WhatsAppChannelModal({ open, onOpenChange, organizationId, canMa
       <DialogContent className="sm:max-w-[640px] p-0 gap-0 overflow-hidden">
         <DialogTitle className="sr-only">Canais de WhatsApp</DialogTitle>
         <DialogDescription className="sr-only">
-          Gerencie os canais de WhatsApp desta organização. Você pode conectar até 5 números.
+          Gerencie os canais de WhatsApp desta organização. Cada vendedor pode conectar o próprio número.
         </DialogDescription>
         {/* Header */}
         <div className="px-5 py-4 border-b flex items-center justify-between">
@@ -581,7 +582,7 @@ export function WhatsAppChannelModal({ open, onOpenChange, organizationId, canMa
             <div>
               <h3 className="font-semibold text-[15px]">Canais de WhatsApp</h3>
               <p className="text-[11px] text-muted-foreground">
-                {connectedCount} de {MAX_CHANNELS} canais conectados
+                {connectedCount} {connectedCount === 1 ? "canal conectado" : "canais conectados"} · {channels.length} {channels.length === 1 ? "cadastrado" : "cadastrados"}
               </p>
             </div>
           </div>
@@ -878,7 +879,7 @@ export function WhatsAppChannelModal({ open, onOpenChange, organizationId, canMa
               disabled={remaining <= 0 || !canManage}
               onClick={() => setShowConnect(true)}
             >
-              Conectar novo canal {remaining > 0 ? `(${remaining} ${remaining === 1 ? "restante" : "restantes"})` : "(limite atingido)"}
+              Conectar novo canal{remaining <= 0 ? " (limite de segurança atingido)" : ""}
             </Button>
           )}
         </div>
