@@ -195,6 +195,37 @@ function ConfigureDialog({
   const [token, setToken] = useState("");
   const [goal, setGoal] = useState(status.monthlyConversationGoal?.toString() ?? "");
   const [saving, setSaving] = useState(false);
+  const [testing, setTesting] = useState(false);
+  const [found, setFound] = useState<Array<{ id: string; name: string; active: boolean; currency: string | null; business: string | null }> | null>(null);
+  const [testMessage, setTestMessage] = useState<{ tone: "ok" | "error"; text: string } | null>(null);
+
+  const selectedIds = accounts.split(/[\s,;]+/).map((id) => id.trim()).filter(Boolean);
+  const toggleAccount = (id: string) => {
+    const next = selectedIds.includes(id) ? selectedIds.filter((x) => x !== id) : [...selectedIds, id];
+    setAccounts(next.join("\n"));
+  };
+
+  const testConnection = async () => {
+    setTesting(true);
+    setTestMessage(null);
+    try {
+      const result = await invokePanel<{ accounts?: typeof found; warning?: string; error?: string }>({
+        mode: "list_accounts",
+        organization_id: organizationId,
+        ...(token.trim() ? { access_token: token.trim() } : {}),
+      });
+      if (result.error) throw new Error(result.error);
+      setFound(result.accounts ?? []);
+      setTestMessage(result.warning
+        ? { tone: "error", text: result.warning }
+        : { tone: "ok", text: `Conexão funcionando. ${(result.accounts ?? []).length} ${(result.accounts ?? []).length === 1 ? "conta encontrada" : "contas encontradas"}. Marque as que o painel deve somar.` });
+    } catch (error) {
+      setFound(null);
+      setTestMessage({ tone: "error", text: error instanceof Error && error.message ? error.message : "Não foi possível testar a conexão. Tente de novo." });
+    } finally {
+      setTesting(false);
+    }
+  };
 
   const save = async () => {
     setSaving(true);
@@ -246,7 +277,7 @@ function ConfigureDialog({
               <div className="flex items-center justify-between gap-4 rounded-lg border p-3">
                 <div>
                   <Label htmlFor="panel-enabled" className="text-sm font-semibold">Ligar painel</Label>
-                  <p className="text-xs text-muted-foreground">Só administradores do KairoZ ligam e escolhem o token.</p>
+                  <p className="text-xs text-muted-foreground">Só lê anúncios, e só depois de ligado. Você pode desligar quando quiser.</p>
                 </div>
                 <Switch id="panel-enabled" checked={enabled} onCheckedChange={setEnabled} />
               </div>
@@ -272,6 +303,24 @@ function ConfigureDialog({
                     <p className="text-xs text-muted-foreground">
                       O token é guardado criptografado e nunca volta para o navegador.
                     </p>
+                    <details className="rounded-md border bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
+                      <summary className="cursor-pointer font-medium text-foreground">Como gerar o token (usuário do sistema)</summary>
+                      <ol className="mt-2 list-decimal space-y-1 pl-4">
+                        <li>Abra o Business Manager (business.facebook.com) › Configurações do negócio › Usuários › Usuários do sistema.</li>
+                        <li>Clique em Adicionar, dê um nome (por exemplo, KairoZ) e escolha a função de funcionário.</li>
+                        <li>Em Atribuir ativos, escolha Contas de anúncios, marque as contas e dê a permissão Ver desempenho.</li>
+                        <li>Clique em Gerar novo token, escolha um app do seu negócio, marque só a permissão <span className="font-mono">ads_read</span> e a validade Nunca.</li>
+                        <li>Copie o token e cole aqui. Depois toque em Testar conexão.</li>
+                      </ol>
+                    </details>
+                    <Button type="button" variant="outline" size="sm" onClick={testConnection} disabled={testing || (!token.trim() && !status.hasOwnToken)}>
+                      {testing ? "Testando..." : "Testar conexão"}
+                    </Button>
+                    {testMessage && (
+                      <p role="status" className={testMessage.tone === "ok" ? "text-xs font-medium text-success" : "text-xs font-medium text-destructive"}>
+                        {testMessage.text}
+                      </p>
+                    )}
                   </>
                 )}
               </div>
@@ -285,6 +334,23 @@ function ConfigureDialog({
                   placeholder={"act_123456789\nact_987654321"}
                   rows={3}
                 />
+                {found && found.length > 0 && (
+                  <ul className="max-h-44 space-y-1 overflow-y-auto rounded-md border p-1.5">
+                    {found.map((account) => (
+                      <li key={account.id}>
+                        <label className="flex cursor-pointer items-start gap-2 rounded px-2 py-1.5 text-sm hover:bg-accent">
+                          <input type="checkbox" className="mt-1" checked={selectedIds.includes(account.id)} onChange={() => toggleAccount(account.id)} />
+                          <span className="min-w-0">
+                            <span className="block truncate font-medium text-foreground">{account.name}</span>
+                            <span className="block text-xs text-muted-foreground">
+                              {account.id}{account.business ? ` · ${account.business}` : ""}{account.currency ? ` · ${account.currency}` : ""}{account.active ? "" : " · inativa"}
+                            </span>
+                          </span>
+                        </label>
+                      </li>
+                    ))}
+                  </ul>
+                )}
                 <p className="text-xs text-muted-foreground">
                   Uma por linha. Os números das contas são somados. Vazio usa a conta do Facebook conectado.
                 </p>
@@ -485,7 +551,7 @@ export default function Painel() {
           <Card>
             <CardContent className="p-4 text-sm text-muted-foreground">
               Os números da Meta não estão ligados nesta organização.
-              {status?.canConfigure ? " Use Configurar para ligar." : " Peça ao administrador do KairoZ para ligar."}
+              {status?.canConfigure ? " Use Configurar para ligar." : " Peça ao dono ou a um administrador da organização para ligar."}
               {" "}O atendimento abaixo não depende da Meta.
             </CardContent>
           </Card>
