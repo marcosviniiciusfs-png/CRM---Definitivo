@@ -38,6 +38,7 @@ const Ranking = lazy(() => import("./pages/Ranking"));
 const RankingArena = lazy(() => import("./pages/RankingArena"));
 const TvRanking = lazy(() => import("./pages/TvRanking"));
 const Atendimento = lazy(() => import("./pages/Atendimento"));
+const Inteligencia = lazy(() => import("./pages/Inteligencia"));
 const Reunioes = lazy(() => import("./pages/Reunioes"));
 const Tasks = lazy(() => import("./pages/Tasks"));
 const Settings = lazy(() => import("./pages/Settings"));
@@ -130,6 +131,8 @@ const App = () => {
                         <Route path="/ranking" element={<ProtectedRoute><DashboardLayout><LazyPage><RankingArena /></LazyPage></DashboardLayout></ProtectedRoute>} />
                         <Route path="/ranking/classico" element={<ProtectedRoute><DashboardLayout><LazyPage><Ranking /></LazyPage></DashboardLayout></ProtectedRoute>} />
                         <Route path="/atendimento" element={<ProtectedRoute><DashboardLayout><LazyPage><Atendimento /></LazyPage></DashboardLayout></ProtectedRoute>} />
+                        <Route path="/inteligencia" element={<ProtectedRoute><DashboardLayout><LazyPage><Inteligencia /></LazyPage></DashboardLayout></ProtectedRoute>} />
+                        <Route path="/demo-inteligencia" element={<ProtectedRoute><DashboardLayout><LazyPage><Inteligencia /></LazyPage></DashboardLayout></ProtectedRoute>} />
                         <Route path="/demo-atendimento" element={<ProtectedRoute><DashboardLayout><LazyPage><Atendimento /></LazyPage></DashboardLayout></ProtectedRoute>} />
                         <Route path="/demo-ranking" element={<ProtectedRoute><DashboardLayout><LazyPage><RankingArena /></LazyPage></DashboardLayout></ProtectedRoute>} />
                         <Route path="/reunioes" element={<ProtectedRoute><DashboardLayout><LazyPage><Reunioes /></LazyPage></DashboardLayout></ProtectedRoute>} />

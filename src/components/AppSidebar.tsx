@@ -1,4 +1,4 @@
-import { Home, Filter, CheckSquare, Users, Settings, LogOut, MessageCircle, Lock, Unlock, ChevronDown, Building2, UserCircle, Layers, Activity, BarChart2, Shuffle, Puzzle, Trophy, AlertTriangle, CalendarDays, Gauge, Headset, Calculator, Wallet, type LucideIcon } from "lucide-react";
+import { Home, Filter, CheckSquare, Users, Settings, LogOut, MessageCircle, Lock, Unlock, ChevronDown, Building2, UserCircle, Layers, Activity, BarChart2, Shuffle, Puzzle, Trophy, AlertTriangle, CalendarDays, Gauge, Headset, Lightbulb, Calculator, Wallet, type LucideIcon } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLocation } from "react-router-dom";
@@ -91,6 +91,7 @@ const NAV_GROUPS: Array<{ label: string; items: NavItem[]; withAdmin?: boolean }
       { title: "Painel", url: "/painel", icon: Gauge },
       { title: "Ranking", url: "/ranking", icon: Trophy },
       { title: "Atendimento", url: "/atendimento", icon: Headset },
+      { title: "Inteligência", url: "/inteligencia", icon: Lightbulb },
     ],
   },
   {
@@ -223,6 +224,7 @@ function AppSidebarComponent() {
     // Comissões de consórcio só existem no modo consórcio; organizações genéricas não mudam.
     if (url === '/comissoes' && !isConsorcio) return true;
     if ((url === '/lead-metrics' || url === '/painel') && !permissions.canViewTeamMetrics) return true;
+    if (url === '/inteligencia' && permissions.role !== 'owner' && permissions.role !== 'admin') return true;
     return isSectionVisible(url) === false;
   };
 

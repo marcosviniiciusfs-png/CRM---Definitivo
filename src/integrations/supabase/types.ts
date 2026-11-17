@@ -4633,6 +4633,10 @@ export type Database = {
         Args: { p_organization_id: string; p_segment: string }
         Returns: string
       }
+      funnel_intelligence: {
+        Args: { p_from: string; p_funnel_id: string; p_organization_id: string; p_to: string }
+        Returns: Json
+      }
       attendance_metrics: {
         Args: { p_from: string; p_organization_id: string; p_to: string }
         Returns: {
