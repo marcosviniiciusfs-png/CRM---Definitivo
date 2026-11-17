@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Gauge, RefreshCw, Settings2, TrendingDown, TrendingUp, Minus } from "lucide-react";
-import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { Bar, CartesianGrid, ComposedChart, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useOrganization } from "@/contexts/OrganizationContext";
@@ -101,6 +101,7 @@ interface PeriodResult {
   realConversations: number;
   leads: number;
   spend: number;
+  costPerLead?: number | null;
   costPerConversation: number | null;
 }
 
@@ -124,7 +125,7 @@ interface MetaInsights {
   previousResult?: PeriodResult;
   indicators?: Indicators;
   previousIndicators?: Indicators;
-  daily?: Array<{ date: string; spend: number; conversations: number; realConversations: number; costPerConversation: number | null }>;
+  daily?: Array<{ date: string; spend: number; conversations: number; realConversations: number; leads?: number; costPerLead?: number | null; costPerConversation: number | null }>;
   creatives?: Array<{
     adId: string;
     name: string;
@@ -134,6 +135,9 @@ interface MetaInsights {
     cost: number | null;
     continuedRate: number | null;
     verdict: "best" | "review" | null;
+    leads?: number;
+    costPerLead?: number | null;
+    leadVerdict?: "best" | "review" | null;
   }>;
 }
 
@@ -477,8 +481,12 @@ export default function Painel() {
     ? result.spend / attendanceTotals.scheduled_from_ads
     : null;
 
+  // Negócio de formulário: leads viram o número principal; conversas só aparecem se houver.
+  const leadMode = !!result && (result.leads ?? 0) > 0 && (result.leads ?? 0) >= result.conversations;
+  const mainCount = result ? (leadMode ? result.leads ?? 0 : result.conversations) : 0;
+  const unit = leadMode ? "leads" : "conversas";
   const goal = status?.monthlyConversationGoal && preset === "this_month" && result
-    ? goalProgress(status.monthlyConversationGoal, result.conversations, Number(todayBrt().slice(8)), daysInMonth(todayBrt()))
+    ? goalProgress(status.monthlyConversationGoal, mainCount, Number(todayBrt().slice(8)), daysInMonth(todayBrt()))
     : null;
 
   const refresh = () => {
@@ -563,18 +571,41 @@ export default function Painel() {
           <>
             {meta.warning && <p className="text-sm text-amber-600 dark:text-amber-400">{meta.warning}</p>}
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-              <Stat label="Conversas" value={formatNumber(result.conversations)} help="Conversas no WhatsApp iniciadas pelos anúncios.">
-                <Delta current={result.conversations} previous={previous?.conversations} />
-              </Stat>
-              <Stat label="Custo por conversa" value={formatCurrency(result.costPerConversation)} help="Gasto das campanhas de conversa ÷ conversas. Tráfego e alcance ficam de fora.">
-                <Delta current={result.costPerConversation} previous={previous?.costPerConversation} lowerIsBetter />
-              </Stat>
-              <Stat label="Investido" value={formatCurrency(result.spend)}>
-                <Delta current={result.spend} previous={previous?.spend} />
-              </Stat>
-              <Stat label="Conversas reais" value={formatNumber(result.realConversations)} help="Conversas em que o lead mandou a segunda mensagem, ou seja, continuou o papo.">
-                <Delta current={result.realConversations} previous={previous?.realConversations} />
-              </Stat>
+              {leadMode ? (
+                <>
+                  <Stat label="Leads" value={formatNumber(result.leads)} help="Pessoas que preencheram o formulário dos anúncios.">
+                    <Delta current={result.leads} previous={previous?.leads} />
+                  </Stat>
+                  <Stat label="Custo por lead" value={formatCurrency(result.costPerLead ?? null)} help="Gasto das campanhas que geraram leads ÷ leads.">
+                    <Delta current={result.costPerLead ?? null} previous={previous?.costPerLead ?? null} lowerIsBetter />
+                  </Stat>
+                  <Stat label="Investido" value={formatCurrency(result.spend)}>
+                    <Delta current={result.spend} previous={previous?.spend} />
+                  </Stat>
+                  {result.conversations > 0 ? (
+                    <Stat label="Conversas" value={formatNumber(result.conversations)} help="Conversas no WhatsApp iniciadas pelos anúncios.">
+                      <Delta current={result.conversations} previous={previous?.conversations} />
+                    </Stat>
+                  ) : (
+                    <Stat label="CPM" value={formatCurrency(indicators?.cpm ?? null)} help="Custo a cada mil impressões." />
+                  )}
+                </>
+              ) : (
+                <>
+                  <Stat label="Conversas" value={formatNumber(result.conversations)} help="Conversas no WhatsApp iniciadas pelos anúncios.">
+                    <Delta current={result.conversations} previous={previous?.conversations} />
+                  </Stat>
+                  <Stat label="Custo por conversa" value={formatCurrency(result.costPerConversation)} help="Gasto das campanhas de conversa ÷ conversas. Tráfego e alcance ficam de fora.">
+                    <Delta current={result.costPerConversation} previous={previous?.costPerConversation} lowerIsBetter />
+                  </Stat>
+                  <Stat label="Investido" value={formatCurrency(result.spend)}>
+                    <Delta current={result.spend} previous={previous?.spend} />
+                  </Stat>
+                  <Stat label="Conversas reais" value={formatNumber(result.realConversations)} help="Conversas em que o lead mandou a segunda mensagem, ou seja, continuou o papo.">
+                    <Delta current={result.realConversations} previous={previous?.realConversations} />
+                  </Stat>
+                </>
+              )}
             </div>
 
             {indicators && (
@@ -592,7 +623,7 @@ export default function Painel() {
               <Card>
                 <CardContent className="space-y-2 p-4">
                   <div className="flex items-center justify-between">
-                    <p className="text-sm font-semibold">Meta do mês: {formatNumber(goal.goal)} conversas</p>
+                    <p className="text-sm font-semibold">Meta do mês: {formatNumber(goal.goal)} {unit}</p>
                     <Badge variant={goal.state === "behind" ? "destructive" : "secondary"}>
                       {goal.state === "reached" ? "Meta batida" : goal.state === "on_pace" ? "No ritmo" : goal.state === "behind" ? "Abaixo do ritmo" : "Começo do mês"}
                     </Badge>
@@ -602,7 +633,7 @@ export default function Painel() {
                   </div>
                   <p className="text-xs text-muted-foreground">
                     {formatNumber(goal.done)} feitas; o esperado até hoje era {formatNumber(goal.expected)}.
-                    {goal.state === "on_pace" && ` No ritmo atual, a meta é batida: cerca de ${formatNumber(goal.pace)} conversas no mês.`}
+                    {goal.state === "on_pace" && ` No ritmo atual, a meta é batida: cerca de ${formatNumber(goal.pace)} ${unit} no mês.`}
                     {goal.state === "behind" && ` Faltam cerca de ${formatNumber(goal.perDayNeeded)} por dia para bater.`}
                   </p>
                 </CardContent>
@@ -611,22 +642,33 @@ export default function Painel() {
 
             {meta.daily && meta.daily.length > 1 && (
               <Card>
-                <CardHeader className="pb-2"><CardTitle className="text-base">Conversas por dia</CardTitle></CardHeader>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-base">{leadMode ? "Leads e custo por dia" : "Conversas por dia"}</CardTitle>
+                  <p className="text-xs text-muted-foreground">
+                    Barras: {unit} por dia (eixo da esquerda). Linha: {leadMode ? "custo por lead" : "custo por conversa"} (eixo da direita).
+                  </p>
+                </CardHeader>
                 <CardContent className="h-64">
                   <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={meta.daily.map((point) => ({ ...point, label: formatDay(point.date) }))}>
+                    <ComposedChart data={meta.daily.map((point) => ({
+                      ...point,
+                      count: leadMode ? point.leads ?? 0 : point.conversations,
+                      cost: leadMode ? point.costPerLead ?? null : point.costPerConversation,
+                      label: formatDay(point.date),
+                    }))}>
                       <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                       <XAxis dataKey="label" tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} />
-                      <YAxis yAxisId="left" tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} allowDecimals={false} />
-                      <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} />
+                      <YAxis yAxisId="left" tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} allowDecimals={false} domain={[0, "auto"]} />
+                      <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} domain={[0, "auto"]} tickFormatter={(v: number) => formatCurrency(v)} width={68} />
                       <Tooltip
                         contentStyle={{ background: "hsl(var(--popover))", border: "1px solid hsl(var(--border))", borderRadius: 8 }}
-                        formatter={(value: number, name: string) => name === "Custo por conversa" ? formatCurrency(value) : formatNumber(value)}
+                        formatter={(value: number, name: string) => name.startsWith("Custo") ? formatCurrency(value) : formatNumber(value)}
                       />
-                      <Line yAxisId="left" type="monotone" dataKey="conversations" name="Conversas" stroke="hsl(var(--primary))" strokeWidth={2} dot={false} />
-                      <Line yAxisId="right" type="monotone" dataKey="costPerConversation" name="Custo por conversa" stroke="hsl(var(--chart-2))" strokeWidth={2} dot={false} />
-                    </LineChart>
+                      <Bar yAxisId="left" dataKey="count" name={leadMode ? "Leads" : "Conversas"} fill="hsl(var(--primary))" radius={[3, 3, 0, 0]} maxBarSize={28} />
+                      <Line yAxisId="right" type="linear" dataKey="cost" name={leadMode ? "Custo por lead" : "Custo por conversa"} stroke="hsl(var(--foreground))" strokeWidth={2} dot={{ r: 2 }} connectNulls />
+                    </ComposedChart>
                   </ResponsiveContainer>
+                  
                 </CardContent>
               </Card>
             )}
@@ -640,34 +682,38 @@ export default function Painel() {
                       <tr>
                         <th className="py-2 pr-3 font-medium">Anúncio</th>
                         <th className="py-2 pr-3 text-right font-medium">Investido</th>
-                        <th className="py-2 pr-3 text-right font-medium">Conversas</th>
-                        <th className="py-2 pr-3 text-right font-medium">Custo</th>
-                        <th className="py-2 pr-3 text-right font-medium">Continuaram</th>
+                        <th className="py-2 pr-3 text-right font-medium">{leadMode ? "Leads" : "Conversas"}</th>
+                        <th className="py-2 pr-3 text-right font-medium">{leadMode ? "Custo por lead" : "Custo"}</th>
+                        {!leadMode && <th className="py-2 pr-3 text-right font-medium">Continuaram</th>}
                         <th className="py-2 font-medium" />
                       </tr>
                     </thead>
                     <tbody>
-                      {meta.creatives.slice(0, 30).map((creative) => (
+                      {(leadMode ? [...meta.creatives].sort((x, y) => (y.leads ?? 0) - (x.leads ?? 0) || y.spend - x.spend) : meta.creatives).slice(0, 30).map((creative) => {
+                        const verdict = leadMode ? creative.leadVerdict : creative.verdict;
+                        return (
                         <tr key={creative.adId} className="border-t">
                           <td className="py-2 pr-3">
                             <p className="font-medium">{creative.name}</p>
                             {creative.campaignName && <p className="text-xs text-muted-foreground">{creative.campaignName}</p>}
                           </td>
                           <td className="py-2 pr-3 text-right tabular-nums">{formatCurrency(creative.spend)}</td>
-                          <td className="py-2 pr-3 text-right tabular-nums">{formatNumber(creative.conversations)}</td>
-                          <td className="py-2 pr-3 text-right tabular-nums">{formatCurrency(creative.cost)}</td>
-                          <td className="py-2 pr-3 text-right tabular-nums">{formatPercent(creative.continuedRate)}</td>
+                          <td className="py-2 pr-3 text-right tabular-nums">{formatNumber(leadMode ? creative.leads ?? 0 : creative.conversations)}</td>
+                          <td className="py-2 pr-3 text-right tabular-nums">{formatCurrency(leadMode ? creative.costPerLead ?? null : creative.cost)}</td>
+                          {!leadMode && <td className="py-2 pr-3 text-right tabular-nums">{formatPercent(creative.continuedRate)}</td>}
                           <td className="py-2">
-                            {creative.verdict === "best" && <Badge className="bg-emerald-600 text-white hover:bg-emerald-600">Melhor</Badge>}
-                            {creative.verdict === "review" && <Badge variant="destructive">Revisar</Badge>}
+                            {verdict === "best" && <Badge className="bg-emerald-600 text-white hover:bg-emerald-600">Melhor</Badge>}
+                            {verdict === "review" && <Badge variant="destructive">Revisar</Badge>}
                           </td>
                         </tr>
-                      ))}
+                        );
+                      })}
                     </tbody>
                   </table>
                   <p className="mt-2 text-xs text-muted-foreground">
-                    Melhor: 5 conversas ou mais, custo até a média e metade ou mais continuou a conversa.
-                    Revisar: custo 25% acima da média, ou menos de 30% continuou.
+                    {leadMode
+                      ? "Melhor: 5 leads ou mais e custo até a média. Revisar: custo 25% acima da média."
+                      : "Melhor: 5 conversas ou mais, custo até a média e metade ou mais continuou a conversa. Revisar: custo 25% acima da média, ou menos de 30% continuou."}
                   </p>
                 </CardContent>
               </Card>
