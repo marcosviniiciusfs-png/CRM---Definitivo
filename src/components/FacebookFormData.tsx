@@ -1,6 +1,4 @@
-import { Mail, Phone, User, MapPin, Building, Calendar, Hash, FileText } from "lucide-react";
-import { Card } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+import { humanizeFieldName, humanizeFieldValue } from "@/lib/formFields";
 
 interface StructuredField {
   name: string;
@@ -22,187 +20,91 @@ interface FacebookFormDataProps {
   customFields?: StructuredData | null;
 }
 
-// Determinar ícone baseado no nome do campo
-const getFieldIcon = (fieldName: string) => {
-  const lower = fieldName.toLowerCase();
-  if (lower.includes('email')) return <Mail className="h-4 w-4 text-blue-500" />;
-  if (lower.includes('phone') || lower.includes('telefone') || lower.includes('celular') || lower.includes('whatsapp'))
-    return <Phone className="h-4 w-4 text-green-500" />;
-  if (lower.includes('name') || lower.includes('nome') || lower.includes('sobrenome'))
-    return <User className="h-4 w-4 text-purple-500" />;
-  if (lower.includes('city') || lower.includes('cidade') || lower.includes('estado') || lower.includes('bairro'))
-    return <MapPin className="h-4 w-4 text-red-500" />;
-  if (lower.includes('company') || lower.includes('empresa') || lower.includes('negocio') || lower.includes('negócio'))
-    return <Building className="h-4 w-4 text-orange-500" />;
-  if (lower.includes('date') || lower.includes('data') || lower.includes('nascimento'))
-    return <Calendar className="h-4 w-4 text-cyan-500" />;
-  if (lower.includes('id') || lower.includes('cpf') || lower.includes('cnpj'))
-    return <Hash className="h-4 w-4 text-gray-500" />;
-  return <FileText className="h-4 w-4 text-muted-foreground" />;
+interface ParsedForm {
+  formName: string | null;
+  campaignName: string | null;
+  campaignId: string | null;
+  fields: StructuredField[];
+}
+
+const clean = (value: string | null | undefined) => {
+  const v = value?.trim();
+  return !v || v === "N/A" || v === "undefined" ? null : v;
 };
 
-export const FacebookFormData = ({ description, customFields }: FacebookFormDataProps) => {
-  // --- Nova lógica: dados estruturados JSON ---
+/** Dados estruturados (leads novos) ou texto "=== INFORMAÇÕES DO FORMULÁRIO ===" (leads antigos). */
+function parseForm(description?: string | null, customFields?: StructuredData | null): ParsedForm | null {
   if (customFields?.fields && customFields.fields.length > 0) {
-    return (
-      <div className="space-y-4">
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <svg className="h-5 w-5 text-blue-600" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" />
-            </svg>
-            <h3 className="font-semibold text-sm">Dados do formulário do Meta Ads</h3>
-          </div>
-          <Badge variant="secondary" className="text-xs">Meta Ads</Badge>
-        </div>
-
-        {/* Form/Campaign info */}
-        {(customFields.form_name || customFields.campaign_name || customFields.campaign_id) && (
-          <Card className="p-3 bg-blue-50/50 dark:bg-blue-950/20 border-blue-200 dark:border-blue-800">
-            <div className="space-y-1.5 text-xs">
-              {customFields.form_name && (
-                <div className="flex items-center gap-2 flex-wrap">
-                  <FileText className="h-3.5 w-3.5 text-blue-600 flex-shrink-0" />
-                  <span className="text-muted-foreground flex-shrink-0">Formulário:</span>
-                  <span className="font-medium break-words">{customFields.form_name}</span>
-                </div>
-              )}
-              {customFields.campaign_name && customFields.campaign_name !== 'N/A' && (
-                <div className="flex items-center gap-2 flex-wrap">
-                  <Hash className="h-3.5 w-3.5 text-blue-600 flex-shrink-0" />
-                  <span className="text-muted-foreground flex-shrink-0">Campanha:</span>
-                  <span className="font-medium break-words">{customFields.campaign_name}</span>
-                </div>
-              )}
-              {customFields.campaign_id && (
-                <div className="flex items-center gap-2 flex-wrap">
-                  <Hash className="h-3.5 w-3.5 text-blue-600 flex-shrink-0" />
-                  <span className="text-muted-foreground flex-shrink-0">ID da campanha:</span>
-                  <span className="font-mono text-xs bg-muted px-1.5 py-0.5 rounded break-all">{customFields.campaign_id}</span>
-                </div>
-              )}
-            </div>
-          </Card>
-        )}
-
-        {/* Dynamic fields grid — renders ALL fields from ANY form */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          {customFields.fields.map((field, index) => (
-            <Card
-              key={index}
-              className="p-3 hover:shadow-md transition-shadow bg-card border-border"
-            >
-              <div className="flex items-start gap-3">
-                <div className="mt-0.5 flex-shrink-0">
-                  {getFieldIcon(field.name)}
-                </div>
-                <div className="flex-1 min-w-0 space-y-1">
-                  <p className="text-xs text-muted-foreground font-medium break-words capitalize">
-                    {field.name.replace(/_/g, ' ')}
-                  </p>
-                  <p className="text-sm font-semibold text-foreground break-words">
-                    {field.value}
-                  </p>
-                </div>
-              </div>
-            </Card>
-          ))}
-        </div>
-      </div>
-    );
+    return {
+      formName: clean(customFields.form_name),
+      campaignName: clean(customFields.campaign_name),
+      campaignId: clean(customFields.campaign_id),
+      fields: customFields.fields,
+    };
   }
-
-  // --- Fallback legacy: parse texto formatado (leads antigos) ---
   if (!description) return null;
-
-  const formDataSection = description.split('=== INFORMAÇÕES DO FORMULÁRIO ===')[1];
-  if (!formDataSection) return null;
-
-  const lines = formDataSection.trim().split('\n');
-  const fields: { name: string; value: string }[] = [];
-
-  lines.forEach(line => {
-    const [name, ...valueParts] = line.split(':');
-    const value = valueParts.join(':').trim();
-    if (name && value) {
-      fields.push({ name: name.trim(), value });
-    }
-  });
-
+  const [header, section] = description.split("=== INFORMAÇÕES DO FORMULÁRIO ===");
+  if (!section) return null;
+  const fields = section
+    .trim()
+    .split("\n")
+    .map((line) => {
+      const [name, ...rest] = line.split(":");
+      return { name: name?.trim() ?? "", value: rest.join(":").trim() };
+    })
+    .filter((f) => f.name && f.value);
   if (fields.length === 0) return null;
+  return {
+    formName: clean(header.match(/Formulário: (.+)/)?.[1]),
+    campaignName: clean(header.match(/Campanha: (.+)/)?.[1]),
+    campaignId: clean((header.match(/ID da campanha: (.+)/) || header.match(/\(ID: ([^)]+)\)/))?.[1]),
+    fields,
+  };
+}
 
-  const formInfo = description.split('=== INFORMAÇÕES DO FORMULÁRIO ===')[0];
-  const formIdMatch = formInfo.match(/Formulário: (.+)/);
-  const campaignMatch = formInfo.match(/Campanha: (.+)/);
-  const campaignIdMatch = formInfo.match(/ID da campanha: (.+)/) || formInfo.match(/\(ID: ([^)]+)\)/);
-  const cleanCampaignId = campaignIdMatch?.[1]?.trim() || null;
-
-  const cleanFormName = formIdMatch?.[1]?.trim() === 'undefined' ? null : formIdMatch?.[1]?.trim();
-  const cleanCampaignName = campaignMatch?.[1]?.trim() === 'N/A' || campaignMatch?.[1]?.trim() === 'undefined' ? null : campaignMatch?.[1]?.trim();
+/** Respostas do formulário do Meta Ads, no padrão de lista do DESIGN.md. */
+export const FacebookFormData = ({ description, customFields }: FacebookFormDataProps) => {
+  const form = parseForm(description, customFields);
+  if (!form) return null;
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <svg className="h-5 w-5 text-blue-600" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" />
-          </svg>
-          <h3 className="font-semibold text-sm">Dados do formulário do Meta Ads</h3>
-        </div>
-        <Badge variant="secondary" className="text-xs">Meta Ads</Badge>
+    <section className="space-y-3">
+      <div className="flex items-center justify-between gap-3">
+        <h3 className="text-sm font-semibold text-foreground">Formulário do Meta Ads</h3>
+        <span className="rounded-full bg-secondary px-2 py-0.5 text-[11px] font-semibold text-muted-foreground">Meta Ads</span>
       </div>
 
-      {(cleanFormName || cleanCampaignName || cleanCampaignId) && (
-        <Card className="p-3 bg-blue-50/50 dark:bg-blue-950/20 border-blue-200 dark:border-blue-800">
-          <div className="space-y-1.5 text-xs">
-            {cleanFormName && (
-              <div className="flex items-center gap-2 flex-wrap">
-                <FileText className="h-3.5 w-3.5 text-blue-600 flex-shrink-0" />
-                <span className="text-muted-foreground flex-shrink-0">Formulário:</span>
-                <span className="font-medium break-words">{cleanFormName}</span>
-              </div>
-            )}
-            {cleanCampaignName && (
-              <div className="flex items-center gap-2 flex-wrap">
-                <Hash className="h-3.5 w-3.5 text-blue-600 flex-shrink-0" />
-                <span className="text-muted-foreground flex-shrink-0">Campanha:</span>
-                <span className="font-medium break-words">{cleanCampaignName}</span>
-              </div>
-            )}
-            {cleanCampaignId && (
-              <div className="flex items-center gap-2 flex-wrap">
-                <Hash className="h-3.5 w-3.5 text-blue-600 flex-shrink-0" />
-                <span className="text-muted-foreground flex-shrink-0">ID da campanha:</span>
-                <span className="font-mono text-xs bg-muted px-1.5 py-0.5 rounded break-all">{cleanCampaignId}</span>
-              </div>
-            )}
-          </div>
-        </Card>
+      {(form.formName || form.campaignName || form.campaignId) && (
+        <dl className="space-y-1.5 rounded-md bg-secondary px-3 py-2.5 text-[13px]">
+          {form.formName && (
+            <div className="flex gap-2">
+              <dt className="w-28 shrink-0 text-muted-foreground">Formulário</dt>
+              <dd className="min-w-0 break-words text-foreground">{form.formName}</dd>
+            </div>
+          )}
+          {form.campaignName && (
+            <div className="flex gap-2">
+              <dt className="w-28 shrink-0 text-muted-foreground">Campanha</dt>
+              <dd className="min-w-0 break-words text-foreground">{form.campaignName}</dd>
+            </div>
+          )}
+          {form.campaignId && (
+            <div className="flex gap-2">
+              <dt className="w-28 shrink-0 text-muted-foreground">ID da campanha</dt>
+              <dd className="min-w-0 break-all font-mono text-xs text-foreground/80">{form.campaignId}</dd>
+            </div>
+          )}
+        </dl>
       )}
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-        {fields.map((field, index) => (
-          <Card
-            key={index}
-            className="p-3 hover:shadow-md transition-shadow bg-card border-border"
-          >
-            <div className="flex items-start gap-3">
-              <div className="mt-0.5 flex-shrink-0">
-                {getFieldIcon(field.name)}
-              </div>
-              <div className="flex-1 min-w-0 space-y-1">
-                <p className="text-xs text-muted-foreground font-medium break-words capitalize">
-                  {field.name.replace(/_/g, ' ')}
-                </p>
-                <p className="text-sm font-semibold text-foreground break-words">
-                  {field.value}
-                </p>
-              </div>
-            </div>
-          </Card>
+      <dl className="grid grid-cols-1 gap-x-6 sm:grid-cols-2">
+        {form.fields.map((field, index) => (
+          <div key={`${field.name}-${index}`} className="border-b border-border py-2.5">
+            <dt className="text-xs text-muted-foreground">{humanizeFieldName(field.name)}</dt>
+            <dd className="mt-0.5 break-words text-sm font-medium text-foreground">{humanizeFieldValue(field.value)}</dd>
+          </div>
         ))}
-      </div>
-    </div>
+      </dl>
+    </section>
   );
 };
