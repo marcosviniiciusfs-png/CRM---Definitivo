@@ -158,10 +158,9 @@ function Delta({ current, previous, lowerIsBetter = false }: { current: number |
   if (Math.abs(delta) < 0.005) {
     return <span className="inline-flex items-center gap-1 text-xs text-muted-foreground"><Minus className="h-3 w-3" />igual ao período anterior</span>;
   }
-  const good = lowerIsBetter ? delta < 0 : delta > 0;
   const Icon = delta > 0 ? TrendingUp : TrendingDown;
   return (
-    <span className={cn("inline-flex items-center gap-1 text-xs", good ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400")}>
+    <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
       <Icon className="h-3 w-3" />
       {formatPercent(Math.abs(delta))} {delta > 0 ? "a mais" : "a menos"} que o período anterior
     </span>
