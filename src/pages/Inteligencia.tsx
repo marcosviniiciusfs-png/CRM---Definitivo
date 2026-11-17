@@ -35,12 +35,17 @@ export default function Inteligencia() {
   const [funnelId, setFunnelId] = useState<string | null>(null);
   const range = useMemo(() => presetRange(preset), [preset]);
 
-  const { data: funnels = [] } = useFunnels();
+  const funnelsQuery = useFunnels();
+  const funnels = funnelsQuery.data ?? [];
   useEffect(() => {
     if (!funnelId && funnels.length > 0) setFunnelId(funnels[0].id);
   }, [funnels, funnelId]);
 
-  const { data: intel, isLoading, isError } = useFunnelIntelligence(allowed ? funnelId : null, range);
+  const { data: intel, isLoading, isError, error } = useFunnelIntelligence(allowed ? funnelId : null, range);
+  useEffect(() => {
+    if (error) console.error("[inteligencia] erro ao carregar:", error);
+  }, [error]);
+  const reason = (error as { message?: string } | null)?.message ?? (funnelsQuery.error as { message?: string } | null)?.message ?? null;
   const steps = useMemo(() => (intel ? buildSteps(intel) : []), [intel]);
   const insights = useMemo(() => (intel ? buildInsights(intel) : []), [intel]);
   const losses = useMemo(() => (intel ? intel.stages.filter((s) => s.lost_here > 0).sort((a, b) => b.lost_here - a.lost_here) : []), [intel]);
@@ -96,10 +101,14 @@ export default function Inteligencia() {
         </div>
       </div>
 
-      {isLoading ? (
+      {funnelsQuery.isLoading || (funnels.length > 0 && !funnelId) || isLoading ? (
         <p className="p-12 text-center text-sm text-muted-foreground">Carregando a inteligência comercial...</p>
+      ) : funnelsQuery.isError ? (
+        <p role="alert" className="p-12 text-center text-sm text-destructive">Não foi possível carregar os funis{reason ? `: ${reason}` : "."}</p>
+      ) : funnels.length === 0 ? (
+        <p className="p-12 text-center text-sm text-muted-foreground">Nenhum funil ativo encontrado. Crie ou ative um funil em Funil de vendas › Gerenciar funis.</p>
       ) : isError || !intel ? (
-        <p className="p-12 text-center text-sm text-destructive">Não foi possível carregar os dados. Tente de novo.</p>
+        <p role="alert" className="p-12 text-center text-sm text-destructive">Não foi possível carregar os dados{reason ? `: ${reason}` : "."}</p>
       ) : leads === 0 ? (
         <p className="p-12 text-center text-sm text-muted-foreground">Nenhum lead entrou neste funil no período.</p>
       ) : (
