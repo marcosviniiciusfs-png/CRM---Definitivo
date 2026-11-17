@@ -1,4 +1,4 @@
-import { Home, Filter, CheckSquare, Users, Settings, LogOut, MessageCircle, Lock, Unlock, ChevronDown, Building2, UserCircle, Layers, Activity, BarChart2, Shuffle, Puzzle, Trophy, AlertTriangle, CalendarDays, Gauge, Headset, Lightbulb, Calculator, Wallet, type LucideIcon } from "lucide-react";
+import { Home, Filter, CheckSquare, Users, Settings, LogOut, MessageCircle, Lock, Unlock, ChevronDown, Building2, UserCircle, Layers, Activity, BarChart2, Shuffle, Puzzle, Trophy, AlertTriangle, CalendarDays, Gauge, Headset, ShieldCheck, Lightbulb, Calculator, Wallet, type LucideIcon } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLocation } from "react-router-dom";
@@ -374,6 +374,16 @@ function AppSidebarComponent() {
             <SidebarGroupContent>
               <SidebarMenu className="gap-0.5">
                 {footerItems.map(renderNavItem)}
+                {isSuperAdmin && (
+                  <SidebarMenuItem>
+                    <SidebarMenuButton asChild tooltip={isOpen ? undefined : "Painel super admin"}>
+                      <NavLink to="/admin" end className={itemBase} activeClassName={itemActive}>
+                        <ShieldCheck className="h-4 w-4 flex-shrink-0 text-sidebar-foreground/80" strokeWidth={1.75} />
+                        <span className="truncate">Painel super admin</span>
+                      </NavLink>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                )}
               </SidebarMenu>
             </SidebarGroupContent>
           </SidebarGroup>
