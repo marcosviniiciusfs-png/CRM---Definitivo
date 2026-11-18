@@ -5,7 +5,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Facebook, CheckCircle, AlertCircle, Loader2, Megaphone, ExternalLink } from "lucide-react";
 import { toast } from "sonner";
-import { FunnelSelector } from "@/components/FunnelSelector";
+import { FormDistributionMode } from "@/components/FormDistributionMode";
 import { cn } from "@/lib/utils";
 import { logger } from "@/lib/logger";
 import { useFacebookConnection } from "@/hooks/useFacebookConnection";
@@ -472,19 +472,17 @@ export const FacebookLeadsConnection = ({ organizationId }: FacebookLeadsConnect
                         </div>
                       </div>
 
-                      {/* FunnelSelector com suporte a remocao */}
+                      {/* Funil fixo ou rodízio entre funis */}
                       <div className="mt-3 pt-3 border-t border-dashed">
-                        <FunnelSelector
-                          sourceType="facebook"
-                          sourceIdentifier={form.id}
+                        <FormDistributionMode
+                          formId={form.id}
                           organizationId={organizationId}
-                          className="mt-0 bg-transparent border-none p-0"
                           onMappingChange={() => handleFormConfigured(form.id)}
                           onMappingRemoved={() => handleFormRemoved(form.id)}
                         />
                         {!isConfigured && (
                           <p className="text-[10px] text-muted-foreground mt-1.5 italic">
-                            Selecione um funil acima para receber leads deste formulário.
+                            Escolha um funil ou um rodízio acima para receber leads deste formulário.
                           </p>
                         )}
                       </div>

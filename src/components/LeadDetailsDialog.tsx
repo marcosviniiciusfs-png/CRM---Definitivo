@@ -282,7 +282,15 @@ export const LeadDetailsDialog = ({ open, onOpenChange, leadId, leadName, onEdit
   // Telefones ficam um embaixo do outro, em linha única, para facilitar a leitura.
   const isPhoneField = (key: string) => /telefone|whatsapp|celular|phone/i.test(key);
   const phoneData = extraData.filter(([key]) => isPhoneField(key));
-  const otherExtraData = extraData.filter(([key]) => !isPhoneField(key));
+  // Formulário e campanha de origem do lead: mostrados no topo da seção, fora da lista de respostas.
+  const additionalObj = (details?.additional_data ?? {}) as Record<string, unknown>;
+  const formName = typeof additionalObj.origem === "string" && additionalObj.origem.trim() ? additionalObj.origem.trim() : null;
+  const campaignLabel =
+    (typeof additionalObj.campaign_name === "string" && additionalObj.campaign_name.trim()) ||
+    (typeof additionalObj.utm_campaign === "string" && additionalObj.utm_campaign.trim()) ||
+    null;
+  const headerKeys = ["origem", "campaign_name", "utm_campaign"];
+  const otherExtraData = extraData.filter(([key]) => !isPhoneField(key) && !headerKeys.includes(key));
   const showDescription = !isFacebookForm && !!details?.descricao_negocio?.trim();
 
   return (
@@ -397,6 +405,22 @@ export const LeadDetailsDialog = ({ open, onOpenChange, leadId, leadName, onEdit
               {extraData.length > 0 && (
                 <section className="space-y-2">
                   <h3 className="text-sm font-semibold text-foreground">Respostas do formulário</h3>
+                  {(formName || campaignLabel) && (
+                    <dl className="grid grid-cols-1 gap-x-6">
+                      {formName && (
+                        <div className="border-b border-border py-2.5">
+                          <dt className="text-xs text-muted-foreground">Formulário</dt>
+                          <dd className="mt-0.5 break-words text-sm font-medium text-foreground">{formName}</dd>
+                        </div>
+                      )}
+                      {campaignLabel && (
+                        <div className="border-b border-border py-2.5">
+                          <dt className="text-xs text-muted-foreground">Campanha</dt>
+                          <dd className="mt-0.5 break-words text-sm font-medium text-foreground">{campaignLabel}</dd>
+                        </div>
+                      )}
+                    </dl>
+                  )}
                   {phoneData.length > 0 && (
                     <dl className="grid grid-cols-1 gap-x-6">
                       {phoneData.map(([key, value]) => (
