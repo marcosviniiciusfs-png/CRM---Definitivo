@@ -279,6 +279,10 @@ export const LeadDetailsDialog = ({ open, onOpenChange, leadId, leadName, onEdit
           ([key, value]) => value !== null && value !== "" && !key.startsWith("_") && key !== "duplicate" && typeof value !== "object",
         )
       : [];
+  // Telefones ficam um embaixo do outro, em linha única, para facilitar a leitura.
+  const isPhoneField = (key: string) => /telefone|whatsapp|celular|phone/i.test(key);
+  const phoneData = extraData.filter(([key]) => isPhoneField(key));
+  const otherExtraData = extraData.filter(([key]) => !isPhoneField(key));
   const showDescription = !isFacebookForm && !!details?.descricao_negocio?.trim();
 
   return (
@@ -393,14 +397,26 @@ export const LeadDetailsDialog = ({ open, onOpenChange, leadId, leadName, onEdit
               {extraData.length > 0 && (
                 <section className="space-y-2">
                   <h3 className="text-sm font-semibold text-foreground">Respostas do formulário</h3>
-                  <dl className="grid grid-cols-1 gap-x-6 sm:grid-cols-2">
-                    {extraData.map(([key, value]) => (
-                      <div key={key} className="border-b border-border py-2.5">
-                        <dt className="text-xs text-muted-foreground">{humanizeFieldName(key)}</dt>
-                        <dd className="mt-0.5 break-words text-sm font-medium text-foreground">{humanizeFieldValue(String(value))}</dd>
-                      </div>
-                    ))}
-                  </dl>
+                  {phoneData.length > 0 && (
+                    <dl className="grid grid-cols-1 gap-x-6">
+                      {phoneData.map(([key, value]) => (
+                        <div key={key} className="border-b border-border py-2.5">
+                          <dt className="text-xs text-muted-foreground">{humanizeFieldName(key)}</dt>
+                          <dd className="mt-0.5 break-words text-sm font-medium text-foreground">{humanizeFieldValue(String(value))}</dd>
+                        </div>
+                      ))}
+                    </dl>
+                  )}
+                  {otherExtraData.length > 0 && (
+                    <dl className="grid grid-cols-1 gap-x-6 sm:grid-cols-2">
+                      {otherExtraData.map(([key, value]) => (
+                        <div key={key} className="border-b border-border py-2.5">
+                          <dt className="text-xs text-muted-foreground">{humanizeFieldName(key)}</dt>
+                          <dd className="mt-0.5 break-words text-sm font-medium text-foreground">{humanizeFieldValue(String(value))}</dd>
+                        </div>
+                      ))}
+                    </dl>
+                  )}
                 </section>
               )}
 

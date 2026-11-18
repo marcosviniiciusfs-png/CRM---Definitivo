@@ -16,6 +16,7 @@ const FIELD_NAMES: Record<string, string> = {
   date_of_birth: "Data de nascimento",
   company_name: "Empresa",
   job_title: "Cargo",
+  duvida_cliente: "Dúvida do cliente",
 };
 
 /** "whatsapp_com_ddd" -> "WhatsApp com DDD"; "Full Name" -> "Nome completo". */
