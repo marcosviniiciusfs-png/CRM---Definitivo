@@ -34,6 +34,7 @@ import { parseMeetingSchedule } from "@/lib/meetingSchedule";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useOrganization } from "@/contexts/OrganizationContext";
+import { createFollowUpTask, NoTaskBoardError } from "@/lib/createFollowUpTask";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
@@ -685,18 +686,36 @@ const Reunioes = () => {
     setPendingAction(actionKey);
 
     try {
+      if (!organizationId) return;
       const returnDate = getNextBusinessDay();
+      const dueDate = format(returnDate, "yyyy-MM-dd");
+      const { alreadyExisted } = await createFollowUpTask({
+        organizationId,
+        leadId: meeting.leadId,
+        leadName: meeting.leadName,
+        dueDate,
+        hour: "09:00",
+        assigneeId: meeting.ownerId,
+        canCreateBoard: permissions.role === "owner" || permissions.role === "admin",
+      });
+      const day = format(returnDate, "dd/MM/yyyy", { locale: ptBR });
+      if (alreadyExisted) {
+        toast.info(`Já existe uma tarefa de retorno em ${day} para este lead.`);
+        return;
+      }
       await logMeetingActivity(meeting, "Retorno Marcado", {
-        data: format(returnDate, "yyyy-MM-dd"),
+        data: dueDate,
         hora: "09:00",
         observacao: "Retorno criado pelo dashboard de reunioes.",
       });
 
       await refreshMeetingData();
-      toast.success(`Retorno marcado para ${format(returnDate, "dd/MM/yyyy", { locale: ptBR })} às 09:00`);
+      toast.success(`Tarefa de retorno criada para ${day}.`);
     } catch (error) {
       console.error("Erro ao marcar retorno:", error);
-      toast.error("Erro ao marcar retorno");
+      toast.error(error instanceof NoTaskBoardError
+        ? "Ainda não há quadro de tarefas. Peça a um administrador para abrir a página Tarefas."
+        : "Não foi possível criar o retorno. Tente de novo.");
     } finally {
       setPendingAction(null);
     }
