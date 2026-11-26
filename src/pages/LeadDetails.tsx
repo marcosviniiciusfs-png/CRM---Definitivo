@@ -398,7 +398,7 @@ const LeadDetails = () => {
               <Button
                 className="w-full justify-start gap-2"
                 variant="outline"
-                onClick={() => navigate(`/chat?lead=${leadId}`)}
+                onClick={() => navigate(`/chat?lead_id=${leadId}`)}
               >
                 <MessageSquare className="h-4 w-4" />
                 Abrir Chat

@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from "react";
+import { firstOutgoingByLead } from "@/lib/outgoingMessages";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { MetricCard } from "@/components/MetricCard";
@@ -632,34 +633,27 @@ const LeadMetrics = () => {
 
       const total = whatsappLeads.length;
 
-      const { data: respondedLeads } = await supabase
-        .from('mensagens_chat')
-        .select('id_lead')
-        .eq('direcao', 'saida')
-        .in('id_lead', whatsappLeads.map(l => l.id));
-
-      const uniqueRespondedLeads = new Set(respondedLeads?.map(m => m.id_lead) || []);
-      const responseRate = total > 0 ? (uniqueRespondedLeads.size / total) * 100 : 0;
+      const firstResponseByLead = await firstOutgoingByLead(
+        whatsappLeads.map(l => l.id),
+        async (ids, from, to) => {
+          const { data, error } = await supabase
+            .from('mensagens_chat')
+            .select('id_lead, data_hora')
+            .in('id_lead', ids)
+            .eq('direcao', 'SAIDA')
+            .order('data_hora', { ascending: true })
+            .order('id', { ascending: true })
+            .range(from, to);
+          if (error) throw error;
+          return data ?? [];
+        },
+      );
+      const responseRate = total > 0 ? (firstResponseByLead.size / total) * 100 : 0;
 
       const pipelineLeads = whatsappLeads.filter(lead => lead.stage && lead.stage !== 'NOVO');
       const pipelineConversionRate = total > 0 ? (pipelineLeads.length / total) * 100 : 0;
 
       const responseTimes: number[] = [];
-
-      const leadIds = whatsappLeads.map(l => l.id);
-      const { data: allOutgoingMessages } = await supabase
-        .from('mensagens_chat')
-        .select('id_lead, data_hora')
-        .in('id_lead', leadIds)
-        .eq('direcao', 'saida')
-        .order('data_hora', { ascending: true });
-
-      const firstResponseByLead = new Map<string, string>();
-      allOutgoingMessages?.forEach(msg => {
-        if (!firstResponseByLead.has(msg.id_lead)) {
-          firstResponseByLead.set(msg.id_lead, msg.data_hora);
-        }
-      });
 
       for (const lead of whatsappLeads) {
         const firstResponseTime = firstResponseByLead.get(lead.id);

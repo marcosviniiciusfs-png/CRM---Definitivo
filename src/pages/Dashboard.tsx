@@ -434,15 +434,28 @@ const Dashboard = () => {
   // ════════════════════════════════════════════════════════════════════════════
   // REALTIME
   // ════════════════════════════════════════════════════════════════════════════
+  // Várias mudanças seguidas viram uma atualização só, no máximo a cada 15 s.
   useEffect(() => {
+    if (!organizationId) return;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const refresh = () => {
+      if (timer) return;
+      timer = setTimeout(() => {
+        timer = null;
+        void queryClient.invalidateQueries({
+          predicate: (query) => String(query.queryKey[0]).startsWith('dashboard-'),
+        });
+      }, 15_000);
+    };
     const ch = supabase
-      .channel('dashboard-realtime')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'leads' }, () => {
-        queryClient.invalidateQueries({ queryKey: ['dashboard-'] });
-      })
+      .channel(`dashboard-realtime-${organizationId}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'leads', filter: `organization_id=eq.${organizationId}` }, refresh)
       .subscribe();
-    return () => { supabase.removeChannel(ch); };
-  }, [queryClient]);
+    return () => {
+      if (timer) clearTimeout(timer);
+      supabase.removeChannel(ch);
+    };
+  }, [queryClient, organizationId]);
 
   // ════════════════════════════════════════════════════════════════════════════
   // DADOS DO DASHBOARD (só números reais; sem variações ou metas fixas)
