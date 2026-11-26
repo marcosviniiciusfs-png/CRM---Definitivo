@@ -276,7 +276,7 @@ export const LeadDetailsDialog = ({ open, onOpenChange, leadId, leadName, onEdit
     (details.additional_data as any).source !== "facebook" &&
     !(details.additional_data as any).fields
       ? Object.entries(details.additional_data as Record<string, unknown>).filter(
-          ([key, value]) => value !== null && value !== "" && !key.startsWith("_") && key !== "duplicate" && typeof value !== "object",
+          ([key, value]) => value !== null && value !== "" && !key.startsWith("_") && !["duplicate", "is_duplicate", "duplicate_of_lead_id", "duplicate_match_type"].includes(key) && typeof value !== "object",
         )
       : [];
   // Telefones ficam um embaixo do outro, em linha única, para facilitar a leitura.
